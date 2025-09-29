@@ -1,0 +1,37 @@
+name: pre-commit
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+      - develop
+      - feature-*
+
+jobs:
+  pre-commit:
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+      packages: write
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install uv
+        uses: astral-sh/setup-uv@v1
+      - name: Restore uv cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/uv
+            .venv
+          key: ${{ runner.os }}-uv-${{ hashFiles('pyproject.toml') }}
+      - name: Synchronize project dependencies
+        run: uv sync --group dev
+      - name: Run pre-commit checks
+        run: uv run pre-commit run --all-files --hook-stage manual

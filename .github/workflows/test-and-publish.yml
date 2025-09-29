@@ -1,0 +1,93 @@
+name: Test and Publish
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+      - develop
+      - feature-*
+  release:
+    types:
+      - published
+
+jobs:
+  tests:
+    name: Tests (Python ${{ matrix.python-version }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.9", "3.10", "3.11", "3.12", "3.13"]
+    permissions:
+      id-token: write
+      contents: read
+      packages: write
+      pull-requests: write
+    env:
+      UV_PROJECT_ENVIRONMENT: .venv-${{ matrix.python-version }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Install uv
+        uses: astral-sh/setup-uv@v1
+      - name: Restore uv cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/uv
+            ${{ env.UV_PROJECT_ENVIRONMENT }}
+          key: ${{ runner.os }}-uv-${{ matrix.python-version }}-${{ hashFiles('pyproject.toml') }}
+      - name: Synchronize project dependencies
+        run: uv sync --group dev --python ${{ matrix.python-version }}
+      - name: Run tests
+        run: uv run pytest
+
+  publish:
+    name: Publish to CodeArtifact
+    needs: tests
+    if: github.event_name == 'release'
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+      packages: write
+    env:
+      UV_PROJECT_ENVIRONMENT: .venv-release
+    steps:
+      - uses: actions/checkout@v4
+      - name: Assume AWS role for repository CI
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::304774597385:role/cit-oidc-role-${{ github.event.repository.name }}-ci
+          aws-region: us-east-2
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install uv
+        uses: astral-sh/setup-uv@v1
+      - name: Restore uv cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/uv
+            ${{ env.UV_PROJECT_ENVIRONMENT }}
+          key: ${{ runner.os }}-uv-release-${{ hashFiles('pyproject.toml') }}
+      - name: Synchronize project dependencies
+        run: uv sync --group dev
+      - name: Build distribution artifacts
+        run: uv build
+      - name: Log in to CodeArtifact for publishing
+        run: >-
+          aws codeartifact login
+          --tool twine
+          --domain datalogics
+          --domain-owner 304774597385
+          --repository cit-pypi
+          --region us-east-2
+      - name: Publish package to CodeArtifact
+        run: uv tool run --from twine twine upload --non-interactive --skip-existing dist/*
