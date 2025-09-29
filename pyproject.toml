@@ -36,9 +36,9 @@ python_version = "3.9"
 warn_return_any = true
 pretty = true
 exclude = [
-    '^\\.venv',
-    '^build',
-    '^dist',
+    '^\\.venv',  # TOML literal string (single-quotes, no escaping necessary)
+    '^build',  # Skip build artifacts
+    '^dist',  # Skip distribution artifacts
 ]
 files = "."
 plugins = [
@@ -58,32 +58,41 @@ extend-include = ["*.ipynb"]
 target-version = "py39"
 
 [tool.ruff.lint]
+# Enable the pycodestyle (`E`) and Pyflakes (`F`) rules by default.
+# Rules cribbed from the PDM sources themselves.
 extend-select = [
-    "I",
-    "B",
-    "C4",
-    "PGH",
-    "RUF",
-    "W",
-    "YTT",
-    "UP",
-    "N",
-    "PT",
-    "C90",
-    "FURB",
-    "S",
-    "BLE",
-    "EM",
-    "G",
-    "RET",
-    "DTZ",
-    "SIM",
-    "ARG",
-    "PTH",
-    "RSE",
-    "TRY",
-    "COM818",
+    # If you're doing a project of any substantial size, or anything that runs on a server,
+    # use logging instead of printing. To check this, uncomment the next line.
+    # "T20",  # print https://docs.astral.sh/ruff/rules/#flake8-print-t20 don't print, use logging
+    "I",  # isort https://beta.ruff.rs/docs/rules/#isort-i
+    "B",  # flake8-bugbear https://beta.ruff.rs/docs/rules/#flake8-bugbear-b
+    "C4",  # flake8-comprehensions https://beta.ruff.rs/docs/rules/#flake8-comprehensions-c4
+    "PGH",  # pygrep-hooks https://beta.ruff.rs/docs/rules/#pygrep-hooks-pgh
+    "RUF",  # ruff https://beta.ruff.rs/docs/rules/#ruff-specific-rules-ruf
+    "W",  # pycodestyle https://beta.ruff.rs/docs/rules/#warning-w
+    "YTT",  # flake8-2020 https://beta.ruff.rs/docs/rules/#flake8-2020-ytt
+    "UP",  # pyupgrade https://beta.ruff.rs/docs/rules/#pyupgrade-up
+    "N",  # naming https://beta.ruff.rs/docs/rules/#pep8-naming-n
+    "PT",  # pytest https://beta.ruff.rs/docs/rules/#flake8-pytest-style-pt
+    # https://dev.to/aws-builders/deploy-to-aws-with-github-actions-and-aws-cdk-4m1e suggests
+    # complexity checks with radon/xenon, but McCabe complexity is available in ruff and
+    # the cost/benefit of using radon/xenon can be discussed later.
+    "C90",  # mccabe https://beta.ruff.rs/docs/rules/#mccabe-c90
+    "FURB",  # refurb https://beta.ruff.rs/docs/rules/#refurb-furb
+    "S",  # bandit https://docs.astral.sh/ruff/rules/#flake8-bandit-s ...secure code
+    "BLE",  # blind-except https://docs.astral.sh/ruff/rules/#flake8-blind-except-ble
+    "EM",  # errmsg https://docs.astral.sh/ruff/rules/#flake8-errmsg-em
+    "G",  # logging-format https://docs.astral.sh/ruff/rules/#flake8-logging-format-g
+    "RET",  # return https://docs.astral.sh/ruff/rules/#flake8-return-ret
+    "DTZ",  # datetimez https://docs.astral.sh/ruff/rules/#flake8-datetimez-dtz
+    "SIM",  # simplify https://docs.astral.sh/ruff/rules/#flake8-simplify-sim
+    "ARG",  # unused arguments https://docs.astral.sh/ruff/rules/#flake8-unused-arguments-arg
+    "PTH",  # use pathlib https://docs.astral.sh/ruff/rules/#flake8-use-pathlib-pth
+    "RSE",  # raise https://docs.astral.sh/ruff/rules/#flake8-raise-rse
+    "TRY",  # tryceratops https://docs.astral.sh/ruff/rules/#tryceratops-try exception antipatterns
+    "COM818",  # prohibit trailing bare commas making tuples, see https://docs.astral.sh/ruff/rules/trailing-comma-on-bare-tuple/
 ]
+# Allow autofix for all enabled rules (when `--fix`) is provided.
 fixable = ["ALL"]
 ignore = []
 unfixable = []
@@ -93,7 +102,13 @@ combine-as-imports = true
 known-first-party = ["pdfrest"]
 
 [tool.ruff.lint.per-file-ignores]
-"tests/**/*.py" = ["S101", "ARG", "FBT"]
+"tests/**/*.py" = [
+    # From https://github.com/astral-sh/ruff/issues/4368#issue-1705468153
+    # at least this three should be fine in tests:
+    "S101",  # asserts allowed in tests...
+    "ARG",  # Unused function args -> fixtures nevertheless are functionally relevant...
+    "FBT",  # Don't care about booleans as positional arguments in tests, e.g. via @pytest.mark.parametrize()
+]
 
 [tool.tomlsort]
 sort_first = ["project", "build-system"]
