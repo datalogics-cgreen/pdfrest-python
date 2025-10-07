@@ -25,6 +25,12 @@ dev = [
     "mypy>=1.18.2",
     "pip-audit>=2.7.3",
     "pyright>=1.1.406",
+    "pytest-md>=0.2.0",
+    "pytest-emoji>=0.2.0",
+    "pytest-dotenv>=0.5.2",
+    "pytest-asyncio>=1.2.0",
+    "pytest-rerunfailures>=16.0.1",
+    "pytest-xdist>=3.8.0",
 ]
 
 [tool.mypy]
