@@ -69,30 +69,24 @@ jobs:
         with:
           role-to-assume: arn:aws:iam::304774597385:role/cit-oidc-role-${{ github.event.repository.name }}-ci
           aws-region: us-east-2
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.11"
       - name: Install uv
-        uses: astral-sh/setup-uv@v1
-      - name: Restore uv cache
+        uses: astral-sh/setup-uv@v6
+        with:
+          version: 0.8.22
+          enable-cache: true
+          cache-suffix: pre-commit
+          cache-dependency-glob: uv.lock
+      - name: Restore venv cache
         uses: actions/cache@v4
         with:
           path: |
-            ~/.cache/uv
             ${{ env.UV_PROJECT_ENVIRONMENT }}
           key: ${{ runner.os }}-uv-release-${{ hashFiles('pyproject.toml') }}
+      - name: Install keyring
+        run: uv tool install keyring --with keyrings.codeartifact
       - name: Synchronize project dependencies
         run: uv sync --group dev
       - name: Build distribution artifacts
-        run: uv build
-      - name: Log in to CodeArtifact for publishing
-        run: >-
-          aws codeartifact login
-          --tool twine
-          --domain datalogics
-          --domain-owner 304774597385
-          --repository cit-pypi
-          --region us-east-2
+        run: uv build --python 3.11
       - name: Publish package to CodeArtifact
-        run: uv tool run --from twine twine upload --non-interactive --skip-existing dist/*
+        run: uv publish --index cit-pypi

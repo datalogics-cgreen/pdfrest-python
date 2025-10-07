@@ -112,3 +112,12 @@ sort_first = ["project", "build-system"]
 spaces_before_inline_comment = 2
 spaces_indent_inline_array = 4
 trailing_comma_inline_array = true
+
+[tool.uv]
+keyring-provider = "subprocess"
+
+[[tool.uv.index]]
+name = "cit-pypi"
+url = "https://aws@datalogics-304774597385.d.codeartifact.us-east-2.amazonaws.com/pypi/cit-pypi/simple/"
+publish-url = "https://aws@datalogics-304774597385.d.codeartifact.us-east-2.amazonaws.com/pypi/cit-pypi/"
+username = "__token__"
