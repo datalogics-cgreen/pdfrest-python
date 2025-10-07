@@ -2,7 +2,33 @@
 
 from importlib import metadata
 
-__all__ = ("__version__",)
+from .client import AsyncPdfRestClient, PdfRestClient, RequestOptions, UpRequestOptions
+from .exceptions import (
+    PdfRestApiError,
+    PdfRestConfigurationError,
+    PdfRestError,
+    PdfRestRequestError,
+    PdfRestTimeoutError,
+    PdfRestTransportError,
+    translate_httpx_error,
+)
+from .models import UpResponse
+
+__all__ = (
+    "AsyncPdfRestClient",
+    "PdfRestApiError",
+    "PdfRestClient",
+    "PdfRestConfigurationError",
+    "PdfRestError",
+    "PdfRestRequestError",
+    "PdfRestTimeoutError",
+    "PdfRestTransportError",
+    "RequestOptions",
+    "UpRequestOptions",
+    "UpResponse",
+    "__version__",
+    "translate_httpx_error",
+)
 
 try:  # pragma: no cover - fallback should never run in production builds
     __version__ = metadata.version("pdfrest")
