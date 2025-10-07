@@ -19,8 +19,9 @@ dev = [
     "ruff>=0.6.9",
     "pytest>=8.3.3",
     "pytest-cov>=5.0.0",
-    "mypy>=1.11.2",
+    "mypy>=1.18.2",
     "pip-audit>=2.7.3",
+    "pyright>=1.1.406",
 ]
 
 [tool.mypy]
@@ -39,6 +40,10 @@ plugins = [
 # Discover modules that were installed in the virtualenv
 python_executable = ".venv/bin/python"
 fixed_format_cache = true
+
+[tool.pyright]
+venvPath = "."
+venv = ".venv"
 
 [tool.pytest.ini_options]
 minversion = "7.4"

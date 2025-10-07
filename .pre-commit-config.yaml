@@ -76,7 +76,7 @@ repos:
     rev: "v1.18.2"
     hooks:
       - id: mypy
-        stages: [pre-commit, pre-merge-commit, pre-push, manual]
+        stages: [pre-push, manual]
         name: mypy
         additional_dependencies:
           # Need pydantic to load the pydantic.mypy plugin
@@ -86,3 +86,7 @@ repos:
     rev: 0.8.24
     hooks:
       - id: uv-lock
+  - repo: https://github.com/RobertCraigie/pyright-python
+    rev: v1.1.406
+    hooks:
+      - id: pyright
