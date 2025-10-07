@@ -89,3 +89,8 @@ repos:
         additional_dependencies:
           # Need pydantic to load the pydantic.mypy plugin
           - pydantic>=2.12.0
+  - repo: https://github.com/astral-sh/uv-pre-commit
+    # uv version.
+    rev: 0.8.24
+    hooks:
+      - id: uv-lock
