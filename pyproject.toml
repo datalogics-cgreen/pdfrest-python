@@ -36,26 +36,84 @@ dev = [
 
 [tool.mypy]
 python_version = "3.10"
-warn_return_any = true
 pretty = true
-exclude = [
-    '^\\.venv',  # TOML literal string (single-quotes, no escaping necessary)
-    '^build',  # Skip build artifacts
-    '^dist',  # Skip distribution artifacts
-]
-files = "."
 plugins = [
     "pydantic.mypy",
 ]
 # Discover modules that were installed in the virtualenv
 python_executable = ".venv/bin/python"
 fixed_format_cache = true
+ignore_missing_imports = false
+follow_imports = "silent"
+# Balanced strictness (not “strict = true”); catches many bugs without being overbearing
+no_implicit_optional = true
+check_untyped_defs = true
+warn_unused_ignores = true
+warn_redundant_casts = true
+warn_return_any = true
+warn_no_return = true
+strict_equality = true
+# Defaults here stay a bit lenient; ratchet up over time if desired
+disallow_untyped_defs = false
+disallow_incomplete_defs = false
+disallow_untyped_calls = false
+disallow_any_generics = false
+implicit_reexport = true
+namespace_packages = true
+show_error_codes = true
+# Typical project structure
+packages = ["pdfrest"]  # if using setuptools; or rely on src/ layout
+exclude = '(build|dist|\.venv|scripts|examples|docs)'
+
+# Example: tighten src/, loosen tests/
+[[tool.mypy.overrides]]
+module = ["pdfrest.*"]
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
+
+[[tool.mypy.overrides]]
+module = ["tests.*"]
+disallow_untyped_defs = false
+allow_redefinition = true
 
 [tool.pyright]
 venvPath = "."
 venv = ".venv"
+typeCheckingMode = "standard"
 pythonVersion = "3.10"
-typeCheckingMode = "strict"
+reportMissingTypeStubs = true
+# mypy catches this, so catch it in pyright too
+reportOptionalMemberAccess = true
+# Sensible signal without being punitive; tune severities as needed
+reportUnusedImport = "error"
+reportUnusedVariable = "error"
+reportUnknownMemberType = "warning"
+reportUnknownArgumentType = "warning"
+reportUnknownVariableType = "warning"
+reportPrivateUsage = "error"
+# Keep false positives low in typical library code
+useLibraryCodeForTypes = true
+# Project layout
+include = ["src", "tests"]
+exclude = [
+    "**/.venv",
+    "build",
+    "dist",
+    "scripts",
+    "examples",
+    "docs",
+]
+
+[[tool.pyright.executionEnvironments]]
+root = "src"
+
+[[tool.pyright.executionEnvironments]]
+root = "tests"
+typeCheckingMode = "basic"
+reportUnknownMemberType = "none"
+reportUnknownArgumentType = "none"
+reportUnknownVariableType = "none"
+reportPrivateUsage = "none"
 
 [tool.pytest.ini_options]
 minversion = "7.4"
