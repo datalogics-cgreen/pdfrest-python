@@ -24,14 +24,8 @@ jobs:
       contents: read
       packages: write
       pull-requests: write
-    env:
-      UV_PROJECT_ENVIRONMENT: .venv-${{ matrix.python-version }}
     steps:
       - uses: actions/checkout@v4
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: ${{ matrix.python-version }}
       - name: Install uv
         uses: astral-sh/setup-uv@v6
         with:
@@ -40,16 +34,8 @@ jobs:
           enable-cache: true
           cache-suffix: test-and-publish
           cache-dependency-glob: uv.lock
-      - name: Restore venv cache
-        uses: actions/cache@v4
-        with:
-          path: |
-            ${{ env.UV_PROJECT_ENVIRONMENT }}
-          key: ${{ runner.os }}-uv-${{ matrix.python-version }}-${{ hashFiles('uv.lock') }}
-      - name: Synchronize project dependencies
-        run: uv sync --group dev
-      - name: Run tests
-        run: uv run pytest
+      - name: Run tests with nox
+        run: uvx nox --python ${{ matrix.python-version }} --session tests
 
   publish:
     name: Publish to CodeArtifact
