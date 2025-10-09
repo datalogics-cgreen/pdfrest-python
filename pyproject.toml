@@ -6,14 +6,14 @@ readme = "README.md"
 authors = [
     {name = "Datalogics"},
 ]
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 dependencies = [
     "httpx>=0.28.1",
     "pydantic>=2.12.0",
 ]
 
 [build-system]
-requires = ["uv_build>=0.8.22,<0.9.0"]
+requires = ["uv_build>=0.8.22,<0.10.0"]
 build-backend = "uv_build"
 
 [dependency-groups]
@@ -34,7 +34,7 @@ dev = [
 ]
 
 [tool.mypy]
-python_version = "3.9"
+python_version = "3.10"
 warn_return_any = true
 pretty = true
 exclude = [
@@ -53,6 +53,8 @@ fixed_format_cache = true
 [tool.pyright]
 venvPath = "."
 venv = ".venv"
+pythonVersion = "3.10"
+typeCheckingMode = "strict"
 
 [tool.pytest.ini_options]
 minversion = "7.4"
@@ -61,7 +63,7 @@ addopts = "-ra"
 
 [tool.ruff]
 extend-include = ["*.ipynb"]
-target-version = "py39"
+target-version = "py310"
 
 [tool.ruff.lint]
 # Enable the pycodestyle (`E`) and Pyflakes (`F`) rules by default.
