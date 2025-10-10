@@ -2,10 +2,12 @@
 
 from __future__ import annotations
 
+import asyncio
 import os
 import uuid
-from collections.abc import Mapping
-from typing import Any, Generic, Literal, TypeVar
+from collections.abc import Iterable, Mapping, Sequence
+from pathlib import Path
+from typing import IO, Any, Generic, Literal, TypeVar, cast
 
 import httpx
 from httpx import URL
@@ -17,7 +19,7 @@ from .exceptions import (
     PdfRestConfigurationError,
     translate_httpx_error,
 )
-from .models import PdfRestErrorResponse, UpResponse
+from .models import PdfRestErrorResponse, PdfRestFile, UpResponse
 
 __all__ = ("AsyncPdfRestClient", "PdfRestClient")
 
@@ -25,6 +27,8 @@ DEFAULT_BASE_URL = "https://api.pdfrest.com"
 API_KEY_ENV_VAR = "PDFREST_API_KEY"
 API_KEY_HEADER_NAME = "Api-Key"
 DEFAULT_TIMEOUT_SECONDS = 10.0
+FILE_UPLOAD_FIELD_NAME = "file"
+DEFAULT_FILE_INFO_CONCURRENCY = 8
 
 HttpMethod = Literal["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS", "HEAD"]
 QueryParamValue = str | int | float | bool | None
@@ -32,6 +36,49 @@ TimeoutTypes = float | httpx.Timeout | None
 AnyMapping = Mapping[str, Any]
 Query = Mapping[str, QueryParamValue]
 Body = Mapping[str, Any]
+
+
+def _normalize_file_inputs(files: Iterable[IO[bytes]]) -> list[IO[bytes]]:
+    normalized = list(files)
+    if not normalized:
+        msg = "At least one file must be provided."
+        raise ValueError(msg)
+    for file_obj in normalized:
+        if not hasattr(file_obj, "read"):
+            msg = "files must be file-like objects opened in binary mode."
+            raise TypeError(msg)
+    return normalized
+
+
+def _build_multipart_payload(
+    file_objects: Sequence[IO[bytes]],
+) -> list[tuple[str, tuple[str, IO[bytes], str | None]]]:
+    multipart: list[tuple[str, tuple[str, IO[bytes], str | None]]] = []
+    for file_obj in file_objects:
+        name_attr = getattr(file_obj, "name", None)
+        filename = Path(str(name_attr)).name if name_attr else FILE_UPLOAD_FIELD_NAME
+        multipart.append((FILE_UPLOAD_FIELD_NAME, (filename, file_obj, None)))
+    return multipart
+
+
+def _extract_uploaded_file_ids(payload: Any) -> list[str]:
+    try:
+        files_payload = payload["files"]
+    except (TypeError, KeyError) as exc:  # pragma: no cover - defensive
+        raise PdfRestApiError(
+            500, message="Upload response missing 'files' collection."
+        ) from exc
+    if not isinstance(files_payload, Sequence):  # pragma: no cover - defensive
+        raise PdfRestApiError(500, message="Upload response 'files' is not a sequence.")
+    entries = cast(Sequence[Mapping[str, Any]], files_payload)
+    file_ids: list[str] = []
+    for entry in entries:
+        if "id" not in entry:
+            raise PdfRestApiError(
+                500, message="Upload response contains invalid file references."
+            )
+        file_ids.append(str(entry["id"]))
+    return file_ids
 
 
 ClientType = TypeVar("ClientType", httpx.Client, httpx.AsyncClient)
@@ -103,6 +150,8 @@ class _RequestModel(BaseModel):
     headers: dict[str, str] = Field(default_factory=dict)
     timeout: TimeoutTypes
     json_body: dict[str, Any] | None = None
+    files: Any | None = None
+    data: Any | None = None
 
     model_config = ConfigDict(arbitrary_types_allowed=True)
 
@@ -205,6 +254,8 @@ class _BaseApiClient(Generic[ClientType]):
         extra_headers: AnyMapping | None = None,
         extra_body: Body | None = None,
         timeout: TimeoutTypes | None = None,
+        files: Any | None = None,
+        data: Any | None = None,
     ) -> _RequestModel:
         headers = self._compose_headers(extra_headers)
         params = self._compose_query_params(query, extra_query)
@@ -219,12 +270,41 @@ class _BaseApiClient(Generic[ClientType]):
                 headers=headers,
                 timeout=timeout_value,
                 json_body=json_payload,
+                files=files,
+                data=data,
             )
         except PdfRestConfigurationError:
             raise
         except ValidationError as exc:  # pragma: no cover - defensive
             raise PdfRestConfigurationError(str(exc)) from exc
         return request
+
+    def prepare_request(
+        self,
+        method: HttpMethod,
+        endpoint: str,
+        *,
+        query: Query | None = None,
+        json_body: Body | None = None,
+        extra_query: Query | None = None,
+        extra_headers: AnyMapping | None = None,
+        extra_body: Body | None = None,
+        timeout: TimeoutTypes | None = None,
+        files: Any | None = None,
+        data: Any | None = None,
+    ) -> _RequestModel:
+        return self._prepare_request(
+            method,
+            endpoint,
+            query=query,
+            json_body=json_body,
+            extra_query=extra_query,
+            extra_headers=extra_headers,
+            extra_body=extra_body,
+            timeout=timeout,
+            files=files,
+            data=data,
+        )
 
     def _compose_headers(self, extra_headers: AnyMapping | None) -> dict[str, str]:
         combined_headers: dict[str, str] = dict(self._config.headers)
@@ -351,10 +431,24 @@ class _SyncApiClient(_BaseApiClient[httpx.Client]):
                 headers=request.headers or None,
                 timeout=request.timeout,
                 json=request.json_body,
+                files=request.files,
+                data=request.data,
             )
         except httpx.HTTPError as exc:
             raise translate_httpx_error(exc) from exc
         return self._handle_response(response)
+
+    def send_request(self, request: _RequestModel) -> Any:
+        return self._send_request(request)
+
+    def fetch_file_info(self, file_id: str) -> PdfRestFile:
+        request = self.prepare_request(
+            "GET",
+            f"/resource/{file_id}",
+            query={"format": "info"},
+        )
+        payload = self._send_request(request)
+        return PdfRestFile.model_validate(payload)
 
 
 class _AsyncApiClient(_BaseApiClient[httpx.AsyncClient]):
@@ -406,10 +500,66 @@ class _AsyncApiClient(_BaseApiClient[httpx.AsyncClient]):
                 headers=request.headers or None,
                 timeout=request.timeout,
                 json=request.json_body,
+                files=request.files,
+                data=request.data,
             )
         except httpx.HTTPError as exc:
             raise translate_httpx_error(exc) from exc
         return self._handle_response(response)
+
+    async def send_request(self, request: _RequestModel) -> Any:
+        return await self._send_request(request)
+
+    async def fetch_file_info(self, file_id: str) -> PdfRestFile:
+        request = self.prepare_request(
+            "GET",
+            f"/resource/{file_id}",
+            query={"format": "info"},
+        )
+        payload = await self._send_request(request)
+        return PdfRestFile.model_validate(payload)
+
+
+class _FilesClient:
+    """Expose file-related operations for the synchronous client."""
+
+    def __init__(self, client: _SyncApiClient) -> None:
+        self._client = client
+
+    def create(self, files: Iterable[IO[bytes]]) -> list[PdfRestFile]:
+        file_objects = _normalize_file_inputs(files)
+        multipart = _build_multipart_payload(file_objects)
+        request = self._client.prepare_request("POST", "/upload", files=multipart)
+        payload = self._client.send_request(request)
+        file_ids = _extract_uploaded_file_ids(payload)
+        return [self._client.fetch_file_info(file_id) for file_id in file_ids]
+
+
+class _AsyncFilesClient:
+    """Expose file-related operations for the asynchronous client."""
+
+    def __init__(
+        self,
+        client: _AsyncApiClient,
+        *,
+        concurrency_limit: int = DEFAULT_FILE_INFO_CONCURRENCY,
+    ) -> None:
+        self._client = client
+        self._concurrency_limit = concurrency_limit
+
+    async def create(self, files: Iterable[IO[bytes]]) -> list[PdfRestFile]:
+        file_objects = _normalize_file_inputs(files)
+        multipart = _build_multipart_payload(file_objects)
+        request = self._client.prepare_request("POST", "/upload", files=multipart)
+        payload = await self._client.send_request(request)
+        file_ids = _extract_uploaded_file_ids(payload)
+        semaphore = asyncio.Semaphore(self._concurrency_limit)
+
+        async def fetch(file_id: str) -> PdfRestFile:
+            async with semaphore:
+                return await self._client.fetch_file_info(file_id)
+
+        return await asyncio.gather(*(fetch(file_id) for file_id in file_ids))
 
 
 class PdfRestClient(_SyncApiClient):
@@ -435,6 +585,7 @@ class PdfRestClient(_SyncApiClient):
             http_client=http_client,
             transport=transport,
         )
+        self._files_client = _FilesClient(self)
 
     def __enter__(self) -> PdfRestClient:
         super().__enter__()
@@ -442,6 +593,10 @@ class PdfRestClient(_SyncApiClient):
 
     def __exit__(self, exc_type: Any, exc: Any, traceback: Any) -> None:
         super().__exit__(exc_type, exc, traceback)
+
+    @property
+    def files(self) -> _FilesClient:
+        return self._files_client
 
     def up(
         self,
@@ -488,6 +643,7 @@ class AsyncPdfRestClient(_AsyncApiClient):
             http_client=http_client,
             transport=transport,
         )
+        self._files_client = _AsyncFilesClient(self)
 
     async def __aenter__(self) -> AsyncPdfRestClient:
         await super().__aenter__()
@@ -495,6 +651,10 @@ class AsyncPdfRestClient(_AsyncApiClient):
 
     async def __aexit__(self, exc_type: Any, exc: Any, traceback: Any) -> None:
         await super().__aexit__(exc_type, exc, traceback)
+
+    @property
+    def files(self) -> _AsyncFilesClient:
+        return self._files_client
 
     async def up(
         self,

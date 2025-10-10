@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import os
 from datetime import date
 from typing import Any
 
@@ -15,12 +14,6 @@ from pdfrest import (
     PdfRestConfigurationError,
     PdfRestTimeoutError,
     UpResponse,
-)
-
-LIVE_BASE_URL_CANDIDATES: tuple[str, ...] = (
-    "http://localhost:3000",
-    "https://apidev.pdfrest.com",
-    "https://api.pdfrest.com",
 )
 
 VALID_API_KEY = "12345678-1234-1234-1234-123456789abc"
@@ -182,7 +175,7 @@ def test_prepare_request_merges_queries(monkeypatch: pytest.MonkeyPatch) -> None
     monkeypatch.setenv("PDFREST_API_KEY", "key")
     client = PdfRestClient(api_key=VALID_API_KEY)
     try:
-        request = client._prepare_request(
+        request = client.prepare_request(
             "GET",
             "/test",
             query={"base": "value", "skip": None},
@@ -333,29 +326,6 @@ async def test_async_up_rejects_extra_body(
     with pytest.raises(PdfRestConfigurationError):
         async with client:
             await client.up(extra_body={"unexpected": "value"})
-
-
-@pytest.fixture(scope="session")
-def pdfrest_api_key() -> str:
-    key = os.getenv("PDFREST_API_KEY")
-    if not key:
-        pytest.fail("PDFREST_API_KEY is not configured.")
-    return key
-
-
-@pytest.fixture(scope="session")
-def pdfrest_live_base_url(pdfrest_api_key: str) -> str:
-    headers = {"Authorization": f"Bearer {pdfrest_api_key}"}
-    timeout = httpx.Timeout(2.0)
-    for base_url in LIVE_BASE_URL_CANDIDATES:
-        try:
-            with httpx.Client(base_url=base_url, timeout=timeout) as client:
-                response = client.get("/up", headers=headers)
-        except httpx.HTTPError:
-            continue
-        if response.is_success:
-            return base_url
-    pytest.fail("No reachable pdfRest API instance for live tests.")
 
 
 def test_live_client_up(pdfrest_api_key: str, pdfrest_live_base_url: str) -> None:
