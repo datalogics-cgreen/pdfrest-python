@@ -3,8 +3,9 @@
 from __future__ import annotations
 
 import os
+import uuid
 from collections.abc import Mapping
-from typing import Any, Generic, Literal, TypedDict, TypeVar, cast
+from typing import Any, Generic, Literal, TypeVar
 
 import httpx
 from httpx import URL
@@ -12,12 +13,13 @@ from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_valida
 
 from .exceptions import (
     PdfRestApiError,
+    PdfRestAuthenticationError,
     PdfRestConfigurationError,
     translate_httpx_error,
 )
 from .models import PdfRestErrorResponse, UpResponse
 
-__all__ = ("AsyncPdfRestClient", "PdfRestClient", "RequestOptions", "UpRequestOptions")
+__all__ = ("AsyncPdfRestClient", "PdfRestClient")
 
 DEFAULT_BASE_URL = "https://api.pdfrest.com"
 API_KEY_ENV_VAR = "PDFREST_API_KEY"
@@ -26,27 +28,19 @@ DEFAULT_TIMEOUT_SECONDS = 10.0
 HttpMethod = Literal["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS", "HEAD"]
 QueryParamValue = str | int | float | bool | None
 TimeoutTypes = float | httpx.Timeout | None
+AnyMapping = Mapping[str, Any]
+Query = Mapping[str, QueryParamValue]
+Body = Mapping[str, Any]
 
 
 ClientType = TypeVar("ClientType", httpx.Client, httpx.AsyncClient)
-
-
-class RequestOptions(TypedDict, total=False):
-    """Shared request customisation options for pdfrest endpoints."""
-
-    headers: Mapping[str, str]
-    params: Mapping[str, QueryParamValue]
-    timeout: float | httpx.Timeout
-
-
-UpRequestOptions = RequestOptions
 
 
 class _ClientConfig(BaseModel):
     """Internal representation of client configuration validated by Pydantic."""
 
     base_url: URL
-    api_key: str
+    api_key: str | None = None
     timeout: TimeoutTypes = DEFAULT_TIMEOUT_SECONDS
     headers: dict[str, str] = Field(default_factory=dict)
 
@@ -68,11 +62,13 @@ class _ClientConfig(BaseModel):
 
     @field_validator("api_key")
     @classmethod
-    def _validate_api_key(cls, value: str) -> str:
-        if not value or not value.strip():
-            msg = "API key must not be empty."
-            raise PdfRestConfigurationError(msg)
-        return value.strip()
+    def _validate_api_key(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        trimmed = value.strip()
+        if not trimmed:
+            return None
+        return trimmed
 
     @field_validator("headers", mode="before")
     @classmethod
@@ -102,9 +98,10 @@ class _RequestModel(BaseModel):
 
     method: HttpMethod
     endpoint: str
-    params: dict[str, str] | None = None
+    params: dict[str, QueryParamValue] | None = None
     headers: dict[str, str] = Field(default_factory=dict)
     timeout: TimeoutTypes
+    json_body: dict[str, Any] | None = None
 
     model_config = ConfigDict(arbitrary_types_allowed=True)
 
@@ -115,28 +112,6 @@ class _RequestModel(BaseModel):
             msg = "endpoint must start with '/'."
             raise PdfRestConfigurationError(msg)
         return value
-
-    @field_validator("params", mode="before")
-    @classmethod
-    def _normalize_params(cls, value: Any) -> dict[str, str]:
-        if value is None:
-            return {}
-        normalized: dict[str, str] = {}
-        for key, candidate in dict(value).items():
-            if candidate is None:
-                continue
-            normalized[str(key)] = str(candidate)
-        return normalized
-
-    @field_validator("headers", mode="before")
-    @classmethod
-    def _normalize_headers(cls, value: Any) -> dict[str, str]:
-        if value is None:
-            return {}
-        normalized: dict[str, str] = {}
-        for key, candidate in dict(value).items():
-            normalized[str(key)] = str(candidate)
-        return normalized
 
 
 class _BaseApiClient(Generic[ClientType]):
@@ -152,24 +127,35 @@ class _BaseApiClient(Generic[ClientType]):
         api_key: str | None = None,
         base_url: str | URL | None = None,
         timeout: TimeoutTypes = DEFAULT_TIMEOUT_SECONDS,
-        headers: Mapping[str, str] | None = None,
+        headers: AnyMapping | None = None,
     ) -> None:
-        resolved_api_key = (api_key or os.getenv(API_KEY_ENV_VAR) or "").strip()
-        if not resolved_api_key:
-            msg = "API key was not provided and the PDFREST_API_KEY environment variable is not set."
-            raise PdfRestConfigurationError(msg)
-
-        default_headers: dict[str, str] = {
-            "Authorization": f"Bearer {resolved_api_key}",
-            "Accept": "application/json",
-        }
-        if headers:
-            for key, value in headers.items():
-                default_headers[str(key)] = str(value)
+        raw_api_key = api_key if api_key is not None else os.getenv(API_KEY_ENV_VAR)
+        resolved_api_key = (
+            raw_api_key.strip() if raw_api_key and raw_api_key.strip() else None
+        )
 
         resolved_base_url = (
             URL(str(base_url)) if base_url is not None else URL(DEFAULT_BASE_URL)
         )
+
+        if resolved_api_key is None and self._base_url_requires_api_key(
+            resolved_base_url
+        ):
+            msg = (
+                "API key is required when communicating with pdfRest-hosted "
+                "endpoints. Provide `api_key` or set the PDFREST_API_KEY environment variable."
+            )
+            raise PdfRestConfigurationError(msg)
+
+        if resolved_api_key is not None:
+            self._validate_pdfrest_api_key(resolved_api_key, resolved_base_url)
+
+        default_headers: dict[str, str] = {"Accept": "application/json"}
+        if resolved_api_key is not None:
+            default_headers["Authorization"] = f"Bearer {resolved_api_key}"
+        if headers:
+            for key, value in headers.items():
+                default_headers[str(key)] = str(value)
 
         try:
             self._config = _ClientConfig(
@@ -183,6 +169,24 @@ class _BaseApiClient(Generic[ClientType]):
         except ValidationError as exc:  # pragma: no cover - defensive
             raise PdfRestConfigurationError(str(exc)) from exc
 
+    @staticmethod
+    def _base_url_requires_api_key(url: URL) -> bool:
+        host = url.host or ""
+        return host.lower().endswith("pdfrest.com")
+
+    @staticmethod
+    def _validate_pdfrest_api_key(api_key: str, url: URL) -> None:
+        if not _BaseApiClient._base_url_requires_api_key(url):
+            return
+        if len(api_key) != 36:
+            msg = "pdfRest API keys must be 36 characters (UUID format)."
+            raise PdfRestConfigurationError(msg)
+        try:
+            uuid.UUID(api_key)
+        except ValueError:
+            msg = "pdfRest API keys must be valid UUID strings."
+            raise PdfRestConfigurationError(msg) from None
+
     @property
     def base_url(self) -> URL:
         """Resolved base URL for the client."""
@@ -190,42 +194,30 @@ class _BaseApiClient(Generic[ClientType]):
         return self._config.base_url
 
     def _prepare_request(
-        self, method: HttpMethod, endpoint: str, options: RequestOptions | None = None
+        self,
+        method: HttpMethod,
+        endpoint: str,
+        *,
+        query: Query | None = None,
+        json_body: Body | None = None,
+        extra_query: Query | None = None,
+        extra_headers: AnyMapping | None = None,
+        extra_body: Body | None = None,
+        timeout: TimeoutTypes | None = None,
     ) -> _RequestModel:
-        option_dict: dict[str, Any] = dict(options or {})
-        combined_headers: dict[str, str] = dict(self._config.headers)
-        if "headers" in option_dict and option_dict["headers"] is not None:
-            combined_headers.update(
-                {
-                    str(key): str(value)
-                    for key, value in cast(
-                        Mapping[str, Any], option_dict["headers"]
-                    ).items()
-                }
-            )
-
-        params_dict: dict[str, str] | None = None
-        if "params" in option_dict and option_dict["params"] is not None:
-            raw_params = cast(Mapping[str, QueryParamValue], option_dict["params"])
-            converted_params: dict[str, str] = {}
-            for key, value in raw_params.items():
-                if value is None:
-                    continue
-                converted_params[str(key)] = str(value)
-            params_dict = converted_params if converted_params else None
-
-        timeout_override = option_dict.get("timeout")
-        timeout_value = (
-            timeout_override if timeout_override is not None else self._config.timeout
-        )
+        headers = self._compose_headers(extra_headers)
+        params = self._compose_query_params(query, extra_query)
+        json_payload = self._compose_json_body(json_body, extra_body)
+        timeout_value = timeout if timeout is not None else self._config.timeout
 
         try:
             request = _RequestModel(
                 method=method,
                 endpoint=endpoint,
-                params=params_dict,
-                headers=combined_headers,
+                params=params,
+                headers=headers,
                 timeout=timeout_value,
+                json_body=json_payload,
             )
         except PdfRestConfigurationError:
             raise
@@ -233,16 +225,57 @@ class _BaseApiClient(Generic[ClientType]):
             raise PdfRestConfigurationError(str(exc)) from exc
         return request
 
+    def _compose_headers(self, extra_headers: AnyMapping | None) -> dict[str, str]:
+        combined_headers: dict[str, str] = dict(self._config.headers)
+        if extra_headers is None:
+            return combined_headers
+        for key, value in extra_headers.items():
+            combined_headers[str(key)] = str(value)
+        return combined_headers
+
+    @staticmethod
+    def _compose_query_params(
+        query: Query | None,
+        extra_query: Query | None,
+    ) -> dict[str, QueryParamValue] | None:
+        params: dict[str, QueryParamValue] = {}
+        for mapping in (query, extra_query):
+            if mapping is None:
+                continue
+            for key, value in mapping.items():
+                params[str(key)] = value
+        return params or None
+
+    @staticmethod
+    def _compose_json_body(
+        json_body: Body | None,
+        extra_body: Body | None,
+    ) -> dict[str, Any] | None:
+        if json_body is None:
+            if extra_body is not None:
+                msg = "extra_body can only be used with JSON requests."
+                raise PdfRestConfigurationError(msg)
+            return None
+        payload: dict[str, Any] = dict(json_body)
+        if extra_body is not None:
+            for key, value in extra_body.items():
+                payload[str(key)] = value
+        return payload
+
     def _handle_response(self, response: httpx.Response) -> Any:
         if response.is_success:
             return self._decode_json(response)
-        error_payload: Any = None
-        message: str | None = None
-        try:
-            pdfrest_error = PdfRestErrorResponse.model_validate_json(response.content)
-            message = pdfrest_error.error
-        except ValidationError:
-            error_payload = response.text
+
+        message, error_payload = self._extract_error_details(response)
+
+        if response.status_code == 401:
+            auth_message = message or "Authentication with pdfRest failed."
+            raise PdfRestAuthenticationError(
+                response.status_code,
+                message=auth_message,
+                response_content=error_payload,
+            )
+
         raise PdfRestApiError(
             response.status_code, message=message, response_content=error_payload
         )
@@ -257,6 +290,16 @@ class _BaseApiClient(Generic[ClientType]):
                 response_content=response.text,
             ) from exc
 
+    @staticmethod
+    def _extract_error_details(
+        response: httpx.Response,
+    ) -> tuple[str | None, Any | None]:
+        try:
+            pdfrest_error = PdfRestErrorResponse.model_validate_json(response.content)
+        except ValidationError:
+            return None, response.text
+        return pdfrest_error.error, None
+
 
 class _SyncApiClient(_BaseApiClient[httpx.Client]):
     """Internal synchronous client implementation."""
@@ -269,7 +312,7 @@ class _SyncApiClient(_BaseApiClient[httpx.Client]):
         api_key: str | None = None,
         base_url: str | URL | None = None,
         timeout: TimeoutTypes = DEFAULT_TIMEOUT_SECONDS,
-        headers: Mapping[str, str] | None = None,
+        headers: AnyMapping | None = None,
         http_client: httpx.Client | None = None,
         transport: httpx.BaseTransport | None = None,
     ) -> None:
@@ -306,6 +349,7 @@ class _SyncApiClient(_BaseApiClient[httpx.Client]):
                 params=request.params or None,
                 headers=request.headers or None,
                 timeout=request.timeout,
+                json=request.json_body,
             )
         except httpx.HTTPError as exc:
             raise translate_httpx_error(exc) from exc
@@ -323,7 +367,7 @@ class _AsyncApiClient(_BaseApiClient[httpx.AsyncClient]):
         api_key: str | None = None,
         base_url: str | URL | None = None,
         timeout: TimeoutTypes = DEFAULT_TIMEOUT_SECONDS,
-        headers: Mapping[str, str] | None = None,
+        headers: AnyMapping | None = None,
         http_client: httpx.AsyncClient | None = None,
         transport: httpx.AsyncBaseTransport | None = None,
     ) -> None:
@@ -360,6 +404,7 @@ class _AsyncApiClient(_BaseApiClient[httpx.AsyncClient]):
                 params=request.params or None,
                 headers=request.headers or None,
                 timeout=request.timeout,
+                json=request.json_body,
             )
         except httpx.HTTPError as exc:
             raise translate_httpx_error(exc) from exc
@@ -369,6 +414,27 @@ class _AsyncApiClient(_BaseApiClient[httpx.AsyncClient]):
 class PdfRestClient(_SyncApiClient):
     """Synchronous client for interacting with the pdfrest API."""
 
+    def __init__(
+        self,
+        *,
+        api_key: str | None = None,
+        base_url: str | URL | None = None,
+        timeout: TimeoutTypes = DEFAULT_TIMEOUT_SECONDS,
+        headers: AnyMapping | None = None,
+        http_client: httpx.Client | None = None,
+        transport: httpx.BaseTransport | None = None,
+    ) -> None:
+        """Create a synchronous pdfRest client."""
+
+        super().__init__(
+            api_key=api_key,
+            base_url=base_url,
+            timeout=timeout,
+            headers=headers,
+            http_client=http_client,
+            transport=transport,
+        )
+
     def __enter__(self) -> PdfRestClient:
         super().__enter__()
         return self
@@ -376,16 +442,51 @@ class PdfRestClient(_SyncApiClient):
     def __exit__(self, exc_type: Any, exc: Any, traceback: Any) -> None:
         super().__exit__(exc_type, exc, traceback)
 
-    def up(self, options: UpRequestOptions | None = None) -> UpResponse:
+    def up(
+        self,
+        *,
+        extra_headers: AnyMapping | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: TimeoutTypes | None = None,
+    ) -> UpResponse:
         """Call the `/up` health endpoint and return server metadata."""
 
-        request = self._prepare_request("GET", "/up", options)
+        request = self._prepare_request(
+            "GET",
+            "/up",
+            extra_headers=extra_headers,
+            extra_query=extra_query,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
         payload = self._send_request(request)
         return UpResponse.model_validate(payload)
 
 
 class AsyncPdfRestClient(_AsyncApiClient):
     """Asynchronous client for interacting with the pdfrest API."""
+
+    def __init__(
+        self,
+        *,
+        api_key: str | None = None,
+        base_url: str | URL | None = None,
+        timeout: TimeoutTypes = DEFAULT_TIMEOUT_SECONDS,
+        headers: AnyMapping | None = None,
+        http_client: httpx.AsyncClient | None = None,
+        transport: httpx.AsyncBaseTransport | None = None,
+    ) -> None:
+        """Create an asynchronous pdfRest client."""
+
+        super().__init__(
+            api_key=api_key,
+            base_url=base_url,
+            timeout=timeout,
+            headers=headers,
+            http_client=http_client,
+            transport=transport,
+        )
 
     async def __aenter__(self) -> AsyncPdfRestClient:
         await super().__aenter__()
@@ -394,9 +495,23 @@ class AsyncPdfRestClient(_AsyncApiClient):
     async def __aexit__(self, exc_type: Any, exc: Any, traceback: Any) -> None:
         await super().__aexit__(exc_type, exc, traceback)
 
-    async def up(self, options: UpRequestOptions | None = None) -> UpResponse:
+    async def up(
+        self,
+        *,
+        extra_headers: AnyMapping | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: TimeoutTypes | None = None,
+    ) -> UpResponse:
         """Call the `/up` health endpoint asynchronously and return server metadata."""
 
-        request = self._prepare_request("GET", "/up", options)
+        request = self._prepare_request(
+            "GET",
+            "/up",
+            extra_headers=extra_headers,
+            extra_query=extra_query,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
         payload = await self._send_request(request)
         return UpResponse.model_validate(payload)

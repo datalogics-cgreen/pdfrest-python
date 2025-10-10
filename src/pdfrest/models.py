@@ -6,7 +6,7 @@ from datetime import date
 
 from pydantic import BaseModel, ConfigDict, Field
 
-__all__ = ("UpResponse",)
+__all__ = ("PdfRestErrorResponse", "UpResponse")
 
 
 class UpResponse(BaseModel):
@@ -17,7 +17,7 @@ class UpResponse(BaseModel):
     release_date: date = Field(alias="releaseDate")
     version: str
 
-    model_config = ConfigDict(populate_by_name=True, frozen=True)
+    model_config = ConfigDict(frozen=True)
 
 
 class PdfRestErrorResponse(BaseModel):

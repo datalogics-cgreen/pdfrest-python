@@ -8,6 +8,7 @@ import httpx
 
 __all__ = (
     "PdfRestApiError",
+    "PdfRestAuthenticationError",
     "PdfRestConfigurationError",
     "PdfRestError",
     "PdfRestRequestError",
@@ -56,6 +57,10 @@ class PdfRestApiError(PdfRestError):
         if self.response_content is None:
             return base
         return f"{base}: {self.response_content}"
+
+
+class PdfRestAuthenticationError(PdfRestApiError):
+    """Raised when authentication with the pdfRest API fails."""
 
 
 def translate_httpx_error(exc: httpx.HTTPError) -> PdfRestError:
