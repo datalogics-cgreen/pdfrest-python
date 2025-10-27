@@ -44,12 +44,13 @@ FileTuple2 = tuple[str | None, FileContent]
 FileTuple3 = tuple[str | None, FileContent, str | None]
 FileTuple4 = tuple[str | None, FileContent, str | None, Mapping[str, str]]
 FileTypes = FileContent | FileTuple2 | FileTuple3 | FileTuple4
-UploadFiles = Mapping[str, FileTypes] | Sequence[tuple[str, FileTypes]]
+UploadFiles = Sequence[FileTypes] | FileTypes
 
 FilePath = str | PathLike[str]
 FilePathTuple2 = tuple[FilePath, str | None]
 FilePathTuple3 = tuple[FilePath, str | None, Mapping[str, str]]
 FilePathTypes = FilePath | FilePathTuple2 | FilePathTuple3
+FilePathInput = FilePathTypes | Sequence[FilePathTypes]
 NormalizedFileTypes: TypeAlias = FileContent | FileTuple2 | FileTuple3 | FileTuple4
 
 
@@ -128,26 +129,24 @@ def _normalize_file_type(file_value: FileTypes) -> NormalizedFileTypes:
 def _normalize_upload_files(
     files: UploadFiles,
 ) -> list[tuple[str, NormalizedFileTypes]]:
-    is_mapping = isinstance(files, Mapping)
-    if is_mapping:
-        mapping_files = cast(Mapping[str, FileTypes], files)
-        items: list[tuple[str, FileTypes]] = list(mapping_files.items())
+    if isinstance(files, Mapping):
+        msg = "Upload files must be provided as a sequence or a single file specification."
+        raise TypeError(msg)
+
+    if isinstance(files, Sequence) and not isinstance(files, (str, bytes, bytearray)):
+        items = list(files)
     else:
-        sequence_files = cast(Sequence[tuple[str, FileTypes]], files)
-        items = list(sequence_files)
+        # Treat single file specification as a one-element sequence.
+        items = [cast(FileTypes, files)]
+
     if not items:
         msg = "At least one file must be provided."
         raise ValueError(msg)
     normalized_items: list[tuple[str, NormalizedFileTypes]] = []
-    for entry in items:
-        if is_mapping:
-            field_name, file_value = entry
-        else:
-            if not isinstance(entry, tuple) or len(entry) != 2:
-                msg = "Files sequence entries must be (field_name, file_value) tuples."
-                raise TypeError(msg)
-            field_name, file_value = entry
-        normalized_items.append((str(field_name), _normalize_file_type(file_value)))
+    for file_value in items:
+        normalized_items.append(
+            (FILE_UPLOAD_FIELD_NAME, _normalize_file_type(cast(FileTypes, file_value)))
+        )
     return normalized_items
 
 
@@ -173,6 +172,22 @@ def _parse_path_spec(spec: FilePathTypes) -> tuple[Path, str | None, Mapping[str
         return path, normalized_content_type, normalized_headers
     path = Path(spec)
     return path, None, {}
+
+
+def _normalize_path_inputs(
+    file_paths: FilePathInput,
+) -> list[FilePathTypes]:
+    if isinstance(file_paths, Sequence) and not isinstance(
+        file_paths, (str, bytes, bytearray)
+    ):
+        sequence_paths = cast(Sequence[FilePathTypes], file_paths)
+        items: list[FilePathTypes] = list(sequence_paths)
+    else:
+        items = [cast(FilePathTypes, file_paths)]
+    if not items:
+        msg = "At least one file path must be provided."
+        raise ValueError(msg)
+    return items
 
 
 ClientType = TypeVar("ClientType", httpx.Client, httpx.AsyncClient)
@@ -621,13 +636,11 @@ class _FilesClient:
         self._client = client
 
     def create(self, files: UploadFiles) -> list[PdfRestFile]:
-        """Upload one or more files by content, in the same style accepted by
-        the `files` parameter of `httpx.Client.post`.
+        """Upload one or more files by content.
 
-        Provide either a mapping of field names to file specifications, or a
-        sequence of `(field_name, file_spec)` tuples. File specifications may be
-        raw file-like objects, bytes, str, or the tuple forms documented by
-        httpx.
+        Provide either a single file specification or a sequence of file
+        specifications (each matching the shapes accepted by httpx). Every
+        uploaded part is sent using the field name ``file``.
         """
         normalized_files = _normalize_upload_files(files)
         request = self._client.prepare_request(
@@ -637,9 +650,7 @@ class _FilesClient:
         file_ids = _extract_uploaded_file_ids(payload)
         return [self._client.fetch_file_info(file_id) for file_id in file_ids]
 
-    def create_from_paths(
-        self, file_paths: Sequence[FilePathTypes]
-    ) -> list[PdfRestFile]:
+    def create_from_paths(self, file_paths: FilePathInput) -> list[PdfRestFile]:
         """Upload one or more files by their path.
 
         Each entry may be a bare path-like object or a tuple of
@@ -647,32 +658,21 @@ class _FilesClient:
         mirrors the httpx multipart header mapping. All opened file handles are
         closed once the request completes.
         """
-        if not file_paths:
-            msg = "At least one file path must be provided."
-            raise ValueError(msg)
+        normalized_paths = _normalize_path_inputs(file_paths)
 
         with ExitStack() as stack:
-            upload_entries: list[tuple[str, FileTypes]] = []
-            for spec in file_paths:
+            upload_specs: list[FileTypes] = []
+            for spec in normalized_paths:
                 path, content_type, headers = _parse_path_spec(spec)
                 file_obj = stack.enter_context(path.open("rb"))
                 filename = path.name
                 if headers:
-                    upload_entries.append(
-                        (
-                            FILE_UPLOAD_FIELD_NAME,
-                            (filename, file_obj, content_type, headers),
-                        )
-                    )
+                    upload_specs.append((filename, file_obj, content_type, headers))
                 elif content_type is not None:
-                    upload_entries.append(
-                        (FILE_UPLOAD_FIELD_NAME, (filename, file_obj, content_type))
-                    )
+                    upload_specs.append((filename, file_obj, content_type))
                 else:
-                    upload_entries.append(
-                        (FILE_UPLOAD_FIELD_NAME, (filename, file_obj))
-                    )
-            return self.create(upload_entries)
+                    upload_specs.append((filename, file_obj))
+            return self.create(upload_specs)
 
 
 class _AsyncFilesClient:
@@ -688,13 +688,12 @@ class _AsyncFilesClient:
         self._concurrency_limit = concurrency_limit
 
     async def create(self, files: UploadFiles) -> list[PdfRestFile]:
-        """Upload one or more files by content, in the same style accepted by
-        the `files` parameter of `httpx.AsyncClient.post`.
+        """Upload one or more files by content.
 
-        Provide either a mapping of field names to file specifications, or a
-        sequence of `(field_name, file_spec)` tuples. File specifications may be
-        raw file-like objects, bytes, str, or the tuple forms documented by
-        httpx."""
+        Provide either a single file specification or a sequence of file
+        specifications (each matching the shapes accepted by httpx). Every
+        uploaded part is sent using the field name ``file``.
+        """
         normalized_files = _normalize_upload_files(files)
         request = self._client.prepare_request(
             "POST", "/upload", files=normalized_files
@@ -709,9 +708,7 @@ class _AsyncFilesClient:
 
         return await asyncio.gather(*(fetch(file_id) for file_id in file_ids))
 
-    async def create_from_paths(
-        self, file_paths: Sequence[FilePathTypes]
-    ) -> list[PdfRestFile]:
+    async def create_from_paths(self, file_paths: FilePathInput) -> list[PdfRestFile]:
         """Upload one or more files by their path.
 
         Each entry may be a bare path-like object or a tuple of
@@ -719,32 +716,21 @@ class _AsyncFilesClient:
         mirrors the httpx multipart header mapping. All opened file handles are
         closed once the request completes.
         """
-        if not file_paths:
-            msg = "At least one file path must be provided."
-            raise ValueError(msg)
+        normalized_paths = _normalize_path_inputs(file_paths)
 
         with ExitStack() as stack:
-            upload_entries: list[tuple[str, FileTypes]] = []
-            for spec in file_paths:
+            upload_specs: list[FileTypes] = []
+            for spec in normalized_paths:
                 path, content_type, headers = _parse_path_spec(spec)
                 file_obj = stack.enter_context(path.open("rb"))
                 filename = path.name
                 if headers:
-                    upload_entries.append(
-                        (
-                            FILE_UPLOAD_FIELD_NAME,
-                            (filename, file_obj, content_type, headers),
-                        )
-                    )
+                    upload_specs.append((filename, file_obj, content_type, headers))
                 elif content_type is not None:
-                    upload_entries.append(
-                        (FILE_UPLOAD_FIELD_NAME, (filename, file_obj, content_type))
-                    )
+                    upload_specs.append((filename, file_obj, content_type))
                 else:
-                    upload_entries.append(
-                        (FILE_UPLOAD_FIELD_NAME, (filename, file_obj))
-                    )
-            return await self.create(upload_entries)
+                    upload_specs.append((filename, file_obj))
+            return await self.create(upload_specs)
 
 
 class PdfRestClient(_SyncApiClient):

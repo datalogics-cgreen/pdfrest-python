@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import uuid
 from datetime import datetime, timezone
-from typing import Any
+from typing import Any, cast
 
 import httpx
 import pytest
@@ -76,7 +76,7 @@ def test_files_create_uses_upload_and_info() -> None:
     report_pdf = get_test_resource_path("report.pdf")
     try:
         with report_pdf.open("rb") as pdf_file:
-            response = client.files.create({"file": ("report.pdf", pdf_file)})
+            response = client.files.create([("report.pdf", pdf_file)])
     finally:
         client.close()
 
@@ -133,6 +133,41 @@ def test_files_create_from_paths_uses_upload_and_info() -> None:
         _assert_file_matches_payload(file_repr, payload)
 
 
+def test_files_create_from_paths_single_path() -> None:
+    uploaded_file_id = str(uuid.uuid4())
+    info_payload = _build_file_info_payload(uploaded_file_id, "report.pdf")
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.method == "POST" and request.url.path == "/upload":
+            body = request.content
+            assert body.count(b'name="file"') == 1
+            assert b'filename="report.pdf"' in body
+            return httpx.Response(
+                200,
+                json={
+                    "files": [
+                        {"name": "report.pdf", "id": uploaded_file_id},
+                    ]
+                },
+            )
+        if request.method == "GET" and request.url.path.startswith("/resource/"):
+            assert request.url.params["format"] == "info"
+            return httpx.Response(200, json=info_payload)
+        msg = f"Unexpected request: {request.method} {request.url}"
+        raise AssertionError(msg)
+
+    transport = httpx.MockTransport(handler)
+    client = PdfRestClient(api_key=VALID_API_KEY, transport=transport)
+    report_pdf = get_test_resource_path("report.pdf")
+    try:
+        response = client.files.create_from_paths(report_pdf)
+    finally:
+        client.close()
+
+    assert len(response) == 1
+    _assert_file_matches_payload(response[0], info_payload)
+
+
 def test_files_create_from_paths_supports_metadata() -> None:
     uploaded_file_id = str(uuid.uuid4())
     info_payload = _build_file_info_payload(uploaded_file_id, "report.pdf")
@@ -183,8 +218,11 @@ def test_files_create_rejects_empty_input() -> None:
         transport=httpx.MockTransport(lambda _: httpx.Response(200)),
     )
     try:
-        with pytest.raises(ValueError, match=r"At least one file must be provided\."):
-            client.files.create({})
+        with pytest.raises(
+            TypeError,
+            match=r"Upload files must be provided as a sequence or a single file specification\.",
+        ):
+            client.files.create(cast(Any, {}))
         with pytest.raises(ValueError, match=r"At least one file must be provided\."):
             client.files.create([])
         with pytest.raises(
@@ -231,8 +269,8 @@ async def test_async_files_create_uses_upload_and_info() -> None:
         with report_pdf.open("rb") as pdf_file, report_docx.open("rb") as docx_file:
             response = await client.files.create(
                 [
-                    ("file", ("report.pdf", pdf_file)),
-                    ("file", ("report.docx", docx_file)),
+                    ("report.pdf", pdf_file),
+                    ("report.docx", docx_file),
                 ]
             )
 
@@ -288,13 +326,47 @@ async def test_async_files_create_from_paths() -> None:
         _assert_file_matches_payload(file_repr, payload)
 
 
+@pytest.mark.asyncio
+async def test_async_files_create_from_paths_single_path() -> None:
+    uploaded_file_id = str(uuid.uuid4())
+    info_payload = _build_file_info_payload(uploaded_file_id, "report.pdf")
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.method == "POST" and request.url.path == "/upload":
+            body = request.content
+            assert body.count(b'name="file"') == 1
+            assert b'filename="report.pdf"' in body
+            return httpx.Response(
+                200,
+                json={
+                    "files": [
+                        {"name": "report.pdf", "id": uploaded_file_id},
+                    ]
+                },
+            )
+        if request.method == "GET" and request.url.path.startswith("/resource/"):
+            assert request.url.params["format"] == "info"
+            return httpx.Response(200, json=info_payload)
+        msg = f"Unexpected request: {request.method} {request.url}"
+        raise AssertionError(msg)
+
+    transport = httpx.MockTransport(handler)
+    client = AsyncPdfRestClient(api_key=VALID_API_KEY, transport=transport)
+    report_pdf = get_test_resource_path("report.pdf")
+    async with client:
+        response = await client.files.create_from_paths(report_pdf)
+
+    assert len(response) == 1
+    _assert_file_matches_payload(response[0], info_payload)
+
+
 def test_live_file_create(pdfrest_api_key: str, pdfrest_live_base_url: str) -> None:
     with PdfRestClient(
         api_key=pdfrest_api_key, base_url=pdfrest_live_base_url
     ) as client:
         report_pdf = get_test_resource_path("report.pdf")
         with report_pdf.open("rb") as pdf_file:
-            response = client.files.create({"file": pdf_file})
+            response = client.files.create([pdf_file])
             assert isinstance(response, list)
             assert len(response) == 1
             file_repr = response[0]
@@ -312,7 +384,7 @@ def test_live_file_create_two_files(
         report_pdf = get_test_resource_path("report.pdf")
         report_docx = get_test_resource_path("report.docx")
         with report_pdf.open("rb") as pdf_file, report_docx.open("rb") as docx_file:
-            response = client.files.create([("file", pdf_file), ("file", docx_file)])
+            response = client.files.create([pdf_file, docx_file])
             assert isinstance(response, list)
             assert len(response) == 2
             names = {file_repr.name for file_repr in response}
@@ -342,7 +414,7 @@ async def test_live_async_file_create(
     report_pdf = get_test_resource_path("report.pdf")
     async with client:
         with report_pdf.open("rb") as pdf_file:
-            response = await client.files.create({"file": pdf_file})
+            response = await client.files.create([pdf_file])
     assert isinstance(response, list)
     assert len(response) == 1
     file_repr = response[0]
