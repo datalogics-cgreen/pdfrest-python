@@ -41,7 +41,7 @@ def test_client_uses_provided_api_key(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.delenv("PDFREST_API_KEY", raising=False)
 
     def handler(request: httpx.Request) -> httpx.Response:
-        assert request.headers["Authorization"] == f"Bearer {VALID_API_KEY}"
+        assert request.headers["Api-Key"] == VALID_API_KEY
         assert request.url.path == "/up"
         return httpx.Response(200, json=_build_up_response())
 
@@ -60,7 +60,7 @@ def test_client_reads_api_key_from_env(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("PDFREST_API_KEY", VALID_API_KEY)
 
     def handler(request: httpx.Request) -> httpx.Response:
-        assert request.headers["Authorization"] == f"Bearer {VALID_API_KEY}"
+        assert request.headers["Api-Key"] == VALID_API_KEY
         assert request.url.host == "example.com"
         return httpx.Response(200, json=_build_up_response())
 
@@ -102,7 +102,7 @@ def test_client_allows_missing_api_key_for_custom_host(
     monkeypatch.delenv("PDFREST_API_KEY", raising=False)
 
     def handler(request: httpx.Request) -> httpx.Response:
-        assert "Authorization" not in request.headers
+        assert "Api-Key" not in request.headers
         assert request.url.host == "internal.example"
         return httpx.Response(200, json=_build_up_response())
 
@@ -120,7 +120,7 @@ def test_up_with_custom_headers(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.delenv("PDFREST_API_KEY", raising=False)
 
     def handler(request: httpx.Request) -> httpx.Response:
-        assert request.headers["Authorization"] == f"Bearer {ANOTHER_VALID_API_KEY}"
+        assert request.headers["Api-Key"] == ANOTHER_VALID_API_KEY
         assert request.headers["X-Test-Header"] == "value"
         return httpx.Response(200, json=_build_up_response())
 
@@ -259,7 +259,7 @@ async def test_async_client_up(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("PDFREST_API_KEY", ASYNC_API_KEY)
 
     def handler(request: httpx.Request) -> httpx.Response:
-        assert request.headers["Authorization"] == f"Bearer {ASYNC_API_KEY}"
+        assert request.headers["Api-Key"] == ASYNC_API_KEY
         return httpx.Response(200, json=_build_up_response())
 
     transport = httpx.MockTransport(handler)

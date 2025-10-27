@@ -23,6 +23,7 @@ __all__ = ("AsyncPdfRestClient", "PdfRestClient")
 
 DEFAULT_BASE_URL = "https://api.pdfrest.com"
 API_KEY_ENV_VAR = "PDFREST_API_KEY"
+API_KEY_HEADER_NAME = "Api-Key"
 DEFAULT_TIMEOUT_SECONDS = 10.0
 
 HttpMethod = Literal["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS", "HEAD"]
@@ -152,7 +153,7 @@ class _BaseApiClient(Generic[ClientType]):
 
         default_headers: dict[str, str] = {"Accept": "application/json"}
         if resolved_api_key is not None:
-            default_headers["Authorization"] = f"Bearer {resolved_api_key}"
+            default_headers[API_KEY_HEADER_NAME] = resolved_api_key
         if headers:
             for key, value in headers.items():
                 default_headers[str(key)] = str(value)
