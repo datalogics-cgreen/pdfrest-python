@@ -51,6 +51,8 @@ FilePathTuple2 = tuple[FilePath, str | None]
 FilePathTuple3 = tuple[FilePath, str | None, Mapping[str, str]]
 FilePathTypes = FilePath | FilePathTuple2 | FilePathTuple3
 FilePathInput = FilePathTypes | Sequence[FilePathTypes]
+UrlValue = str | URL
+UrlInput = UrlValue | Sequence[UrlValue]
 NormalizedFileTypes: TypeAlias = FileContent | FileTuple2 | FileTuple3 | FileTuple4
 
 
@@ -188,6 +190,26 @@ def _normalize_path_inputs(
         msg = "At least one file path must be provided."
         raise ValueError(msg)
     return items
+
+
+def _normalize_url_inputs(urls: UrlInput) -> list[str]:
+    if isinstance(urls, Sequence) and not isinstance(urls, (str, bytes, bytearray)):
+        sequence_urls: Sequence[UrlValue] = urls
+        items = list(sequence_urls)
+    else:
+        single_url: UrlValue = urls
+        items = [single_url]
+    if not items:
+        msg = "At least one URL must be provided."
+        raise ValueError(msg)
+    normalized: list[str] = []
+    for item in items:
+        parsed = URL(str(item))
+        if parsed.scheme not in {"http", "https"}:
+            msg = "URL uploads require http or https scheme."
+            raise ValueError(msg)
+        normalized.append(str(parsed))
+    return normalized
 
 
 ClientType = TypeVar("ClientType", httpx.Client, httpx.AsyncClient)
@@ -674,6 +696,19 @@ class _FilesClient:
                     upload_specs.append((filename, file_obj))
             return self.create(upload_specs)
 
+    def create_from_urls(self, urls: UrlInput) -> list[PdfRestFile]:
+        """Upload one or more files by providing remote URLs."""
+
+        normalized_urls = _normalize_url_inputs(urls)
+        request = self._client.prepare_request(
+            "POST",
+            "/upload",
+            json_body={"url": normalized_urls},
+        )
+        payload = self._client.send_request(request)
+        file_ids = _extract_uploaded_file_ids(payload)
+        return [self._client.fetch_file_info(file_id) for file_id in file_ids]
+
 
 class _AsyncFilesClient:
     """Expose file-related operations for the asynchronous client."""
@@ -731,6 +766,25 @@ class _AsyncFilesClient:
                 else:
                     upload_specs.append((filename, file_obj))
             return await self.create(upload_specs)
+
+    async def create_from_urls(self, urls: UrlInput) -> list[PdfRestFile]:
+        """Upload one or more files by providing remote URLs."""
+
+        normalized_urls = _normalize_url_inputs(urls)
+        request = self._client.prepare_request(
+            "POST",
+            "/upload",
+            json_body={"url": normalized_urls},
+        )
+        payload = await self._client.send_request(request)
+        file_ids = _extract_uploaded_file_ids(payload)
+        semaphore = asyncio.Semaphore(self._concurrency_limit)
+
+        async def fetch(file_id: str) -> PdfRestFile:
+            async with semaphore:
+                return await self._client.fetch_file_info(file_id)
+
+        return await asyncio.gather(*(fetch(file_id) for file_id in file_ids))
 
 
 class PdfRestClient(_SyncApiClient):

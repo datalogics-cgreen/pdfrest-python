@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import uuid
 from datetime import datetime, timezone
 from typing import Any, cast
@@ -161,6 +162,81 @@ def test_files_create_from_paths_single_path() -> None:
     _assert_file_matches_payload(response[0], info_payload)
 
 
+def test_files_create_from_urls_uses_upload_and_info() -> None:
+    uploaded_ids = [str(uuid.uuid4()), str(uuid.uuid4())]
+    info_payloads = {
+        uploaded_ids[0]: _build_file_info_payload(uploaded_ids[0], "report.pdf"),
+        uploaded_ids[1]: _build_file_info_payload(uploaded_ids[1], "report.docx"),
+    }
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.method == "POST" and request.url.path == "/upload":
+            payload = json.loads(request.content.decode("utf-8"))
+            assert payload["url"] == [
+                "https://example.com/report.pdf",
+                "https://example.com/report.docx",
+            ]
+            return httpx.Response(
+                200,
+                json={
+                    "files": [
+                        {"name": "report.pdf", "id": uploaded_ids[0]},
+                        {"name": "report.docx", "id": uploaded_ids[1]},
+                    ]
+                },
+            )
+        if request.method == "GET" and request.url.path.startswith("/resource/"):
+            file_id = request.url.path.split("/")[-1]
+            assert request.url.params["format"] == "info"
+            return httpx.Response(200, json=info_payloads[file_id])
+        msg = f"Unexpected request: {request.method} {request.url}"
+        raise AssertionError(msg)
+
+    transport = httpx.MockTransport(handler)
+    with PdfRestClient(api_key=VALID_API_KEY, transport=transport) as client:
+        response = client.files.create_from_urls(
+            [
+                "https://example.com/report.pdf",
+                httpx.URL("https://example.com/report.docx"),
+            ]
+        )
+
+    assert len(response) == 2
+    for file_repr in response:
+        payload = info_payloads[file_repr.id]
+        _assert_file_matches_payload(file_repr, payload)
+
+
+def test_files_create_from_urls_single_url() -> None:
+    uploaded_file_id = str(uuid.uuid4())
+    info_payload = _build_file_info_payload(uploaded_file_id, "report.pdf")
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.method == "POST" and request.url.path == "/upload":
+            payload = json.loads(request.content.decode("utf-8"))
+            assert payload["url"] == ["https://example.com/report.pdf"]
+            return httpx.Response(
+                200,
+                json={
+                    "files": [
+                        {"name": "report.pdf", "id": uploaded_file_id},
+                    ]
+                },
+            )
+        if request.method == "GET" and request.url.path.startswith("/resource/"):
+            assert request.url.params["format"] == "info"
+            return httpx.Response(200, json=info_payload)
+        msg = f"Unexpected request: {request.method} {request.url}"
+        raise AssertionError(msg)
+
+    transport = httpx.MockTransport(handler)
+    with PdfRestClient(api_key=VALID_API_KEY, transport=transport) as client:
+        response = client.files.create_from_urls("https://example.com/report.pdf")
+
+    assert len(response) == 1
+    _assert_file_matches_payload(response[0], info_payload)
+
+
 def test_files_create_from_paths_supports_metadata() -> None:
     uploaded_file_id = str(uuid.uuid4())
     info_payload = _build_file_info_payload(uploaded_file_id, "report.pdf")
@@ -202,6 +278,25 @@ def test_files_create_from_paths_supports_metadata() -> None:
     _assert_file_matches_payload(response[0], info_payload)
 
 
+def test_files_create_from_urls_invalid_scheme() -> None:
+    transport = httpx.MockTransport(lambda request: httpx.Response(400))
+    with (
+        pytest.raises(ValueError, match=r"URL uploads require http or https scheme\."),
+        PdfRestClient(api_key=VALID_API_KEY, transport=transport) as client,
+    ):
+        client.files.create_from_urls("ftp://example.com/file.pdf")
+
+
+@pytest.mark.asyncio
+async def test_async_files_create_from_urls_invalid_scheme() -> None:
+    transport = httpx.MockTransport(lambda request: httpx.Response(400))
+    async with AsyncPdfRestClient(api_key=VALID_API_KEY, transport=transport) as client:
+        with pytest.raises(
+            ValueError, match=r"URL uploads require http or https scheme\."
+        ):
+            await client.files.create_from_urls("ftp://example.com/file.pdf")
+
+
 def test_files_create_rejects_empty_input() -> None:
     with PdfRestClient(
         api_key=VALID_API_KEY,
@@ -218,6 +313,8 @@ def test_files_create_rejects_empty_input() -> None:
             ValueError, match=r"At least one file path must be provided\."
         ):
             client.files.create_from_paths([])
+        with pytest.raises(ValueError, match=r"At least one URL must be provided\."):
+            client.files.create_from_urls([])
 
 
 @pytest.mark.asyncio
@@ -265,6 +362,83 @@ async def test_async_files_create_uses_upload_and_info() -> None:
     for file_repr in response:
         payload = info_payloads[file_repr.id]
         _assert_file_matches_payload(file_repr, payload)
+
+
+@pytest.mark.asyncio
+async def test_async_files_create_from_urls() -> None:
+    uploaded_ids = [str(uuid.uuid4()), str(uuid.uuid4())]
+    info_payloads = {
+        uploaded_ids[0]: _build_file_info_payload(uploaded_ids[0], "report.pdf"),
+        uploaded_ids[1]: _build_file_info_payload(uploaded_ids[1], "report.docx"),
+    }
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.method == "POST" and request.url.path == "/upload":
+            payload = json.loads(request.content.decode("utf-8"))
+            assert payload["url"] == [
+                "https://example.com/report.pdf",
+                "https://example.com/report.docx",
+            ]
+            return httpx.Response(
+                200,
+                json={
+                    "files": [
+                        {"name": "report.pdf", "id": uploaded_ids[0]},
+                        {"name": "report.docx", "id": uploaded_ids[1]},
+                    ]
+                },
+            )
+        if request.method == "GET" and request.url.path.startswith("/resource/"):
+            file_id = request.url.path.split("/")[-1]
+            assert request.url.params["format"] == "info"
+            return httpx.Response(200, json=info_payloads[file_id])
+        msg = f"Unexpected request: {request.method} {request.url}"
+        raise AssertionError(msg)
+
+    transport = httpx.MockTransport(handler)
+    async with AsyncPdfRestClient(api_key=VALID_API_KEY, transport=transport) as client:
+        response = await client.files.create_from_urls(
+            [
+                "https://example.com/report.pdf",
+                httpx.URL("https://example.com/report.docx"),
+            ]
+        )
+
+    assert len(response) == 2
+    for file_repr in response:
+        payload = info_payloads[file_repr.id]
+        _assert_file_matches_payload(file_repr, payload)
+
+
+@pytest.mark.asyncio
+async def test_async_files_create_from_urls_single_url() -> None:
+    uploaded_file_id = str(uuid.uuid4())
+    info_payload = _build_file_info_payload(uploaded_file_id, "report.pdf")
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.method == "POST" and request.url.path == "/upload":
+            payload = json.loads(request.content.decode("utf-8"))
+            assert payload["url"] == ["https://example.com/report.pdf"]
+            return httpx.Response(
+                200,
+                json={
+                    "files": [
+                        {"name": "report.pdf", "id": uploaded_file_id},
+                    ]
+                },
+            )
+        if request.method == "GET" and request.url.path.startswith("/resource/"):
+            assert request.url.params["format"] == "info"
+            return httpx.Response(200, json=info_payload)
+        msg = f"Unexpected request: {request.method} {request.url}"
+        raise AssertionError(msg)
+
+    transport = httpx.MockTransport(handler)
+    async with AsyncPdfRestClient(api_key=VALID_API_KEY, transport=transport) as client:
+        response = await client.files.create_from_urls("https://example.com/report.pdf")
+
+    assert len(response) == 1
+    _assert_file_matches_payload(response[0], info_payload)
 
 
 @pytest.mark.asyncio
@@ -387,6 +561,26 @@ def test_live_file_create_from_paths(
         assert isinstance(response, list)
         assert len(response) == 2
         names = {file_repr.name for file_repr in response}
+        assert {
+            "report.pdf",
+            "report.docx",
+        } <= names
+
+
+def test_live_file_create_from_urls(
+    pdfrest_api_key: str, pdfrest_live_base_url: str
+) -> None:
+    with PdfRestClient(
+        api_key=pdfrest_api_key, base_url=pdfrest_live_base_url
+    ) as client:
+        report_pdf = get_test_resource_path("report.pdf")
+        report_docx = get_test_resource_path("report.docx")
+        base_files = client.files.create_from_paths([report_pdf, report_docx])
+        source_urls = [str(file_repr.url) for file_repr in base_files]
+        response = client.files.create_from_urls(source_urls)
+        assert isinstance(response, list)
+        assert len(response) == 2
+        names = {file_repr.name for file_repr in response}
         assert {"report.pdf", "report.docx"} <= names
 
 
@@ -418,6 +612,27 @@ async def test_live_async_file_create_from_paths(
         api_key=pdfrest_api_key, base_url=pdfrest_live_base_url
     ) as client:
         response = await client.files.create_from_paths([report_pdf, report_docx])
+    assert isinstance(response, list)
+    assert len(response) == 2
+    names = {file_repr.name for file_repr in response}
+    assert {
+        "report.pdf",
+        "report.docx",
+    } <= names
+
+
+@pytest.mark.asyncio
+async def test_live_async_file_create_from_urls(
+    pdfrest_api_key: str, pdfrest_live_base_url: str
+) -> None:
+    report_pdf = get_test_resource_path("report.pdf")
+    report_docx = get_test_resource_path("report.docx")
+    async with AsyncPdfRestClient(
+        api_key=pdfrest_api_key, base_url=pdfrest_live_base_url
+    ) as client:
+        base_files = await client.files.create_from_paths([report_pdf, report_docx])
+        source_urls = [str(file_repr.url) for file_repr in base_files]
+        response = await client.files.create_from_urls(source_urls)
     assert isinstance(response, list)
     assert len(response) == 2
     names = {file_repr.name for file_repr in response}
