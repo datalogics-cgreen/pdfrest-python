@@ -72,13 +72,12 @@ def test_files_create_uses_upload_and_info() -> None:
         raise AssertionError(msg)
 
     transport = httpx.MockTransport(handler)
-    client = PdfRestClient(api_key=VALID_API_KEY, transport=transport)
     report_pdf = get_test_resource_path("report.pdf")
-    try:
-        with report_pdf.open("rb") as pdf_file:
-            response = client.files.create([("report.pdf", pdf_file)])
-    finally:
-        client.close()
+    with (
+        PdfRestClient(api_key=VALID_API_KEY, transport=transport) as client,
+        report_pdf.open("rb") as pdf_file,
+    ):
+        response = client.files.create([("report.pdf", pdf_file)])
 
     assert isinstance(response, list)
     assert len(response) == 1
@@ -118,13 +117,10 @@ def test_files_create_from_paths_uses_upload_and_info() -> None:
         raise AssertionError(msg)
 
     transport = httpx.MockTransport(handler)
-    client = PdfRestClient(api_key=VALID_API_KEY, transport=transport)
     report_pdf = get_test_resource_path("report.pdf")
     report_docx = get_test_resource_path("report.docx")
-    try:
+    with PdfRestClient(api_key=VALID_API_KEY, transport=transport) as client:
         response = client.files.create_from_paths([report_pdf, report_docx])
-    finally:
-        client.close()
 
     assert isinstance(response, list)
     assert len(response) == 2
@@ -157,12 +153,9 @@ def test_files_create_from_paths_single_path() -> None:
         raise AssertionError(msg)
 
     transport = httpx.MockTransport(handler)
-    client = PdfRestClient(api_key=VALID_API_KEY, transport=transport)
     report_pdf = get_test_resource_path("report.pdf")
-    try:
+    with PdfRestClient(api_key=VALID_API_KEY, transport=transport) as client:
         response = client.files.create_from_paths(report_pdf)
-    finally:
-        client.close()
 
     assert len(response) == 1
     _assert_file_matches_payload(response[0], info_payload)
@@ -193,9 +186,8 @@ def test_files_create_from_paths_supports_metadata() -> None:
         raise AssertionError(msg)
 
     transport = httpx.MockTransport(handler)
-    client = PdfRestClient(api_key=VALID_API_KEY, transport=transport)
     report_pdf = get_test_resource_path("report.pdf")
-    try:
+    with PdfRestClient(api_key=VALID_API_KEY, transport=transport) as client:
         response = client.files.create_from_paths(
             [
                 (
@@ -205,19 +197,16 @@ def test_files_create_from_paths_supports_metadata() -> None:
                 )
             ]
         )
-    finally:
-        client.close()
 
     assert len(response) == 1
     _assert_file_matches_payload(response[0], info_payload)
 
 
 def test_files_create_rejects_empty_input() -> None:
-    client = PdfRestClient(
+    with PdfRestClient(
         api_key=VALID_API_KEY,
         transport=httpx.MockTransport(lambda _: httpx.Response(200)),
-    )
-    try:
+    ) as client:
         with pytest.raises(
             TypeError,
             match=r"Upload files must be provided as a sequence or a single file specification\.",
@@ -229,8 +218,6 @@ def test_files_create_rejects_empty_input() -> None:
             ValueError, match=r"At least one file path must be provided\."
         ):
             client.files.create_from_paths([])
-    finally:
-        client.close()
 
 
 @pytest.mark.asyncio
@@ -261,11 +248,10 @@ async def test_async_files_create_uses_upload_and_info() -> None:
         raise AssertionError(msg)
 
     transport = httpx.MockTransport(handler)
-    client = AsyncPdfRestClient(api_key=VALID_API_KEY, transport=transport)
 
     report_pdf = get_test_resource_path("report.pdf")
     report_docx = get_test_resource_path("report.docx")
-    async with client:
+    async with AsyncPdfRestClient(api_key=VALID_API_KEY, transport=transport) as client:
         with report_pdf.open("rb") as pdf_file, report_docx.open("rb") as docx_file:
             response = await client.files.create(
                 [
@@ -313,10 +299,9 @@ async def test_async_files_create_from_paths() -> None:
         raise AssertionError(msg)
 
     transport = httpx.MockTransport(handler)
-    client = AsyncPdfRestClient(api_key=VALID_API_KEY, transport=transport)
     report_pdf = get_test_resource_path("report.pdf")
     report_docx = get_test_resource_path("report.docx")
-    async with client:
+    async with AsyncPdfRestClient(api_key=VALID_API_KEY, transport=transport) as client:
         response = await client.files.create_from_paths([report_pdf, report_docx])
 
     assert isinstance(response, list)
@@ -351,9 +336,8 @@ async def test_async_files_create_from_paths_single_path() -> None:
         raise AssertionError(msg)
 
     transport = httpx.MockTransport(handler)
-    client = AsyncPdfRestClient(api_key=VALID_API_KEY, transport=transport)
     report_pdf = get_test_resource_path("report.pdf")
-    async with client:
+    async with AsyncPdfRestClient(api_key=VALID_API_KEY, transport=transport) as client:
         response = await client.files.create_from_paths(report_pdf)
 
     assert len(response) == 1
@@ -410,9 +394,10 @@ def test_live_file_create_from_paths(
 async def test_live_async_file_create(
     pdfrest_api_key: str, pdfrest_live_base_url: str
 ) -> None:
-    client = AsyncPdfRestClient(api_key=pdfrest_api_key, base_url=pdfrest_live_base_url)
     report_pdf = get_test_resource_path("report.pdf")
-    async with client:
+    async with AsyncPdfRestClient(
+        api_key=pdfrest_api_key, base_url=pdfrest_live_base_url
+    ) as client:
         with report_pdf.open("rb") as pdf_file:
             response = await client.files.create([pdf_file])
     assert isinstance(response, list)
@@ -427,10 +412,11 @@ async def test_live_async_file_create(
 async def test_live_async_file_create_from_paths(
     pdfrest_api_key: str, pdfrest_live_base_url: str
 ) -> None:
-    client = AsyncPdfRestClient(api_key=pdfrest_api_key, base_url=pdfrest_live_base_url)
     report_pdf = get_test_resource_path("report.pdf")
     report_docx = get_test_resource_path("report.docx")
-    async with client:
+    async with AsyncPdfRestClient(
+        api_key=pdfrest_api_key, base_url=pdfrest_live_base_url
+    ) as client:
         response = await client.files.create_from_paths([report_pdf, report_docx])
     assert isinstance(response, list)
     assert len(response) == 2

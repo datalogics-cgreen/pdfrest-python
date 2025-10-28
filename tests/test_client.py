@@ -39,11 +39,8 @@ def test_client_uses_provided_api_key(monkeypatch: pytest.MonkeyPatch) -> None:
         return httpx.Response(200, json=_build_up_response())
 
     transport = httpx.MockTransport(handler)
-    client = PdfRestClient(api_key=VALID_API_KEY, transport=transport)
-    try:
+    with PdfRestClient(api_key=VALID_API_KEY, transport=transport) as client:
         response = client.up()
-    finally:
-        client.close()
 
     assert isinstance(response, UpResponse)
     assert response.release_date == date(2025, 9, 25)
@@ -58,11 +55,8 @@ def test_client_reads_api_key_from_env(monkeypatch: pytest.MonkeyPatch) -> None:
         return httpx.Response(200, json=_build_up_response())
 
     transport = httpx.MockTransport(handler)
-    client = PdfRestClient(base_url="https://example.com", transport=transport)
-    try:
+    with PdfRestClient(base_url="https://example.com", transport=transport) as client:
         response = client.up()
-    finally:
-        client.close()
 
     assert response.product == "pdfRest API Toolkit"
 
@@ -100,11 +94,10 @@ def test_client_allows_missing_api_key_for_custom_host(
         return httpx.Response(200, json=_build_up_response())
 
     transport = httpx.MockTransport(handler)
-    client = PdfRestClient(base_url="https://internal.example", transport=transport)
-    try:
+    with PdfRestClient(
+        base_url="https://internal.example", transport=transport
+    ) as client:
         response = client.up()
-    finally:
-        client.close()
 
     assert response.status == "OK"
 
@@ -118,11 +111,8 @@ def test_up_with_custom_headers(monkeypatch: pytest.MonkeyPatch) -> None:
         return httpx.Response(200, json=_build_up_response())
 
     transport = httpx.MockTransport(handler)
-    client = PdfRestClient(api_key=ANOTHER_VALID_API_KEY, transport=transport)
-    try:
+    with PdfRestClient(api_key=ANOTHER_VALID_API_KEY, transport=transport) as client:
         response = client.up(extra_headers={"X-Test-Header": "value"})
-    finally:
-        client.close()
 
     assert response.version == "2.31.1"
 
@@ -138,14 +128,11 @@ def test_up_with_query_and_timeout(monkeypatch: pytest.MonkeyPatch) -> None:
         return httpx.Response(200, json=_build_up_response())
 
     transport = httpx.MockTransport(handler)
-    client = PdfRestClient(transport=transport)
-    try:
+    with PdfRestClient(transport=transport) as client:
         response = client.up(
             extra_query={"view": "full", "unused": None},
             timeout=0.5,
         )
-    finally:
-        client.close()
 
     assert response.product == "pdfRest API Toolkit"
     timeout_value = captured_timeout["value"]
@@ -165,24 +152,22 @@ def test_up_rejects_extra_body(monkeypatch: pytest.MonkeyPatch) -> None:
         return httpx.Response(200, json=_build_up_response())
 
     transport = httpx.MockTransport(handler)
-    client = PdfRestClient(transport=transport)
-    with pytest.raises(PdfRestConfigurationError):
+    with (
+        pytest.raises(PdfRestConfigurationError),
+        PdfRestClient(transport=transport) as client,
+    ):
         client.up(extra_body={"unexpected": "value"})
-    client.close()
 
 
 def test_prepare_request_merges_queries(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("PDFREST_API_KEY", "key")
-    client = PdfRestClient(api_key=VALID_API_KEY)
-    try:
+    with PdfRestClient(api_key=VALID_API_KEY) as client:
         request = client.prepare_request(
             "GET",
             "/test",
             query={"base": "value", "skip": None},
             extra_query={"base": "override", "extra": 42, "ignore": None},
         )
-    finally:
-        client.close()
 
     assert request.params == {
         "base": "override",
@@ -201,12 +186,11 @@ def test_authentication_error_raises_specific_exception(
         return httpx.Response(401, json={"message": "The provided key is not valid."})
 
     transport = httpx.MockTransport(handler)
-    client = PdfRestClient(transport=transport)
-
-    with pytest.raises(PdfRestAuthenticationError) as exc_info:
+    with (
+        pytest.raises(PdfRestAuthenticationError) as exc_info,
+        PdfRestClient(transport=transport) as client,
+    ):
         client.up()
-
-    client.close()
     assert "The provided key is not valid." in str(exc_info.value)
 
 
@@ -219,12 +203,11 @@ def test_authentication_error_handles_non_json(
         return httpx.Response(401, text="Unauthorized")
 
     transport = httpx.MockTransport(handler)
-    client = PdfRestClient(transport=transport)
-
-    with pytest.raises(PdfRestAuthenticationError) as exc_info:
+    with (
+        pytest.raises(PdfRestAuthenticationError) as exc_info,
+        PdfRestClient(transport=transport) as client,
+    ):
         client.up()
-
-    client.close()
     assert "Authentication with pdfRest failed." in str(exc_info.value)
     assert exc_info.value.response_content == "Unauthorized"
 
@@ -238,12 +221,11 @@ def test_client_raises_for_non_success_response(
         return httpx.Response(500, json={"message": "server error"})
 
     transport = httpx.MockTransport(handler)
-    client = PdfRestClient(transport=transport)
-
-    with pytest.raises(PdfRestApiError) as exc_info:
+    with (
+        pytest.raises(PdfRestApiError) as exc_info,
+        PdfRestClient(transport=transport) as client,
+    ):
         client.up()
-
-    client.close()
     assert exc_info.value.status_code == 500
 
 
@@ -256,8 +238,7 @@ async def test_async_client_up(monkeypatch: pytest.MonkeyPatch) -> None:
         return httpx.Response(200, json=_build_up_response())
 
     transport = httpx.MockTransport(handler)
-    client = AsyncPdfRestClient(transport=transport)
-    async with client:
+    async with AsyncPdfRestClient(transport=transport) as client:
         response = await client.up()
 
     assert response.status == "OK"
@@ -277,8 +258,7 @@ async def test_async_up_with_query_and_timeout(
         return httpx.Response(200, json=_build_up_response())
 
     transport = httpx.MockTransport(handler)
-    client = AsyncPdfRestClient(transport=transport)
-    async with client:
+    async with AsyncPdfRestClient(transport=transport) as client:
         response = await client.up(
             extra_query={"mode": "ping"},
             timeout=0.25,
@@ -304,10 +284,8 @@ async def test_async_client_translates_timeout(monkeypatch: pytest.MonkeyPatch) 
         raise httpx.TimeoutException(message)
 
     transport = httpx.MockTransport(handler)
-    client = AsyncPdfRestClient(transport=transport)
-
     with pytest.raises(PdfRestTimeoutError):
-        async with client:
+        async with AsyncPdfRestClient(transport=transport) as client:
             await client.up()
 
 
@@ -321,19 +299,16 @@ async def test_async_up_rejects_extra_body(
         return httpx.Response(200, json=_build_up_response())
 
     transport = httpx.MockTransport(handler)
-    client = AsyncPdfRestClient(transport=transport)
-
     with pytest.raises(PdfRestConfigurationError):
-        async with client:
+        async with AsyncPdfRestClient(transport=transport) as client:
             await client.up(extra_body={"unexpected": "value"})
 
 
 def test_live_client_up(pdfrest_api_key: str, pdfrest_live_base_url: str) -> None:
-    client = PdfRestClient(api_key=pdfrest_api_key, base_url=pdfrest_live_base_url)
-    try:
+    with PdfRestClient(
+        api_key=pdfrest_api_key, base_url=pdfrest_live_base_url
+    ) as client:
         response = client.up()
-    finally:
-        client.close()
     assert response.status.upper() == "OK"
     assert response.product
 
@@ -342,7 +317,8 @@ def test_live_client_up(pdfrest_api_key: str, pdfrest_live_base_url: str) -> Non
 async def test_live_async_client_up(
     pdfrest_api_key: str, pdfrest_live_base_url: str
 ) -> None:
-    client = AsyncPdfRestClient(api_key=pdfrest_api_key, base_url=pdfrest_live_base_url)
-    async with client:
+    async with AsyncPdfRestClient(
+        api_key=pdfrest_api_key, base_url=pdfrest_live_base_url
+    ) as client:
         response = await client.up()
     assert response.version
