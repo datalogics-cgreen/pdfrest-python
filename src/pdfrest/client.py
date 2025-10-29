@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import importlib.metadata
 import json
 import os
 import uuid
@@ -337,7 +338,12 @@ class _BaseApiClient(Generic[ClientType]):
         if resolved_api_key is not None:
             self._validate_pdfrest_api_key(resolved_api_key, resolved_base_url)
 
-        default_headers: dict[str, str] = {"Accept": "application/json"}
+        version = importlib.metadata.version("pdfrest")
+        default_headers: dict[str, str] = {
+            "Accept": "application/json",
+            "wsn": "pdfrest-python",
+            "User-Agent": f"pdfrest-python-sdk/{version}",
+        }
         if resolved_api_key is not None:
             default_headers[API_KEY_HEADER_NAME] = resolved_api_key
         if headers:

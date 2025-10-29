@@ -14,6 +14,7 @@ from pdfrest import (
     PdfRestConfigurationError,
     PdfRestTimeoutError,
     UpResponse,
+    client as client_module,
 )
 
 VALID_API_KEY = "12345678-1234-1234-1234-123456789abc"
@@ -59,6 +60,39 @@ def test_client_reads_api_key_from_env(monkeypatch: pytest.MonkeyPatch) -> None:
         response = client.up()
 
     assert response.product == "pdfRest API Toolkit"
+
+
+def test_client_sets_sdk_headers(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("PDFREST_API_KEY", VALID_API_KEY)
+    monkeypatch.setattr(client_module.importlib.metadata, "version", lambda _: "1.2.3")
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        assert request.headers["wsn"] == "pdfrest-python"
+        assert request.headers["User-Agent"] == "pdfrest-python-sdk/1.2.3"
+        assert request.headers["Accept"] == "application/json"
+        return httpx.Response(200, json=_build_up_response())
+
+    transport = httpx.MockTransport(handler)
+    with PdfRestClient(api_key=VALID_API_KEY, transport=transport) as client:
+        client.up()
+
+
+@pytest.mark.asyncio
+async def test_async_client_sets_sdk_headers(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("PDFREST_API_KEY", ASYNC_API_KEY)
+    monkeypatch.setattr(client_module.importlib.metadata, "version", lambda _: "4.5.6")
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        assert request.headers["wsn"] == "pdfrest-python"
+        assert request.headers["User-Agent"] == "pdfrest-python-sdk/4.5.6"
+        assert request.headers["Accept"] == "application/json"
+        return httpx.Response(200, json=_build_up_response())
+
+    transport = httpx.MockTransport(handler)
+    async with AsyncPdfRestClient(api_key=ASYNC_API_KEY, transport=transport) as client:
+        await client.up()
 
 
 def test_missing_api_key_raises(monkeypatch: pytest.MonkeyPatch) -> None:
