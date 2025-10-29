@@ -3,9 +3,10 @@
 from __future__ import annotations
 
 import asyncio
+import json
 import os
 import uuid
-from collections.abc import Mapping, Sequence
+from collections.abc import AsyncIterator, Iterator, Mapping, Sequence
 from contextlib import ExitStack
 from os import PathLike
 from pathlib import Path
@@ -54,6 +55,7 @@ FilePathInput = FilePathTypes | Sequence[FilePathTypes]
 UrlValue = str | URL
 UrlInput = UrlValue | Sequence[UrlValue]
 NormalizedFileTypes: TypeAlias = FileContent | FileTuple2 | FileTuple3 | FileTuple4
+DestinationPath = str | PathLike[str]
 
 
 def _extract_uploaded_file_ids(payload: Any) -> list[str]:
@@ -210,6 +212,10 @@ def _normalize_url_inputs(urls: UrlInput) -> list[str]:
             raise ValueError(msg)
         normalized.append(str(parsed))
     return normalized
+
+
+def _resolve_file_id(file_ref: PdfRestFile | str) -> str:
+    return file_ref.id if isinstance(file_ref, PdfRestFile) else str(file_ref)
 
 
 ClientType = TypeVar("ClientType", httpx.Client, httpx.AsyncClient)
@@ -572,6 +578,19 @@ class _SyncApiClient(_BaseApiClient[httpx.Client]):
     def send_request(self, request: _RequestModel) -> Any:
         return self._send_request(request)
 
+    def download_file(self, file_id: str) -> httpx.Response:
+        request = self._client.build_request("GET", f"/resource/{file_id}")
+        try:
+            response = self._client.send(request, stream=True)
+        except httpx.HTTPError as exc:
+            raise translate_httpx_error(exc) from exc
+        if not response.is_success:
+            try:
+                self._handle_response(response)
+            finally:
+                response.close()
+        return response
+
     def fetch_file_info(self, file_id: str) -> PdfRestFile:
         request = self.prepare_request(
             "GET",
@@ -641,6 +660,19 @@ class _AsyncApiClient(_BaseApiClient[httpx.AsyncClient]):
     async def send_request(self, request: _RequestModel) -> Any:
         return await self._send_request(request)
 
+    async def download_file(self, file_id: str) -> httpx.Response:
+        request = self._client.build_request("GET", f"/resource/{file_id}")
+        try:
+            response = await self._client.send(request, stream=True)
+        except httpx.HTTPError as exc:
+            raise translate_httpx_error(exc) from exc
+        if not response.is_success:
+            try:
+                self._handle_response(response)
+            finally:
+                await response.aclose()
+        return response
+
     async def fetch_file_info(self, file_id: str) -> PdfRestFile:
         request = self.prepare_request(
             "GET",
@@ -649,6 +681,66 @@ class _AsyncApiClient(_BaseApiClient[httpx.AsyncClient]):
         )
         payload = await self._send_request(request)
         return PdfRestFile.model_validate(payload)
+
+
+class PdfRestFileStream:
+    """Streaming wrapper for synchronously downloading files from pdfRest."""
+
+    def __init__(self, response: httpx.Response) -> None:
+        self._response = response
+
+    def iter_bytes(self, chunk_size: int | None = None) -> Iterator[bytes]:
+        yield from self._response.iter_bytes(chunk_size)
+
+    def iter_text(self, chunk_size: int | None = None) -> Iterator[str]:
+        yield from self._response.iter_text(chunk_size)
+
+    def iter_lines(self) -> Iterator[str]:
+        yield from self._response.iter_lines()
+
+    def iter_raw(self, chunk_size: int | None = None) -> Iterator[bytes]:
+        yield from self._response.iter_raw(chunk_size)
+
+    def close(self) -> None:
+        self._response.close()
+
+    def __enter__(self) -> PdfRestFileStream:
+        return self
+
+    def __exit__(self, exc_type: Any, exc: Any, traceback: Any) -> None:
+        self.close()
+
+
+class AsyncPdfRestFileStream:
+    """Streaming wrapper for asynchronously downloading files from pdfRest."""
+
+    def __init__(self, response: httpx.Response) -> None:
+        self._response = response
+
+    async def iter_bytes(self, chunk_size: int | None = None) -> AsyncIterator[bytes]:
+        async for chunk in self._response.aiter_bytes(chunk_size):
+            yield chunk
+
+    async def iter_text(self, chunk_size: int | None = None) -> AsyncIterator[str]:
+        async for chunk in self._response.aiter_text(chunk_size):
+            yield chunk
+
+    async def iter_lines(self) -> AsyncIterator[str]:
+        async for line in self._response.aiter_lines():
+            yield line
+
+    async def iter_raw(self, chunk_size: int | None = None) -> AsyncIterator[bytes]:
+        async for chunk in self._response.aiter_raw(chunk_size):
+            yield chunk
+
+    async def close(self) -> None:
+        await self._response.aclose()
+
+    async def __aenter__(self) -> AsyncPdfRestFileStream:
+        return self
+
+    async def __aexit__(self, exc_type: Any, exc: Any, traceback: Any) -> None:
+        await self.close()
 
 
 class _FilesClient:
@@ -708,6 +800,56 @@ class _FilesClient:
         payload = self._client.send_request(request)
         file_ids = _extract_uploaded_file_ids(payload)
         return [self._client.fetch_file_info(file_id) for file_id in file_ids]
+
+    def read_bytes(self, file_ref: PdfRestFile | str) -> bytes:
+        response = self._client.download_file(_resolve_file_id(file_ref))
+        try:
+            return response.read()
+        finally:
+            response.close()
+
+    def read_text(
+        self,
+        file_ref: PdfRestFile | str,
+        *,
+        encoding: str = "utf-8",
+    ) -> str:
+        response = self._client.download_file(_resolve_file_id(file_ref))
+        try:
+            response.encoding = encoding
+            data = response.read()
+            codec = response.encoding or encoding or "utf-8"
+            return data.decode(codec)
+        finally:
+            response.close()
+
+    def read_json(self, file_ref: PdfRestFile | str) -> Any:
+        response = self._client.download_file(_resolve_file_id(file_ref))
+        try:
+            data = response.read()
+            codec = response.encoding or "utf-8"
+            return json.loads(data.decode(codec))
+        finally:
+            response.close()
+
+    def write_bytes(
+        self,
+        file_ref: PdfRestFile | str,
+        destination: DestinationPath,
+    ) -> Path:
+        response = self._client.download_file(_resolve_file_id(file_ref))
+        path = Path(destination)
+        try:
+            with path.open("wb") as file_handle:
+                for chunk in response.iter_bytes():
+                    file_handle.write(chunk)
+        finally:
+            response.close()
+        return path
+
+    def stream(self, file_ref: PdfRestFile | str) -> PdfRestFileStream:
+        response = self._client.download_file(_resolve_file_id(file_ref))
+        return PdfRestFileStream(response)
 
 
 class _AsyncFilesClient:
@@ -785,6 +927,56 @@ class _AsyncFilesClient:
                 return await self._client.fetch_file_info(file_id)
 
         return await asyncio.gather(*(fetch(file_id) for file_id in file_ids))
+
+    async def read_bytes(self, file_ref: PdfRestFile | str) -> bytes:
+        response = await self._client.download_file(_resolve_file_id(file_ref))
+        try:
+            return await response.aread()
+        finally:
+            await response.aclose()
+
+    async def read_text(
+        self,
+        file_ref: PdfRestFile | str,
+        *,
+        encoding: str = "utf-8",
+    ) -> str:
+        response = await self._client.download_file(_resolve_file_id(file_ref))
+        try:
+            response.encoding = encoding
+            data = await response.aread()
+            codec = response.encoding or encoding or "utf-8"
+            return data.decode(codec)
+        finally:
+            await response.aclose()
+
+    async def read_json(self, file_ref: PdfRestFile | str) -> Any:
+        response = await self._client.download_file(_resolve_file_id(file_ref))
+        try:
+            data = await response.aread()
+            codec = response.encoding or "utf-8"
+            return json.loads(data.decode(codec))
+        finally:
+            await response.aclose()
+
+    async def write_bytes(
+        self,
+        file_ref: PdfRestFile | str,
+        destination: DestinationPath,
+    ) -> Path:
+        response = await self._client.download_file(_resolve_file_id(file_ref))
+        path = Path(destination)
+        try:
+            with path.open("wb") as file_handle:
+                async for chunk in response.aiter_bytes():
+                    file_handle.write(chunk)
+        finally:
+            await response.aclose()
+        return path
+
+    async def stream(self, file_ref: PdfRestFile | str) -> AsyncPdfRestFileStream:
+        response = await self._client.download_file(_resolve_file_id(file_ref))
+        return AsyncPdfRestFileStream(response)
 
 
 class PdfRestClient(_SyncApiClient):
