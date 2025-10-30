@@ -27,6 +27,8 @@ from .models import PdfRestErrorResponse, PdfRestFile, UpResponse
 
 __all__ = ("AsyncPdfRestClient", "PdfRestClient")
 
+from .models._internal import UploadURLs
+
 DEFAULT_BASE_URL = "https://api.pdfrest.com"
 API_KEY_ENV_VAR = "PDFREST_API_KEY"
 API_KEY_HEADER_NAME = "Api-Key"
@@ -193,26 +195,6 @@ def _normalize_path_inputs(
         msg = "At least one file path must be provided."
         raise ValueError(msg)
     return items
-
-
-def _normalize_url_inputs(urls: UrlInput) -> list[str]:
-    if isinstance(urls, Sequence) and not isinstance(urls, (str, bytes, bytearray)):
-        sequence_urls: Sequence[UrlValue] = urls
-        items = list(sequence_urls)
-    else:
-        single_url: UrlValue = urls
-        items = [single_url]
-    if not items:
-        msg = "At least one URL must be provided."
-        raise ValueError(msg)
-    normalized: list[str] = []
-    for item in items:
-        parsed = URL(str(item))
-        if parsed.scheme not in {"http", "https"}:
-            msg = "URL uploads require http or https scheme."
-            raise ValueError(msg)
-        normalized.append(str(parsed))
-    return normalized
 
 
 def _resolve_file_id(file_ref: PdfRestFile | str) -> str:
@@ -797,11 +779,11 @@ class _FilesClient:
     def create_from_urls(self, urls: UrlInput) -> list[PdfRestFile]:
         """Upload one or more files by providing remote URLs."""
 
-        normalized_urls = _normalize_url_inputs(urls)
+        normalized_urls = UploadURLs.model_validate({"url": urls})  # pyright: ignore[reportPrivateUsage]
         request = self._client.prepare_request(
             "POST",
             "/upload",
-            json_body={"url": normalized_urls},
+            json_body=normalized_urls.model_dump(mode="json"),
         )
         payload = self._client.send_request(request)
         file_ids = _extract_uploaded_file_ids(payload)
@@ -918,11 +900,11 @@ class _AsyncFilesClient:
     async def create_from_urls(self, urls: UrlInput) -> list[PdfRestFile]:
         """Upload one or more files by providing remote URLs."""
 
-        normalized_urls = _normalize_url_inputs(urls)
+        normalized_urls = UploadURLs.model_validate({"url": urls})
         request = self._client.prepare_request(
             "POST",
             "/upload",
-            json_body={"url": normalized_urls},
+            json_body=normalized_urls.model_dump(mode="json"),
         )
         payload = await self._client.send_request(request)
         file_ids = _extract_uploaded_file_ids(payload)

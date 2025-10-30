@@ -547,9 +547,7 @@ class TestAsyncDownloadHelpers:
 async def test_async_files_create_from_urls_invalid_scheme() -> None:
     transport = httpx.MockTransport(lambda request: httpx.Response(400))
     async with AsyncPdfRestClient(api_key=VALID_API_KEY, transport=transport) as client:
-        with pytest.raises(
-            ValueError, match=r"URL uploads require http or https scheme\."
-        ):
+        with pytest.raises(ValueError, match=r"URL scheme should be 'http' or 'https'"):
             await client.files.create_from_urls("ftp://example.com/file.pdf")
 
 
@@ -569,7 +567,10 @@ def test_files_create_rejects_empty_input() -> None:
             ValueError, match=r"At least one file path must be provided\."
         ):
             client.files.create_from_paths([])
-        with pytest.raises(ValueError, match=r"At least one URL must be provided\."):
+        with pytest.raises(
+            ValueError,
+            match=r"Value should have at least 1 item after validation, not 0",
+        ):
             client.files.create_from_urls([])
 
 
