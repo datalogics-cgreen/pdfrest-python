@@ -14,7 +14,7 @@ import pytest
 import pytest_asyncio
 
 from pdfrest import AsyncPdfRestClient, PdfRestClient
-from pdfrest.models import PdfRestFile
+from pdfrest.models import PdfRestFile, PdfRestFileID
 
 from .resources import get_test_resource_path
 
@@ -143,6 +143,45 @@ def live_async_file(
         original_bytes=source_bytes,
         source_text=source_text,
     )
+
+
+@pytest.mark.parametrize(
+    "file_ref",
+    [
+        pytest.param(PdfRestFileID.generate(), id="pdfrest-file-id"),
+        pytest.param(str(uuid.uuid4()), id="raw-str"),
+    ],
+)
+def test_files_get_fetches_info(file_ref: PdfRestFileID | str) -> None:
+    file_id = str(file_ref)
+    info_payload = _build_file_info_payload(file_id, "report.pdf")
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.method == "GET" and request.url.path == f"/resource/{file_id}":
+            assert request.url.params["format"] == "info"
+            return httpx.Response(200, json=info_payload)
+        msg = f"Unexpected request: {request.method} {request.url}"
+        raise AssertionError(msg)
+
+    transport = httpx.MockTransport(handler)
+    with PdfRestClient(api_key=VALID_API_KEY, transport=transport) as client:
+        file_repr = client.files.get(file_ref)
+
+    _assert_file_matches_payload(file_repr, info_payload)
+
+
+def test_files_get_rejects_invalid_id() -> None:
+    transport = httpx.MockTransport(
+        lambda request: (_ for _ in ()).throw(
+            AssertionError("Request should not be sent for invalid IDs.")
+        )
+    )
+
+    with (
+        PdfRestClient(api_key=VALID_API_KEY, transport=transport) as client,
+        pytest.raises(ValueError, match="Invalid PdfRestPrefixedUUID4"),
+    ):
+        client.files.get("not-a-valid-id")
 
 
 def test_files_create_uses_upload_and_info() -> None:
@@ -696,6 +735,45 @@ async def test_async_files_create_from_urls_single_url() -> None:
 
     assert len(response) == 1
     _assert_file_matches_payload(response[0], info_payload)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "file_ref",
+    [
+        pytest.param(PdfRestFileID.generate(), id="pdfrest-file-id"),
+        pytest.param(str(uuid.uuid4()), id="raw-str"),
+    ],
+)
+async def test_async_files_get_fetches_info(file_ref: PdfRestFileID | str) -> None:
+    file_id = str(file_ref)
+    info_payload = _build_file_info_payload(file_id, "report.pdf")
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.method == "GET" and request.url.path == f"/resource/{file_id}":
+            assert request.url.params["format"] == "info"
+            return httpx.Response(200, json=info_payload)
+        msg = f"Unexpected request: {request.method} {request.url}"
+        raise AssertionError(msg)
+
+    transport = httpx.MockTransport(handler)
+    async with AsyncPdfRestClient(api_key=VALID_API_KEY, transport=transport) as client:
+        file_repr = await client.files.get(file_ref)
+
+    _assert_file_matches_payload(file_repr, info_payload)
+
+
+@pytest.mark.asyncio
+async def test_async_files_get_rejects_invalid_id() -> None:
+    transport = httpx.MockTransport(
+        lambda request: (_ for _ in ()).throw(
+            AssertionError("Request should not be sent for invalid IDs.")
+        )
+    )
+
+    async with AsyncPdfRestClient(api_key=VALID_API_KEY, transport=transport) as client:
+        with pytest.raises(ValueError, match="Invalid PdfRestPrefixedUUID4"):
+            await client.files.get("not-a-valid-id")
 
 
 @pytest.mark.asyncio

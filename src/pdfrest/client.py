@@ -27,6 +27,7 @@ from .models import (
     PdfRestErrorResponse,
     PdfRestFile,
     PdfRestFileBasedResponse,
+    PdfRestFileID,
     UpResponse,
 )
 
@@ -204,6 +205,12 @@ def _normalize_path_inputs(
 
 def _resolve_file_id(file_ref: PdfRestFile | str) -> str:
     return file_ref.id if isinstance(file_ref, PdfRestFile) else str(file_ref)
+
+
+def _normalize_file_id(file_ref: PdfRestFileID | str) -> PdfRestFileID:
+    if isinstance(file_ref, PdfRestFileID):
+        return file_ref
+    return PdfRestFileID(str(file_ref))
 
 
 ClientType = TypeVar("ClientType", httpx.Client, httpx.AsyncClient)
@@ -742,6 +749,11 @@ class _FilesClient:
     def __init__(self, client: _SyncApiClient) -> None:
         self._client = client
 
+    def get(self, file_ref: PdfRestFileID | str) -> PdfRestFile:
+        """Retrieve file metadata given a file identifier."""
+        file_id = _normalize_file_id(file_ref)
+        return self._client.fetch_file_info(str(file_id))
+
     def create(self, files: UploadFiles) -> list[PdfRestFile]:
         """Upload one or more files by content.
 
@@ -856,6 +868,11 @@ class _AsyncFilesClient:
     ) -> None:
         self._client = client
         self._concurrency_limit = concurrency_limit
+
+    async def get(self, file_ref: PdfRestFileID | str) -> PdfRestFile:
+        """Retrieve file metadata given a file identifier."""
+        file_id = _normalize_file_id(file_ref)
+        return await self._client.fetch_file_info(str(file_id))
 
     async def create(self, files: UploadFiles) -> list[PdfRestFile]:
         """Upload one or more files by content.
