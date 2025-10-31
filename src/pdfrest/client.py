@@ -23,11 +23,16 @@ from .exceptions import (
     PdfRestConfigurationError,
     translate_httpx_error,
 )
-from .models import PdfRestErrorResponse, PdfRestFile, UpResponse
+from .models import (
+    PdfRestErrorResponse,
+    PdfRestFile,
+    PdfRestFileBasedResponse,
+    UpResponse,
+)
 
 __all__ = ("AsyncPdfRestClient", "PdfRestClient")
 
-from .models._internal import UploadURLs
+from .models._internal import ConvertToGraphic, PdfRestRawFileResponse, UploadURLs
 
 DEFAULT_BASE_URL = "https://api.pdfrest.com"
 API_KEY_ENV_VAR = "PDFREST_API_KEY"
@@ -1024,6 +1029,56 @@ class PdfRestClient(_SyncApiClient):
         payload = self._send_request(request)
         return UpResponse.model_validate(payload)
 
+    def convert_to_png(
+        self,
+        files: PdfRestFile | Sequence[PdfRestFile],
+        *,
+        output_prefix: str | None = None,
+        page_range: str | Sequence[str] | None = None,
+        resolution: int = 300,
+        color_model: Literal["rgb", "rgba", "gray"] = "rgb",
+        smoothing: Literal["none", "all", "text", "line", "image"]
+        | Sequence[Literal["none", "all", "text", "line", "image"]]
+        | None = None,
+    ) -> PdfRestFileBasedResponse:
+        """Convert one or more pdfRest files to PNG images."""
+
+        payload: dict[str, Any] = {
+            "files": files,
+            "resolution": resolution,
+            "color_model": color_model,
+        }
+        if output_prefix is not None:
+            payload["output_prefix"] = output_prefix
+        if page_range is not None:
+            payload["page_range"] = page_range
+        if smoothing is not None:
+            payload["smoothing"] = smoothing
+
+        conversion_options = ConvertToGraphic.model_validate(payload)
+        request = self.prepare_request(
+            "POST",
+            "/png",
+            json_body=conversion_options.model_dump(
+                mode="json", by_alias=True, exclude_none=True, exclude_defaults=True
+            ),
+        )
+        raw_payload = self._send_request(request)
+        raw_response = PdfRestRawFileResponse.model_validate(raw_payload)
+
+        output_ids = raw_response.ids or []
+        output_files = [self.fetch_file_info(str(file_id)) for file_id in output_ids]
+
+        return PdfRestFileBasedResponse.model_validate(
+            {
+                "input_id": [str(file_id) for file_id in raw_response.input_id],
+                "output_file": [
+                    file.model_dump(mode="json", by_alias=True) for file in output_files
+                ],
+                "warning": raw_response.warning,
+            }
+        )
+
 
 class AsyncPdfRestClient(_AsyncApiClient):
     """Asynchronous client for interacting with the pdfrest API."""
@@ -1081,3 +1136,59 @@ class AsyncPdfRestClient(_AsyncApiClient):
         )
         payload = await self._send_request(request)
         return UpResponse.model_validate(payload)
+
+    async def convert_to_png(
+        self,
+        files: PdfRestFile | Sequence[PdfRestFile],
+        *,
+        output_prefix: str | None = None,
+        page_range: str | Sequence[str] | None = None,
+        resolution: int = 300,
+        color_model: Literal["rgb", "rgba", "gray"] = "rgb",
+        smoothing: Literal["none", "all", "text", "line", "image"]
+        | Sequence[Literal["none", "all", "text", "line", "image"]]
+        | None = None,
+    ) -> PdfRestFileBasedResponse:
+        """Asynchronously convert one or more pdfRest files to PNG images."""
+
+        payload: dict[str, Any] = {
+            "files": files,
+            "resolution": resolution,
+            "color_model": color_model,
+        }
+        if output_prefix is not None:
+            payload["output_prefix"] = output_prefix
+        if page_range is not None:
+            payload["page_range"] = page_range
+        if smoothing is not None:
+            payload["smoothing"] = smoothing
+
+        conversion_options = ConvertToGraphic.model_validate(payload)
+        request = self.prepare_request(
+            "POST",
+            "/png",
+            json_body=conversion_options.model_dump(
+                mode="json", by_alias=True, exclude_none=True, exclude_unset=True
+            ),
+        )
+        raw_payload = await self._send_request(request)
+        raw_response = PdfRestRawFileResponse.model_validate(raw_payload)
+
+        output_ids = raw_response.ids or []
+        output_files: list[PdfRestFile] = []
+        if output_ids:
+            output_files = list(
+                await asyncio.gather(
+                    *(self.fetch_file_info(str(file_id)) for file_id in output_ids)
+                )
+            )
+
+        return PdfRestFileBasedResponse.model_validate(
+            {
+                "input_id": [str(file_id) for file_id in raw_response.input_id],
+                "output_file": [
+                    file.model_dump(mode="json", by_alias=True) for file in output_files
+                ],
+                "warning": raw_response.warning,
+            }
+        )
