@@ -49,6 +49,20 @@ def _make_pdf_file(file_id: str, name: str = "example.pdf") -> PdfRestFile:
     )
 
 
+def _assert_conversion_payload(
+    payload: dict[str, Any], expected: dict[str, Any]
+) -> None:
+    for key, value in expected.items():
+        assert payload[key] == value
+    extras = set(payload) - set(expected)
+    allowed_extras = {"color_model", "resolution"}
+    assert extras <= allowed_extras
+    if "resolution" not in expected:
+        assert payload.get("resolution") == 300
+    if "color_model" not in expected:
+        assert payload.get("color_model") == "rgb"
+
+
 def test_convert_to_png_success(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.delenv("PDFREST_API_KEY", raising=False)
     input_file = _make_pdf_file(PdfRestFileID.generate(1))
@@ -71,7 +85,8 @@ def test_convert_to_png_success(monkeypatch: pytest.MonkeyPatch) -> None:
         if request.method == "POST" and request.url.path == "/png":
             seen["post"] += 1
             assert request.headers["wsn"] == "pdfrest-python"
-            assert json.loads(request.content.decode("utf-8")) == request_payload
+            payload = json.loads(request.content.decode("utf-8"))
+            _assert_conversion_payload(payload, request_payload)
             return httpx.Response(
                 200,
                 json={
@@ -110,6 +125,63 @@ def test_convert_to_png_success(monkeypatch: pytest.MonkeyPatch) -> None:
     assert str(output_file.url).endswith(output_id)
     assert str(response.input_id) == str(input_file.id)
     assert response.warning is None
+
+
+def test_convert_to_png_request_customization(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.delenv("PDFREST_API_KEY", raising=False)
+    input_file = _make_pdf_file(PdfRestFileID.generate(1))
+    output_id = "9f4a9b10-3c55-4e6d-a111-1234567890ab"
+    captured_timeout: dict[str, float | dict[str, float] | None] = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.method == "POST" and request.url.path == "/png":
+            assert request.url.params["trace"] == "true"
+            assert request.headers["X-Debug"] == "1"
+            captured_timeout["value"] = request.extensions.get("timeout")
+            payload = json.loads(request.content.decode("utf-8"))
+            assert payload["debug"] is True
+            assert payload["resolution"] == 450
+            assert payload["id"] == str(input_file.id)
+            return httpx.Response(
+                200,
+                json={
+                    "inputId": [input_file.id],
+                    "outputId": [output_id],
+                },
+            )
+        if request.method == "GET" and request.url.path == f"/resource/{output_id}":
+            assert request.url.params["format"] == "info"
+            assert request.url.params["trace"] == "true"
+            assert request.headers["X-Debug"] == "1"
+            return httpx.Response(
+                200, json=_build_file_info_payload(output_id, "custom-001.png")
+            )
+        msg = f"Unexpected request {request.method} {request.url}"
+        raise AssertionError(msg)
+
+    transport = httpx.MockTransport(handler)
+    with PdfRestClient(api_key=VALID_API_KEY, transport=transport) as client:
+        response = client.convert_to_png(
+            input_file,
+            resolution=450,
+            extra_query={"trace": "true"},
+            extra_headers={"X-Debug": "1"},
+            extra_body={"debug": True},
+            timeout=0.25,
+        )
+
+    assert isinstance(response, PdfRestFileBasedResponse)
+    assert response.output_files[0].name == "custom-001.png"
+    timeout_value = captured_timeout["value"]
+    assert timeout_value is not None
+    if isinstance(timeout_value, dict):
+        assert all(
+            component == pytest.approx(0.25) for component in timeout_value.values()
+        )
+    else:
+        assert timeout_value == pytest.approx(0.25)
 
 
 def test_convert_to_png_validation_error(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -151,7 +223,8 @@ async def test_async_convert_to_png_success(monkeypatch: pytest.MonkeyPatch) -> 
     def handler(request: httpx.Request) -> httpx.Response:
         if request.method == "POST" and request.url.path == "/png":
             seen["post"] += 1
-            assert json.loads(request.content.decode("utf-8")) == request_payload
+            payload = json.loads(request.content.decode("utf-8"))
+            _assert_conversion_payload(payload, request_payload)
             return httpx.Response(
                 200,
                 json={
@@ -192,6 +265,64 @@ async def test_async_convert_to_png_success(monkeypatch: pytest.MonkeyPatch) -> 
 
 
 @pytest.mark.asyncio
+async def test_async_convert_to_png_request_customization(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.delenv("PDFREST_API_KEY", raising=False)
+    input_file = _make_pdf_file(PdfRestFileID.generate(1))
+    output_id = "abcdb5f9-1234-4c67-98ef-abcdefabcdef"
+    captured_timeout: dict[str, float | dict[str, float] | None] = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.method == "POST" and request.url.path == "/png":
+            assert request.url.params["trace"] == "true"
+            assert request.headers["X-Debug"] == "async"
+            captured_timeout["value"] = request.extensions.get("timeout")
+            payload = json.loads(request.content.decode("utf-8"))
+            assert payload["debug"] is True
+            assert payload["resolution"] == 500
+            assert payload["id"] == str(input_file.id)
+            return httpx.Response(
+                200,
+                json={
+                    "inputId": [input_file.id],
+                    "outputId": [output_id],
+                },
+            )
+        if request.method == "GET" and request.url.path == f"/resource/{output_id}":
+            assert request.url.params["format"] == "info"
+            assert request.url.params["trace"] == "true"
+            assert request.headers["X-Debug"] == "async"
+            return httpx.Response(
+                200, json=_build_file_info_payload(output_id, "async-custom-001.png")
+            )
+        msg = f"Unexpected request {request.method} {request.url}"
+        raise AssertionError(msg)
+
+    transport = httpx.MockTransport(handler)
+    async with AsyncPdfRestClient(api_key=ASYNC_API_KEY, transport=transport) as client:
+        response = await client.convert_to_png(
+            input_file,
+            resolution=500,
+            extra_query={"trace": "true"},
+            extra_headers={"X-Debug": "async"},
+            extra_body={"debug": True},
+            timeout=0.6,
+        )
+
+    assert isinstance(response, PdfRestFileBasedResponse)
+    assert response.output_files[0].name == "async-custom-001.png"
+    timeout_value = captured_timeout["value"]
+    assert timeout_value is not None
+    if isinstance(timeout_value, dict):
+        assert all(
+            component == pytest.approx(0.6) for component in timeout_value.values()
+        )
+    else:
+        assert timeout_value == pytest.approx(0.6)
+
+
+@pytest.mark.asyncio
 async def test_async_convert_to_png_validation_error(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -227,7 +358,8 @@ def test_convert_to_png_sequence_arguments(monkeypatch: pytest.MonkeyPatch) -> N
     def handler(request: httpx.Request) -> httpx.Response:
         if request.method == "POST" and request.url.path == "/png":
             seen["post"] += 1
-            assert json.loads(request.content.decode("utf-8")) == request_payload
+            payload = json.loads(request.content.decode("utf-8"))
+            _assert_conversion_payload(payload, request_payload)
             return httpx.Response(
                 200,
                 json={
@@ -278,7 +410,8 @@ def test_convert_to_png_page_range_variants(monkeypatch: pytest.MonkeyPatch) -> 
     def handler(request: httpx.Request) -> httpx.Response:
         if request.method == "POST" and request.url.path == "/png":
             seen["post"] += 1
-            assert json.loads(request.content.decode("utf-8")) == request_payload
+            payload = json.loads(request.content.decode("utf-8"))
+            _assert_conversion_payload(payload, request_payload)
             return httpx.Response(
                 200,
                 json={
@@ -327,7 +460,8 @@ def test_convert_to_png_defaults_excluded(monkeypatch: pytest.MonkeyPatch) -> No
     def handler(request: httpx.Request) -> httpx.Response:
         if request.method == "POST" and request.url.path == "/png":
             seen["post"] += 1
-            assert json.loads(request.content.decode("utf-8")) == request_payload
+            payload = json.loads(request.content.decode("utf-8"))
+            _assert_conversion_payload(payload, request_payload)
             return httpx.Response(
                 200,
                 json={

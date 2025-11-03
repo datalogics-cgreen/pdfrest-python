@@ -397,6 +397,9 @@ class _BaseApiClient(Generic[ClientType]):
         headers = self._compose_headers(extra_headers)
         params = self._compose_query_params(query, extra_query)
         json_payload = self._compose_json_body(json_body, extra_body)
+        if files is not None and json_payload is not None:
+            msg = "JSON payloads cannot be combined with multipart file uploads."
+            raise PdfRestConfigurationError(msg)
         timeout_value = timeout if timeout is not None else self._config.timeout
 
         try:
@@ -578,10 +581,36 @@ class _SyncApiClient(_BaseApiClient[httpx.Client]):
     def send_request(self, request: _RequestModel) -> Any:
         return self._send_request(request)
 
-    def download_file(self, file_id: str) -> httpx.Response:
-        request = self._client.build_request("GET", f"/resource/{file_id}")
+    def download_file(
+        self,
+        file_id: str,
+        *,
+        extra_query: Query | None = None,
+        extra_headers: AnyMapping | None = None,
+        timeout: TimeoutTypes | None = None,
+    ) -> httpx.Response:
+        request = self.prepare_request(
+            "GET",
+            f"/resource/{file_id}",
+            extra_query=extra_query,
+            extra_headers=extra_headers,
+            timeout=timeout,
+        )
+        http_request = self._client.build_request(
+            request.method,
+            request.endpoint,
+            params=request.params or None,
+            headers=request.headers or None,
+        )
+        if request.timeout is not None:
+            timeout_value = (
+                request.timeout
+                if isinstance(request.timeout, httpx.Timeout)
+                else httpx.Timeout(request.timeout)
+            )
+            http_request.extensions["timeout"] = timeout_value.as_dict()
         try:
-            response = self._client.send(request, stream=True)
+            response = self._client.send(http_request, stream=True)
         except httpx.HTTPError as exc:
             raise translate_httpx_error(exc) from exc
         if not response.is_success:
@@ -591,11 +620,21 @@ class _SyncApiClient(_BaseApiClient[httpx.Client]):
                 response.close()
         return response
 
-    def fetch_file_info(self, file_id: str) -> PdfRestFile:
+    def fetch_file_info(
+        self,
+        file_id: str,
+        *,
+        extra_query: Query | None = None,
+        extra_headers: AnyMapping | None = None,
+        timeout: TimeoutTypes | None = None,
+    ) -> PdfRestFile:
         request = self.prepare_request(
             "GET",
             f"/resource/{file_id}",
             query={"format": "info"},
+            extra_query=extra_query,
+            extra_headers=extra_headers,
+            timeout=timeout,
         )
         payload = self._send_request(request)
         return PdfRestFile.model_validate(payload)
@@ -660,10 +699,36 @@ class _AsyncApiClient(_BaseApiClient[httpx.AsyncClient]):
     async def send_request(self, request: _RequestModel) -> Any:
         return await self._send_request(request)
 
-    async def download_file(self, file_id: str) -> httpx.Response:
-        request = self._client.build_request("GET", f"/resource/{file_id}")
+    async def download_file(
+        self,
+        file_id: str,
+        *,
+        extra_query: Query | None = None,
+        extra_headers: AnyMapping | None = None,
+        timeout: TimeoutTypes | None = None,
+    ) -> httpx.Response:
+        request = self.prepare_request(
+            "GET",
+            f"/resource/{file_id}",
+            extra_query=extra_query,
+            extra_headers=extra_headers,
+            timeout=timeout,
+        )
+        http_request = self._client.build_request(
+            request.method,
+            request.endpoint,
+            params=request.params or None,
+            headers=request.headers or None,
+        )
+        if request.timeout is not None:
+            timeout_value = (
+                request.timeout
+                if isinstance(request.timeout, httpx.Timeout)
+                else httpx.Timeout(request.timeout)
+            )
+            http_request.extensions["timeout"] = timeout_value.as_dict()
         try:
-            response = await self._client.send(request, stream=True)
+            response = await self._client.send(http_request, stream=True)
         except httpx.HTTPError as exc:
             raise translate_httpx_error(exc) from exc
         if not response.is_success:
@@ -673,11 +738,21 @@ class _AsyncApiClient(_BaseApiClient[httpx.AsyncClient]):
                 await response.aclose()
         return response
 
-    async def fetch_file_info(self, file_id: str) -> PdfRestFile:
+    async def fetch_file_info(
+        self,
+        file_id: str,
+        *,
+        extra_query: Query | None = None,
+        extra_headers: AnyMapping | None = None,
+        timeout: TimeoutTypes | None = None,
+    ) -> PdfRestFile:
         request = self.prepare_request(
             "GET",
             f"/resource/{file_id}",
             query={"format": "info"},
+            extra_query=extra_query,
+            extra_headers=extra_headers,
+            timeout=timeout,
         )
         payload = await self._send_request(request)
         return PdfRestFile.model_validate(payload)
@@ -749,12 +824,31 @@ class _FilesClient:
     def __init__(self, client: _SyncApiClient) -> None:
         self._client = client
 
-    def get(self, file_ref: PdfRestFileID | str) -> PdfRestFile:
+    def get(
+        self,
+        id: PdfRestFileID | str,
+        *,
+        extra_query: Query | None = None,
+        extra_headers: AnyMapping | None = None,
+        timeout: TimeoutTypes | None = None,
+    ) -> PdfRestFile:
         """Retrieve file metadata given a file identifier."""
-        file_id = _normalize_file_id(file_ref)
-        return self._client.fetch_file_info(str(file_id))
+        file_id = _normalize_file_id(id)
+        return self._client.fetch_file_info(
+            str(file_id),
+            extra_query=extra_query,
+            extra_headers=extra_headers,
+            timeout=timeout,
+        )
 
-    def create(self, files: UploadFiles) -> list[PdfRestFile]:
+    def create(
+        self,
+        files: UploadFiles,
+        *,
+        extra_query: Query | None = None,
+        extra_headers: AnyMapping | None = None,
+        timeout: TimeoutTypes | None = None,
+    ) -> list[PdfRestFile]:
         """Upload one or more files by content.
 
         Provide either a single file specification or a sequence of file
@@ -763,13 +857,33 @@ class _FilesClient:
         """
         normalized_files = _normalize_upload_files(files)
         request = self._client.prepare_request(
-            "POST", "/upload", files=normalized_files
+            "POST",
+            "/upload",
+            files=normalized_files,
+            extra_query=extra_query,
+            extra_headers=extra_headers,
+            timeout=timeout,
         )
         payload = self._client.send_request(request)
         file_ids = _extract_uploaded_file_ids(payload)
-        return [self._client.fetch_file_info(file_id) for file_id in file_ids]
+        return [
+            self._client.fetch_file_info(
+                file_id,
+                extra_query=extra_query,
+                extra_headers=extra_headers,
+                timeout=timeout,
+            )
+            for file_id in file_ids
+        ]
 
-    def create_from_paths(self, file_paths: FilePathInput) -> list[PdfRestFile]:
+    def create_from_paths(
+        self,
+        file_paths: FilePathInput,
+        *,
+        extra_query: Query | None = None,
+        extra_headers: AnyMapping | None = None,
+        timeout: TimeoutTypes | None = None,
+    ) -> list[PdfRestFile]:
         """Upload one or more files by their path.
 
         Each entry may be a bare path-like object or a tuple of
@@ -791,9 +905,22 @@ class _FilesClient:
                     upload_specs.append((filename, file_obj, content_type))
                 else:
                     upload_specs.append((filename, file_obj))
-            return self.create(upload_specs)
+            return self.create(
+                upload_specs,
+                extra_query=extra_query,
+                extra_headers=extra_headers,
+                timeout=timeout,
+            )
 
-    def create_from_urls(self, urls: UrlInput) -> list[PdfRestFile]:
+    def create_from_urls(
+        self,
+        urls: UrlInput,
+        *,
+        extra_query: Query | None = None,
+        extra_headers: AnyMapping | None = None,
+        extra_body: Body | None = None,
+        timeout: TimeoutTypes | None = None,
+    ) -> list[PdfRestFile]:
         """Upload one or more files by providing remote URLs."""
 
         normalized_urls = UploadURLs.model_validate({"url": urls})  # pyright: ignore[reportPrivateUsage]
@@ -801,13 +928,37 @@ class _FilesClient:
             "POST",
             "/upload",
             json_body=normalized_urls.model_dump(mode="json"),
+            extra_query=extra_query,
+            extra_headers=extra_headers,
+            extra_body=extra_body,
+            timeout=timeout,
         )
         payload = self._client.send_request(request)
         file_ids = _extract_uploaded_file_ids(payload)
-        return [self._client.fetch_file_info(file_id) for file_id in file_ids]
+        return [
+            self._client.fetch_file_info(
+                file_id,
+                extra_query=extra_query,
+                extra_headers=extra_headers,
+                timeout=timeout,
+            )
+            for file_id in file_ids
+        ]
 
-    def read_bytes(self, file_ref: PdfRestFile | str) -> bytes:
-        response = self._client.download_file(_resolve_file_id(file_ref))
+    def read_bytes(
+        self,
+        file_ref: PdfRestFile | str,
+        *,
+        extra_query: Query | None = None,
+        extra_headers: AnyMapping | None = None,
+        timeout: TimeoutTypes | None = None,
+    ) -> bytes:
+        response = self._client.download_file(
+            _resolve_file_id(file_ref),
+            extra_query=extra_query,
+            extra_headers=extra_headers,
+            timeout=timeout,
+        )
         try:
             return response.read()
         finally:
@@ -818,8 +969,16 @@ class _FilesClient:
         file_ref: PdfRestFile | str,
         *,
         encoding: str = "utf-8",
+        extra_query: Query | None = None,
+        extra_headers: AnyMapping | None = None,
+        timeout: TimeoutTypes | None = None,
     ) -> str:
-        response = self._client.download_file(_resolve_file_id(file_ref))
+        response = self._client.download_file(
+            _resolve_file_id(file_ref),
+            extra_query=extra_query,
+            extra_headers=extra_headers,
+            timeout=timeout,
+        )
         try:
             response.encoding = encoding
             data = response.read()
@@ -828,8 +987,20 @@ class _FilesClient:
         finally:
             response.close()
 
-    def read_json(self, file_ref: PdfRestFile | str) -> Any:
-        response = self._client.download_file(_resolve_file_id(file_ref))
+    def read_json(
+        self,
+        file_ref: PdfRestFile | str,
+        *,
+        extra_query: Query | None = None,
+        extra_headers: AnyMapping | None = None,
+        timeout: TimeoutTypes | None = None,
+    ) -> Any:
+        response = self._client.download_file(
+            _resolve_file_id(file_ref),
+            extra_query=extra_query,
+            extra_headers=extra_headers,
+            timeout=timeout,
+        )
         try:
             data = response.read()
             codec = response.encoding or "utf-8"
@@ -841,8 +1012,17 @@ class _FilesClient:
         self,
         file_ref: PdfRestFile | str,
         destination: DestinationPath,
+        *,
+        extra_query: Query | None = None,
+        extra_headers: AnyMapping | None = None,
+        timeout: TimeoutTypes | None = None,
     ) -> Path:
-        response = self._client.download_file(_resolve_file_id(file_ref))
+        response = self._client.download_file(
+            _resolve_file_id(file_ref),
+            extra_query=extra_query,
+            extra_headers=extra_headers,
+            timeout=timeout,
+        )
         path = Path(destination)
         try:
             with path.open("wb") as file_handle:
@@ -852,8 +1032,20 @@ class _FilesClient:
             response.close()
         return path
 
-    def stream(self, file_ref: PdfRestFile | str) -> PdfRestFileStream:
-        response = self._client.download_file(_resolve_file_id(file_ref))
+    def stream(
+        self,
+        file_ref: PdfRestFile | str,
+        *,
+        extra_query: Query | None = None,
+        extra_headers: AnyMapping | None = None,
+        timeout: TimeoutTypes | None = None,
+    ) -> PdfRestFileStream:
+        response = self._client.download_file(
+            _resolve_file_id(file_ref),
+            extra_query=extra_query,
+            extra_headers=extra_headers,
+            timeout=timeout,
+        )
         return PdfRestFileStream(response)
 
 
@@ -869,12 +1061,31 @@ class _AsyncFilesClient:
         self._client = client
         self._concurrency_limit = concurrency_limit
 
-    async def get(self, file_ref: PdfRestFileID | str) -> PdfRestFile:
+    async def get(
+        self,
+        id: PdfRestFileID | str,
+        *,
+        extra_query: Query | None = None,
+        extra_headers: AnyMapping | None = None,
+        timeout: TimeoutTypes | None = None,
+    ) -> PdfRestFile:
         """Retrieve file metadata given a file identifier."""
-        file_id = _normalize_file_id(file_ref)
-        return await self._client.fetch_file_info(str(file_id))
+        file_id = _normalize_file_id(id)
+        return await self._client.fetch_file_info(
+            str(file_id),
+            extra_query=extra_query,
+            extra_headers=extra_headers,
+            timeout=timeout,
+        )
 
-    async def create(self, files: UploadFiles) -> list[PdfRestFile]:
+    async def create(
+        self,
+        files: UploadFiles,
+        *,
+        extra_query: Query | None = None,
+        extra_headers: AnyMapping | None = None,
+        timeout: TimeoutTypes | None = None,
+    ) -> list[PdfRestFile]:
         """Upload one or more files by content.
 
         Provide either a single file specification or a sequence of file
@@ -883,7 +1094,12 @@ class _AsyncFilesClient:
         """
         normalized_files = _normalize_upload_files(files)
         request = self._client.prepare_request(
-            "POST", "/upload", files=normalized_files
+            "POST",
+            "/upload",
+            files=normalized_files,
+            extra_query=extra_query,
+            extra_headers=extra_headers,
+            timeout=timeout,
         )
         payload = await self._client.send_request(request)
         file_ids = _extract_uploaded_file_ids(payload)
@@ -891,11 +1107,23 @@ class _AsyncFilesClient:
 
         async def fetch(file_id: str) -> PdfRestFile:
             async with semaphore:
-                return await self._client.fetch_file_info(file_id)
+                return await self._client.fetch_file_info(
+                    file_id,
+                    extra_query=extra_query,
+                    extra_headers=extra_headers,
+                    timeout=timeout,
+                )
 
         return await asyncio.gather(*(fetch(file_id) for file_id in file_ids))
 
-    async def create_from_paths(self, file_paths: FilePathInput) -> list[PdfRestFile]:
+    async def create_from_paths(
+        self,
+        file_paths: FilePathInput,
+        *,
+        extra_query: Query | None = None,
+        extra_headers: AnyMapping | None = None,
+        timeout: TimeoutTypes | None = None,
+    ) -> list[PdfRestFile]:
         """Upload one or more files by their path.
 
         Each entry may be a bare path-like object or a tuple of
@@ -917,9 +1145,22 @@ class _AsyncFilesClient:
                     upload_specs.append((filename, file_obj, content_type))
                 else:
                     upload_specs.append((filename, file_obj))
-            return await self.create(upload_specs)
+            return await self.create(
+                upload_specs,
+                extra_query=extra_query,
+                extra_headers=extra_headers,
+                timeout=timeout,
+            )
 
-    async def create_from_urls(self, urls: UrlInput) -> list[PdfRestFile]:
+    async def create_from_urls(
+        self,
+        urls: UrlInput,
+        *,
+        extra_query: Query | None = None,
+        extra_headers: AnyMapping | None = None,
+        extra_body: Body | None = None,
+        timeout: TimeoutTypes | None = None,
+    ) -> list[PdfRestFile]:
         """Upload one or more files by providing remote URLs."""
 
         normalized_urls = UploadURLs.model_validate({"url": urls})
@@ -927,6 +1168,10 @@ class _AsyncFilesClient:
             "POST",
             "/upload",
             json_body=normalized_urls.model_dump(mode="json"),
+            extra_query=extra_query,
+            extra_headers=extra_headers,
+            extra_body=extra_body,
+            timeout=timeout,
         )
         payload = await self._client.send_request(request)
         file_ids = _extract_uploaded_file_ids(payload)
@@ -934,12 +1179,29 @@ class _AsyncFilesClient:
 
         async def fetch(file_id: str) -> PdfRestFile:
             async with semaphore:
-                return await self._client.fetch_file_info(file_id)
+                return await self._client.fetch_file_info(
+                    file_id,
+                    extra_query=extra_query,
+                    extra_headers=extra_headers,
+                    timeout=timeout,
+                )
 
         return await asyncio.gather(*(fetch(file_id) for file_id in file_ids))
 
-    async def read_bytes(self, file_ref: PdfRestFile | str) -> bytes:
-        response = await self._client.download_file(_resolve_file_id(file_ref))
+    async def read_bytes(
+        self,
+        file_ref: PdfRestFile | str,
+        *,
+        extra_query: Query | None = None,
+        extra_headers: AnyMapping | None = None,
+        timeout: TimeoutTypes | None = None,
+    ) -> bytes:
+        response = await self._client.download_file(
+            _resolve_file_id(file_ref),
+            extra_query=extra_query,
+            extra_headers=extra_headers,
+            timeout=timeout,
+        )
         try:
             return await response.aread()
         finally:
@@ -950,8 +1212,16 @@ class _AsyncFilesClient:
         file_ref: PdfRestFile | str,
         *,
         encoding: str = "utf-8",
+        extra_query: Query | None = None,
+        extra_headers: AnyMapping | None = None,
+        timeout: TimeoutTypes | None = None,
     ) -> str:
-        response = await self._client.download_file(_resolve_file_id(file_ref))
+        response = await self._client.download_file(
+            _resolve_file_id(file_ref),
+            extra_query=extra_query,
+            extra_headers=extra_headers,
+            timeout=timeout,
+        )
         try:
             response.encoding = encoding
             data = await response.aread()
@@ -960,8 +1230,20 @@ class _AsyncFilesClient:
         finally:
             await response.aclose()
 
-    async def read_json(self, file_ref: PdfRestFile | str) -> Any:
-        response = await self._client.download_file(_resolve_file_id(file_ref))
+    async def read_json(
+        self,
+        file_ref: PdfRestFile | str,
+        *,
+        extra_query: Query | None = None,
+        extra_headers: AnyMapping | None = None,
+        timeout: TimeoutTypes | None = None,
+    ) -> Any:
+        response = await self._client.download_file(
+            _resolve_file_id(file_ref),
+            extra_query=extra_query,
+            extra_headers=extra_headers,
+            timeout=timeout,
+        )
         try:
             data = await response.aread()
             codec = response.encoding or "utf-8"
@@ -973,8 +1255,17 @@ class _AsyncFilesClient:
         self,
         file_ref: PdfRestFile | str,
         destination: DestinationPath,
+        *,
+        extra_query: Query | None = None,
+        extra_headers: AnyMapping | None = None,
+        timeout: TimeoutTypes | None = None,
     ) -> Path:
-        response = await self._client.download_file(_resolve_file_id(file_ref))
+        response = await self._client.download_file(
+            _resolve_file_id(file_ref),
+            extra_query=extra_query,
+            extra_headers=extra_headers,
+            timeout=timeout,
+        )
         path = Path(destination)
         try:
             with path.open("wb") as file_handle:
@@ -984,8 +1275,20 @@ class _AsyncFilesClient:
             await response.aclose()
         return path
 
-    async def stream(self, file_ref: PdfRestFile | str) -> AsyncPdfRestFileStream:
-        response = await self._client.download_file(_resolve_file_id(file_ref))
+    async def stream(
+        self,
+        file_ref: PdfRestFile | str,
+        *,
+        extra_query: Query | None = None,
+        extra_headers: AnyMapping | None = None,
+        timeout: TimeoutTypes | None = None,
+    ) -> AsyncPdfRestFileStream:
+        response = await self._client.download_file(
+            _resolve_file_id(file_ref),
+            extra_query=extra_query,
+            extra_headers=extra_headers,
+            timeout=timeout,
+        )
         return AsyncPdfRestFileStream(response)
 
 
@@ -1057,6 +1360,10 @@ class PdfRestClient(_SyncApiClient):
         smoothing: Literal["none", "all", "text", "line", "image"]
         | Sequence[Literal["none", "all", "text", "line", "image"]]
         | None = None,
+        extra_query: Query | None = None,
+        extra_headers: AnyMapping | None = None,
+        extra_body: Body | None = None,
+        timeout: TimeoutTypes | None = None,
     ) -> PdfRestFileBasedResponse:
         """Convert one or more pdfRest files to PNG images."""
 
@@ -1077,14 +1384,26 @@ class PdfRestClient(_SyncApiClient):
             "POST",
             "/png",
             json_body=conversion_options.model_dump(
-                mode="json", by_alias=True, exclude_none=True, exclude_defaults=True
+                mode="json", by_alias=True, exclude_none=True, exclude_unset=True
             ),
+            extra_query=extra_query,
+            extra_headers=extra_headers,
+            extra_body=extra_body,
+            timeout=timeout,
         )
         raw_payload = self._send_request(request)
         raw_response = PdfRestRawFileResponse.model_validate(raw_payload)
 
         output_ids = raw_response.ids or []
-        output_files = [self.fetch_file_info(str(file_id)) for file_id in output_ids]
+        output_files = [
+            self.fetch_file_info(
+                str(file_id),
+                extra_query=extra_query,
+                extra_headers=extra_headers,
+                timeout=timeout,
+            )
+            for file_id in output_ids
+        ]
 
         return PdfRestFileBasedResponse.model_validate(
             {
@@ -1165,6 +1484,10 @@ class AsyncPdfRestClient(_AsyncApiClient):
         smoothing: Literal["none", "all", "text", "line", "image"]
         | Sequence[Literal["none", "all", "text", "line", "image"]]
         | None = None,
+        extra_query: Query | None = None,
+        extra_headers: AnyMapping | None = None,
+        extra_body: Body | None = None,
+        timeout: TimeoutTypes | None = None,
     ) -> PdfRestFileBasedResponse:
         """Asynchronously convert one or more pdfRest files to PNG images."""
 
@@ -1187,6 +1510,10 @@ class AsyncPdfRestClient(_AsyncApiClient):
             json_body=conversion_options.model_dump(
                 mode="json", by_alias=True, exclude_none=True, exclude_unset=True
             ),
+            extra_query=extra_query,
+            extra_headers=extra_headers,
+            extra_body=extra_body,
+            timeout=timeout,
         )
         raw_payload = await self._send_request(request)
         raw_response = PdfRestRawFileResponse.model_validate(raw_payload)
@@ -1196,7 +1523,15 @@ class AsyncPdfRestClient(_AsyncApiClient):
         if output_ids:
             output_files = list(
                 await asyncio.gather(
-                    *(self.fetch_file_info(str(file_id)) for file_id in output_ids)
+                    *(
+                        self.fetch_file_info(
+                            str(file_id),
+                            extra_query=extra_query,
+                            extra_headers=extra_headers,
+                            timeout=timeout,
+                        )
+                        for file_id in output_ids
+                    )
                 )
             )
 

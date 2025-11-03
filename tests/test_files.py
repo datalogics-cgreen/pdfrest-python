@@ -170,6 +170,39 @@ def test_files_get_fetches_info(file_ref: PdfRestFileID | str) -> None:
     _assert_file_matches_payload(file_repr, info_payload)
 
 
+def test_files_get_request_customization() -> None:
+    file_id = str(uuid.uuid4())
+    info_payload = _build_file_info_payload(file_id, "report.pdf")
+    captured_timeout: dict[str, float | dict[str, float] | None] = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.method == "GET" and request.url.path == f"/resource/{file_id}":
+            assert request.url.params["format"] == "info"
+            assert request.headers["X-Trace"] == "1"
+            captured_timeout["value"] = request.extensions.get("timeout")
+            return httpx.Response(200, json=info_payload)
+        msg = f"Unexpected request: {request.method} {request.url}"
+        raise AssertionError(msg)
+
+    transport = httpx.MockTransport(handler)
+    with PdfRestClient(api_key=VALID_API_KEY, transport=transport) as client:
+        file_repr = client.files.get(
+            file_id,
+            extra_headers={"X-Trace": "1"},
+            timeout=0.6,
+        )
+
+    _assert_file_matches_payload(file_repr, info_payload)
+    timeout_value = captured_timeout["value"]
+    assert timeout_value is not None
+    if isinstance(timeout_value, dict):
+        assert all(
+            component == pytest.approx(0.6) for component in timeout_value.values()
+        )
+    else:
+        assert timeout_value == pytest.approx(0.6)
+
+
 def test_files_get_rejects_invalid_id() -> None:
     transport = httpx.MockTransport(
         lambda request: (_ for _ in ()).throw(
@@ -220,6 +253,123 @@ def test_files_create_uses_upload_and_info() -> None:
     file_repr = response[0]
     assert isinstance(file_repr, PdfRestFile)
     _assert_file_matches_payload(file_repr, info_payload)
+
+
+def test_files_create_request_customization() -> None:
+    uploaded_file_id = str(uuid.uuid4())
+    info_payload = _build_file_info_payload(uploaded_file_id, "report.pdf")
+    captured_timeout: dict[str, float | dict[str, float] | None] = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.method == "POST" and request.url.path == "/upload":
+            assert request.url.params["mode"] == "extended"
+            assert request.headers["X-Upload-Token"] == "token"
+            captured_timeout["value"] = request.extensions.get("timeout")
+            return httpx.Response(
+                200,
+                json={
+                    "files": [
+                        {"name": "report.pdf", "id": uploaded_file_id},
+                    ]
+                },
+            )
+        if (
+            request.method == "GET"
+            and request.url.path == f"/resource/{uploaded_file_id}"
+        ):
+            assert request.url.params["format"] == "info"
+            assert request.url.params["mode"] == "extended"
+            assert request.headers["X-Upload-Token"] == "token"
+            return httpx.Response(200, json=info_payload)
+        msg = f"Unexpected request: {request.method} {request.url}"
+        raise AssertionError(msg)
+
+    transport = httpx.MockTransport(handler)
+    with PdfRestClient(api_key=VALID_API_KEY, transport=transport) as client:
+        response = client.files.create(
+            [("report.pdf", b"payload")],
+            extra_query={"mode": "extended"},
+            extra_headers={"X-Upload-Token": "token"},
+            timeout=0.75,
+        )
+
+    assert len(response) == 1
+    _assert_file_matches_payload(response[0], info_payload)
+    timeout_value = captured_timeout["value"]
+    assert timeout_value is not None
+    if isinstance(timeout_value, dict):
+        assert all(
+            component == pytest.approx(0.75) for component in timeout_value.values()
+        )
+    else:
+        assert timeout_value == pytest.approx(0.75)
+
+
+def test_download_file_request_customization() -> None:
+    file_id = str(uuid.uuid4())
+    captured_timeout: dict[str, float | dict[str, float] | None] = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        assert request.method == "GET"
+        assert request.url.path == f"/resource/{file_id}"
+        assert request.url.params["mode"] == "raw"
+        assert request.headers["X-Trace"] == "1"
+        captured_timeout["value"] = request.extensions.get("timeout")
+        return httpx.Response(200, content=b"content")
+
+    transport = httpx.MockTransport(handler)
+    with PdfRestClient(api_key=VALID_API_KEY, transport=transport) as client:
+        response = client.download_file(
+            file_id,
+            extra_query={"mode": "raw"},
+            extra_headers={"X-Trace": "1"},
+            timeout=1.25,
+        )
+        data = response.read()
+        response.close()
+
+    assert data == b"content"
+    timeout_value = captured_timeout["value"]
+    assert timeout_value is not None
+    if isinstance(timeout_value, dict):
+        assert all(
+            component == pytest.approx(1.25) for component in timeout_value.values()
+        )
+    else:
+        assert timeout_value == pytest.approx(1.25)
+
+
+def test_files_read_bytes_request_customization() -> None:
+    file_id = str(uuid.uuid4())
+    captured_timeout: dict[str, float | dict[str, float] | None] = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.method == "GET" and request.url.path == f"/resource/{file_id}":
+            assert request.url.params["mode"] == "raw"
+            assert request.headers["X-Trace"] == "1"
+            captured_timeout["value"] = request.extensions.get("timeout")
+            return httpx.Response(200, content=b"payload")
+        msg = f"Unexpected request: {request.method} {request.url}"
+        raise AssertionError(msg)
+
+    transport = httpx.MockTransport(handler)
+    with PdfRestClient(api_key=VALID_API_KEY, transport=transport) as client:
+        data = client.files.read_bytes(
+            file_id,
+            extra_query={"mode": "raw"},
+            extra_headers={"X-Trace": "1"},
+            timeout=0.4,
+        )
+
+    assert data == b"payload"
+    timeout_value = captured_timeout["value"]
+    assert timeout_value is not None
+    if isinstance(timeout_value, dict):
+        assert all(
+            component == pytest.approx(0.4) for component in timeout_value.values()
+        )
+    else:
+        assert timeout_value == pytest.approx(0.4)
 
 
 def test_files_create_from_paths_uses_upload_and_info() -> None:
@@ -370,6 +520,43 @@ def test_files_create_from_urls_single_url() -> None:
 
     assert len(response) == 1
     _assert_file_matches_payload(response[0], info_payload)
+
+
+def test_files_create_from_urls_extra_body() -> None:
+    uploaded_file_id = str(uuid.uuid4())
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.method == "POST" and request.url.path == "/upload":
+            payload = json.loads(request.content.decode("utf-8"))
+            assert payload == {
+                "url": ["https://example.com/report.pdf"],
+                "metadata": {"source": "test"},
+            }
+            return httpx.Response(
+                200,
+                json={
+                    "files": [
+                        {"name": "report.pdf", "id": uploaded_file_id},
+                    ]
+                },
+            )
+        if request.method == "GET" and request.url.path.startswith("/resource/"):
+            assert request.url.params["format"] == "info"
+            return httpx.Response(
+                200, json=_build_file_info_payload(uploaded_file_id, "report.pdf")
+            )
+        msg = f"Unexpected request: {request.method} {request.url}"
+        raise AssertionError(msg)
+
+    transport = httpx.MockTransport(handler)
+    with PdfRestClient(api_key=VALID_API_KEY, transport=transport) as client:
+        response = client.files.create_from_urls(
+            "https://example.com/report.pdf",
+            extra_body={"metadata": {"source": "test"}},
+        )
+
+    assert len(response) == 1
+    assert response[0].id == uploaded_file_id
 
 
 def test_files_create_from_paths_supports_metadata() -> None:
@@ -661,6 +848,160 @@ async def test_async_files_create_uses_upload_and_info() -> None:
 
 
 @pytest.mark.asyncio
+async def test_async_files_get_request_customization() -> None:
+    file_id = str(uuid.uuid4())
+    info_payload = _build_file_info_payload(file_id, "report.pdf")
+    captured_timeout: dict[str, float | dict[str, float] | None] = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.method == "GET" and request.url.path == f"/resource/{file_id}":
+            assert request.url.params["format"] == "info"
+            assert request.headers["X-Trace"] == "async"
+            captured_timeout["value"] = request.extensions.get("timeout")
+            return httpx.Response(200, json=info_payload)
+        msg = f"Unexpected request: {request.method} {request.url}"
+        raise AssertionError(msg)
+
+    transport = httpx.MockTransport(handler)
+    async with AsyncPdfRestClient(api_key=VALID_API_KEY, transport=transport) as client:
+        file_repr = await client.files.get(
+            file_id,
+            extra_headers={"X-Trace": "async"},
+            timeout=0.55,
+        )
+
+    _assert_file_matches_payload(file_repr, info_payload)
+    timeout_value = captured_timeout["value"]
+    assert timeout_value is not None
+    if isinstance(timeout_value, dict):
+        assert all(
+            component == pytest.approx(0.55) for component in timeout_value.values()
+        )
+    else:
+        assert timeout_value == pytest.approx(0.55)
+
+
+@pytest.mark.asyncio
+async def test_async_files_create_request_customization() -> None:
+    uploaded_file_id = str(uuid.uuid4())
+    info_payload = _build_file_info_payload(uploaded_file_id, "report.pdf")
+    captured_timeout: dict[str, float | dict[str, float] | None] = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.method == "POST" and request.url.path == "/upload":
+            assert request.url.params["mode"] == "extended"
+            assert request.headers["X-Upload-Token"] == "token"
+            captured_timeout["value"] = request.extensions.get("timeout")
+            return httpx.Response(
+                200,
+                json={
+                    "files": [
+                        {"name": "report.pdf", "id": uploaded_file_id},
+                    ]
+                },
+            )
+        if (
+            request.method == "GET"
+            and request.url.path == f"/resource/{uploaded_file_id}"
+        ):
+            assert request.url.params["format"] == "info"
+            assert request.url.params["mode"] == "extended"
+            assert request.headers["X-Upload-Token"] == "token"
+            return httpx.Response(200, json=info_payload)
+        msg = f"Unexpected request: {request.method} {request.url}"
+        raise AssertionError(msg)
+
+    transport = httpx.MockTransport(handler)
+    async with AsyncPdfRestClient(api_key=VALID_API_KEY, transport=transport) as client:
+        response = await client.files.create(
+            [("report.pdf", b"payload")],
+            extra_query={"mode": "extended"},
+            extra_headers={"X-Upload-Token": "token"},
+            timeout=0.5,
+        )
+
+    assert len(response) == 1
+    _assert_file_matches_payload(response[0], info_payload)
+    timeout_value = captured_timeout["value"]
+    assert timeout_value is not None
+    if isinstance(timeout_value, dict):
+        assert all(
+            component == pytest.approx(0.5) for component in timeout_value.values()
+        )
+    else:
+        assert timeout_value == pytest.approx(0.5)
+
+
+@pytest.mark.asyncio
+async def test_async_download_file_request_customization() -> None:
+    file_id = str(uuid.uuid4())
+    captured_timeout: dict[str, float | dict[str, float] | None] = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        assert request.method == "GET"
+        assert request.url.path == f"/resource/{file_id}"
+        assert request.url.params["mode"] == "raw"
+        assert request.headers["X-Trace"] == "async"
+        captured_timeout["value"] = request.extensions.get("timeout")
+        return httpx.Response(200, content=b"content")
+
+    transport = httpx.MockTransport(handler)
+    async with AsyncPdfRestClient(api_key=VALID_API_KEY, transport=transport) as client:
+        response = await client.download_file(
+            file_id,
+            extra_query={"mode": "raw"},
+            extra_headers={"X-Trace": "async"},
+            timeout=0.9,
+        )
+        data = await response.aread()
+        await response.aclose()
+
+    assert data == b"content"
+    timeout_value = captured_timeout["value"]
+    assert timeout_value is not None
+    if isinstance(timeout_value, dict):
+        assert all(
+            component == pytest.approx(0.9) for component in timeout_value.values()
+        )
+    else:
+        assert timeout_value == pytest.approx(0.9)
+
+
+@pytest.mark.asyncio
+async def test_async_files_read_bytes_request_customization() -> None:
+    file_id = str(uuid.uuid4())
+    captured_timeout: dict[str, float | dict[str, float] | None] = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.method == "GET" and request.url.path == f"/resource/{file_id}":
+            assert request.url.params["mode"] == "raw"
+            assert request.headers["X-Trace"] == "async"
+            captured_timeout["value"] = request.extensions.get("timeout")
+            return httpx.Response(200, content=b"payload")
+        msg = f"Unexpected request: {request.method} {request.url}"
+        raise AssertionError(msg)
+
+    transport = httpx.MockTransport(handler)
+    async with AsyncPdfRestClient(api_key=VALID_API_KEY, transport=transport) as client:
+        data = await client.files.read_bytes(
+            file_id,
+            extra_query={"mode": "raw"},
+            extra_headers={"X-Trace": "async"},
+            timeout=0.35,
+        )
+
+    assert data == b"payload"
+    timeout_value = captured_timeout["value"]
+    assert timeout_value is not None
+    if isinstance(timeout_value, dict):
+        assert all(
+            component == pytest.approx(0.35) for component in timeout_value.values()
+        )
+    else:
+        assert timeout_value == pytest.approx(0.35)
+
+
+@pytest.mark.asyncio
 async def test_async_files_create_from_urls() -> None:
     uploaded_ids = [str(uuid.uuid4()), str(uuid.uuid4())]
     info_payloads = {
@@ -735,6 +1076,44 @@ async def test_async_files_create_from_urls_single_url() -> None:
 
     assert len(response) == 1
     _assert_file_matches_payload(response[0], info_payload)
+
+
+@pytest.mark.asyncio
+async def test_async_files_create_from_urls_extra_body() -> None:
+    uploaded_file_id = str(uuid.uuid4())
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.method == "POST" and request.url.path == "/upload":
+            payload = json.loads(request.content.decode("utf-8"))
+            assert payload == {
+                "url": ["https://example.com/report.pdf"],
+                "metadata": {"source": "async-test"},
+            }
+            return httpx.Response(
+                200,
+                json={
+                    "files": [
+                        {"name": "report.pdf", "id": uploaded_file_id},
+                    ]
+                },
+            )
+        if request.method == "GET" and request.url.path.startswith("/resource/"):
+            assert request.url.params["format"] == "info"
+            return httpx.Response(
+                200, json=_build_file_info_payload(uploaded_file_id, "report.pdf")
+            )
+        msg = f"Unexpected request: {request.method} {request.url}"
+        raise AssertionError(msg)
+
+    transport = httpx.MockTransport(handler)
+    async with AsyncPdfRestClient(api_key=VALID_API_KEY, transport=transport) as client:
+        response = await client.files.create_from_urls(
+            "https://example.com/report.pdf",
+            extra_body={"metadata": {"source": "async-test"}},
+        )
+
+    assert len(response) == 1
+    assert response[0].id == uploaded_file_id
 
 
 @pytest.mark.asyncio

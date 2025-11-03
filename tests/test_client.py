@@ -211,6 +211,25 @@ def test_prepare_request_merges_queries(monkeypatch: pytest.MonkeyPatch) -> None
     }
 
 
+def test_prepare_request_rejects_files_with_json(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("PDFREST_API_KEY", VALID_API_KEY)
+    with (
+        PdfRestClient(api_key=VALID_API_KEY) as client,
+        pytest.raises(
+            PdfRestConfigurationError,
+            match="JSON payloads cannot be combined with multipart file uploads",
+        ),
+    ):
+        client.prepare_request(
+            "POST",
+            "/upload",
+            json_body={"foo": "bar"},
+            files=[("file", b"data")],
+        )
+
+
 def test_authentication_error_raises_specific_exception(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
