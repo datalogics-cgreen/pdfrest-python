@@ -47,7 +47,8 @@ from .models._internal import (
 DEFAULT_BASE_URL = "https://api.pdfrest.com"
 API_KEY_ENV_VAR = "PDFREST_API_KEY"
 API_KEY_HEADER_NAME = "Api-Key"
-DEFAULT_TIMEOUT_SECONDS = 10.0
+DEFAULT_GENERAL_TIMEOUT_SECONDS = 10.0
+DEFAULT_READ_TIMEOUT_SECONDS = 120.0
 FILE_UPLOAD_FIELD_NAME = "file"
 DEFAULT_FILE_INFO_CONCURRENCY = 8
 
@@ -74,6 +75,13 @@ UrlValue = str | URL
 UrlInput = UrlValue | Sequence[UrlValue]
 NormalizedFileTypes: TypeAlias = FileContent | FileTuple2 | FileTuple3 | FileTuple4
 DestinationPath = str | PathLike[str]
+
+
+def _default_timeout() -> httpx.Timeout:
+    return httpx.Timeout(
+        timeout=DEFAULT_GENERAL_TIMEOUT_SECONDS,
+        read=DEFAULT_READ_TIMEOUT_SECONDS,
+    )
 
 
 def _extract_uploaded_file_ids(payload: Any) -> list[str]:
@@ -230,7 +238,7 @@ class _ClientConfig(BaseModel):
 
     base_url: URL
     api_key: str | None = None
-    timeout: TimeoutTypes = DEFAULT_TIMEOUT_SECONDS
+    timeout: TimeoutTypes = Field(default_factory=_default_timeout)
     headers: dict[str, str] = Field(default_factory=dict)
 
     model_config = ConfigDict(arbitrary_types_allowed=True)
@@ -273,7 +281,7 @@ class _ClientConfig(BaseModel):
     @classmethod
     def _validate_timeout(cls, value: Any) -> TimeoutTypes:
         if value is None:
-            return DEFAULT_TIMEOUT_SECONDS
+            return _default_timeout()
         if isinstance(value, (int, float)):
             return float(value)
         if isinstance(value, httpx.Timeout):
@@ -317,7 +325,7 @@ class _BaseApiClient(Generic[ClientType]):
         *,
         api_key: str | None = None,
         base_url: str | URL | None = None,
-        timeout: TimeoutTypes = DEFAULT_TIMEOUT_SECONDS,
+        timeout: TimeoutTypes | None = None,
         headers: AnyMapping | None = None,
     ) -> None:
         raw_api_key = api_key if api_key is not None else os.getenv(API_KEY_ENV_VAR)
@@ -357,7 +365,7 @@ class _BaseApiClient(Generic[ClientType]):
             self._config = _ClientConfig(
                 base_url=resolved_base_url,
                 api_key=resolved_api_key,
-                timeout=timeout,
+                timeout=timeout if timeout is not None else _default_timeout(),
                 headers=default_headers,
             )
         except PdfRestConfigurationError:
@@ -541,7 +549,7 @@ class _SyncApiClient(_BaseApiClient[httpx.Client]):
         *,
         api_key: str | None = None,
         base_url: str | URL | None = None,
-        timeout: TimeoutTypes = DEFAULT_TIMEOUT_SECONDS,
+        timeout: TimeoutTypes | None = None,
         headers: AnyMapping | None = None,
         http_client: httpx.Client | None = None,
         transport: httpx.BaseTransport | None = None,
@@ -659,7 +667,7 @@ class _AsyncApiClient(_BaseApiClient[httpx.AsyncClient]):
         *,
         api_key: str | None = None,
         base_url: str | URL | None = None,
-        timeout: TimeoutTypes = DEFAULT_TIMEOUT_SECONDS,
+        timeout: TimeoutTypes | None = None,
         headers: AnyMapping | None = None,
         http_client: httpx.AsyncClient | None = None,
         transport: httpx.AsyncBaseTransport | None = None,
@@ -1309,7 +1317,7 @@ class PdfRestClient(_SyncApiClient):
         *,
         api_key: str | None = None,
         base_url: str | URL | None = None,
-        timeout: TimeoutTypes = DEFAULT_TIMEOUT_SECONDS,
+        timeout: TimeoutTypes | None = None,
         headers: AnyMapping | None = None,
         http_client: httpx.Client | None = None,
         transport: httpx.BaseTransport | None = None,
@@ -1617,7 +1625,7 @@ class AsyncPdfRestClient(_AsyncApiClient):
         *,
         api_key: str | None = None,
         base_url: str | URL | None = None,
-        timeout: TimeoutTypes = DEFAULT_TIMEOUT_SECONDS,
+        timeout: TimeoutTypes | None = None,
         headers: AnyMapping | None = None,
         http_client: httpx.AsyncClient | None = None,
         transport: httpx.AsyncBaseTransport | None = None,
