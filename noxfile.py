@@ -16,4 +16,12 @@ def tests(session: nox.Session) -> None:
         f"--python={session.virtualenv.location}",
         env={"UV_PROJECT_ENVIRONMENT": session.virtualenv.location},
     )
-    session.run("pytest", "--cov=pdfrest", "--cov-report=term-missing")
+    session.run(
+        "pytest",
+        "--cov=pdfrest",
+        "--cov-report=term-missing",
+        "--numprocesses",
+        "8",
+        "--maxschedchunk",
+        "2",
+    )
