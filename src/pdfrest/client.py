@@ -33,7 +33,16 @@ from .models import (
 
 __all__ = ("AsyncPdfRestClient", "PdfRestClient")
 
-from .models._internal import ConvertToGraphic, PdfRestRawFileResponse, UploadURLs
+from .models._internal import (
+    BasePdfRestGraphicPayload,
+    BmpPdfRestPayload,
+    GifPdfRestPayload,
+    JpegPdfRestPayload,
+    PdfRestRawFileResponse,
+    PngPdfRestPayload,
+    TiffPdfRestPayload,
+    UploadURLs,
+)
 
 DEFAULT_BASE_URL = "https://api.pdfrest.com"
 API_KEY_ENV_VAR = "PDFREST_API_KEY"
@@ -1349,40 +1358,21 @@ class PdfRestClient(_SyncApiClient):
         payload = self._send_request(request)
         return UpResponse.model_validate(payload)
 
-    def convert_to_png(
+    def _convert_to_graphic(
         self,
-        files: PdfRestFile | Sequence[PdfRestFile],
         *,
-        output_prefix: str | None = None,
-        page_range: str | Sequence[str] | None = None,
-        resolution: int = 300,
-        color_model: Literal["rgb", "rgba", "gray"] = "rgb",
-        smoothing: Literal["none", "all", "text", "line", "image"]
-        | Sequence[Literal["none", "all", "text", "line", "image"]]
-        | None = None,
+        endpoint: str,
+        payload: dict[str, Any],
+        payload_model: type[BasePdfRestGraphicPayload[Any]],
         extra_query: Query | None = None,
         extra_headers: AnyMapping | None = None,
         extra_body: Body | None = None,
         timeout: TimeoutTypes | None = None,
     ) -> PdfRestFileBasedResponse:
-        """Convert one or more pdfRest files to PNG images."""
-
-        payload: dict[str, Any] = {
-            "files": files,
-            "resolution": resolution,
-            "color_model": color_model,
-        }
-        if output_prefix is not None:
-            payload["output_prefix"] = output_prefix
-        if page_range is not None:
-            payload["page_range"] = page_range
-        if smoothing is not None:
-            payload["smoothing"] = smoothing
-
-        conversion_options = ConvertToGraphic.model_validate(payload)
+        conversion_options = payload_model.model_validate(payload)
         request = self.prepare_request(
             "POST",
-            "/png",
+            endpoint,
             json_body=conversion_options.model_dump(
                 mode="json", by_alias=True, exclude_none=True, exclude_unset=True
             ),
@@ -1413,6 +1403,209 @@ class PdfRestClient(_SyncApiClient):
                 ],
                 "warning": raw_response.warning,
             }
+        )
+
+    def convert_to_png(
+        self,
+        files: PdfRestFile | Sequence[PdfRestFile],
+        *,
+        output_prefix: str | None = None,
+        page_range: str | Sequence[str] | None = None,
+        resolution: int = 300,
+        color_model: Literal["rgb", "rgba", "gray"] = "rgb",
+        smoothing: Literal["none", "all", "text", "line", "image"]
+        | Sequence[Literal["none", "all", "text", "line", "image"]]
+        | None = None,
+        extra_query: Query | None = None,
+        extra_headers: AnyMapping | None = None,
+        extra_body: Body | None = None,
+        timeout: TimeoutTypes | None = None,
+    ) -> PdfRestFileBasedResponse:
+        """Convert one or more pdfRest files to PNG images."""
+
+        payload: dict[str, Any] = {
+            "files": files,
+            "resolution": resolution,
+            "color_model": color_model,
+        }
+        if output_prefix is not None:
+            payload["output_prefix"] = output_prefix
+        if page_range is not None:
+            payload["page_range"] = page_range
+        if smoothing is not None:
+            payload["smoothing"] = smoothing
+
+        return self._convert_to_graphic(
+            endpoint="/png",
+            payload=payload,
+            payload_model=PngPdfRestPayload,
+            extra_query=extra_query,
+            extra_headers=extra_headers,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
+
+    def convert_to_bmp(
+        self,
+        files: PdfRestFile | Sequence[PdfRestFile],
+        *,
+        output_prefix: str | None = None,
+        page_range: str | Sequence[str] | None = None,
+        resolution: int = 300,
+        color_model: Literal["rgb", "gray"] = "rgb",
+        smoothing: Literal["none", "all", "text", "line", "image"]
+        | Sequence[Literal["none", "all", "text", "line", "image"]]
+        | None = None,
+        extra_query: Query | None = None,
+        extra_headers: AnyMapping | None = None,
+        extra_body: Body | None = None,
+        timeout: TimeoutTypes | None = None,
+    ) -> PdfRestFileBasedResponse:
+        """Convert one or more pdfRest files to BMP images."""
+
+        payload: dict[str, Any] = {
+            "files": files,
+            "resolution": resolution,
+            "color_model": color_model,
+        }
+        if output_prefix is not None:
+            payload["output_prefix"] = output_prefix
+        if page_range is not None:
+            payload["page_range"] = page_range
+        if smoothing is not None:
+            payload["smoothing"] = smoothing
+
+        return self._convert_to_graphic(
+            endpoint="/bmp",
+            payload=payload,
+            payload_model=BmpPdfRestPayload,
+            extra_query=extra_query,
+            extra_headers=extra_headers,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
+
+    def convert_to_gif(
+        self,
+        files: PdfRestFile | Sequence[PdfRestFile],
+        *,
+        output_prefix: str | None = None,
+        page_range: str | Sequence[str] | None = None,
+        resolution: int = 300,
+        color_model: Literal["rgb", "gray"] = "rgb",
+        smoothing: Literal["none", "all", "text", "line", "image"]
+        | Sequence[Literal["none", "all", "text", "line", "image"]]
+        | None = None,
+        extra_query: Query | None = None,
+        extra_headers: AnyMapping | None = None,
+        extra_body: Body | None = None,
+        timeout: TimeoutTypes | None = None,
+    ) -> PdfRestFileBasedResponse:
+        """Convert one or more pdfRest files to GIF images."""
+
+        payload: dict[str, Any] = {
+            "files": files,
+            "resolution": resolution,
+            "color_model": color_model,
+        }
+        if output_prefix is not None:
+            payload["output_prefix"] = output_prefix
+        if page_range is not None:
+            payload["page_range"] = page_range
+        if smoothing is not None:
+            payload["smoothing"] = smoothing
+
+        return self._convert_to_graphic(
+            endpoint="/gif",
+            payload=payload,
+            payload_model=GifPdfRestPayload,
+            extra_query=extra_query,
+            extra_headers=extra_headers,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
+
+    def convert_to_jpeg(
+        self,
+        files: PdfRestFile | Sequence[PdfRestFile],
+        *,
+        output_prefix: str | None = None,
+        page_range: str | Sequence[str] | None = None,
+        resolution: int = 300,
+        color_model: Literal["rgb", "cmyk", "gray"] = "rgb",
+        smoothing: Literal["none", "all", "text", "line", "image"]
+        | Sequence[Literal["none", "all", "text", "line", "image"]]
+        | None = None,
+        jpeg_quality: int | None = None,
+        extra_query: Query | None = None,
+        extra_headers: AnyMapping | None = None,
+        extra_body: Body | None = None,
+        timeout: TimeoutTypes | None = None,
+    ) -> PdfRestFileBasedResponse:
+        """Convert one or more pdfRest files to JPEG images."""
+
+        payload: dict[str, Any] = {
+            "files": files,
+            "resolution": resolution,
+            "color_model": color_model,
+        }
+        if output_prefix is not None:
+            payload["output_prefix"] = output_prefix
+        if page_range is not None:
+            payload["page_range"] = page_range
+        if smoothing is not None:
+            payload["smoothing"] = smoothing
+        if jpeg_quality is not None:
+            payload["jpeg_quality"] = jpeg_quality
+
+        return self._convert_to_graphic(
+            endpoint="/jpg",
+            payload=payload,
+            payload_model=JpegPdfRestPayload,
+            extra_query=extra_query,
+            extra_headers=extra_headers,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
+
+    def convert_to_tiff(
+        self,
+        files: PdfRestFile | Sequence[PdfRestFile],
+        *,
+        output_prefix: str | None = None,
+        page_range: str | Sequence[str] | None = None,
+        resolution: int = 300,
+        color_model: Literal["rgb", "rgba", "cmyk", "lab", "gray"] = "rgb",
+        smoothing: Literal["none", "all", "text", "line", "image"]
+        | Sequence[Literal["none", "all", "text", "line", "image"]]
+        | None = None,
+        extra_query: Query | None = None,
+        extra_headers: AnyMapping | None = None,
+        extra_body: Body | None = None,
+        timeout: TimeoutTypes | None = None,
+    ) -> PdfRestFileBasedResponse:
+        """Convert one or more pdfRest files to TIFF images."""
+
+        payload: dict[str, Any] = {
+            "files": files,
+            "resolution": resolution,
+            "color_model": color_model,
+        }
+        if output_prefix is not None:
+            payload["output_prefix"] = output_prefix
+        if page_range is not None:
+            payload["page_range"] = page_range
+        if smoothing is not None:
+            payload["smoothing"] = smoothing
+
+        return self._convert_to_graphic(
+            endpoint="/tif",
+            payload=payload,
+            payload_model=TiffPdfRestPayload,
+            extra_query=extra_query,
+            extra_headers=extra_headers,
+            extra_body=extra_body,
+            timeout=timeout,
         )
 
 
@@ -1473,40 +1666,21 @@ class AsyncPdfRestClient(_AsyncApiClient):
         payload = await self._send_request(request)
         return UpResponse.model_validate(payload)
 
-    async def convert_to_png(
+    async def _convert_to_graphic(
         self,
-        files: PdfRestFile | Sequence[PdfRestFile],
         *,
-        output_prefix: str | None = None,
-        page_range: str | Sequence[str] | None = None,
-        resolution: int = 300,
-        color_model: Literal["rgb", "rgba", "gray"] = "rgb",
-        smoothing: Literal["none", "all", "text", "line", "image"]
-        | Sequence[Literal["none", "all", "text", "line", "image"]]
-        | None = None,
+        endpoint: str,
+        payload: dict[str, Any],
+        payload_model: type[BasePdfRestGraphicPayload[Any]],
         extra_query: Query | None = None,
         extra_headers: AnyMapping | None = None,
         extra_body: Body | None = None,
         timeout: TimeoutTypes | None = None,
     ) -> PdfRestFileBasedResponse:
-        """Asynchronously convert one or more pdfRest files to PNG images."""
-
-        payload: dict[str, Any] = {
-            "files": files,
-            "resolution": resolution,
-            "color_model": color_model,
-        }
-        if output_prefix is not None:
-            payload["output_prefix"] = output_prefix
-        if page_range is not None:
-            payload["page_range"] = page_range
-        if smoothing is not None:
-            payload["smoothing"] = smoothing
-
-        conversion_options = ConvertToGraphic.model_validate(payload)
+        conversion_options = payload_model.model_validate(payload)
         request = self.prepare_request(
             "POST",
-            "/png",
+            endpoint,
             json_body=conversion_options.model_dump(
                 mode="json", by_alias=True, exclude_none=True, exclude_unset=True
             ),
@@ -1543,4 +1717,207 @@ class AsyncPdfRestClient(_AsyncApiClient):
                 ],
                 "warning": raw_response.warning,
             }
+        )
+
+    async def convert_to_png(
+        self,
+        files: PdfRestFile | Sequence[PdfRestFile],
+        *,
+        output_prefix: str | None = None,
+        page_range: str | Sequence[str] | None = None,
+        resolution: int = 300,
+        color_model: Literal["rgb", "rgba", "gray"] = "rgb",
+        smoothing: Literal["none", "all", "text", "line", "image"]
+        | Sequence[Literal["none", "all", "text", "line", "image"]]
+        | None = None,
+        extra_query: Query | None = None,
+        extra_headers: AnyMapping | None = None,
+        extra_body: Body | None = None,
+        timeout: TimeoutTypes | None = None,
+    ) -> PdfRestFileBasedResponse:
+        """Asynchronously convert one or more pdfRest files to PNG images."""
+
+        payload: dict[str, Any] = {
+            "files": files,
+            "resolution": resolution,
+            "color_model": color_model,
+        }
+        if output_prefix is not None:
+            payload["output_prefix"] = output_prefix
+        if page_range is not None:
+            payload["page_range"] = page_range
+        if smoothing is not None:
+            payload["smoothing"] = smoothing
+
+        return await self._convert_to_graphic(
+            endpoint="/png",
+            payload=payload,
+            payload_model=PngPdfRestPayload,
+            extra_query=extra_query,
+            extra_headers=extra_headers,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
+
+    async def convert_to_bmp(
+        self,
+        files: PdfRestFile | Sequence[PdfRestFile],
+        *,
+        output_prefix: str | None = None,
+        page_range: str | Sequence[str] | None = None,
+        resolution: int = 300,
+        color_model: Literal["rgb", "gray"] = "rgb",
+        smoothing: Literal["none", "all", "text", "line", "image"]
+        | Sequence[Literal["none", "all", "text", "line", "image"]]
+        | None = None,
+        extra_query: Query | None = None,
+        extra_headers: AnyMapping | None = None,
+        extra_body: Body | None = None,
+        timeout: TimeoutTypes | None = None,
+    ) -> PdfRestFileBasedResponse:
+        """Asynchronously convert one or more pdfRest files to BMP images."""
+
+        payload: dict[str, Any] = {
+            "files": files,
+            "resolution": resolution,
+            "color_model": color_model,
+        }
+        if output_prefix is not None:
+            payload["output_prefix"] = output_prefix
+        if page_range is not None:
+            payload["page_range"] = page_range
+        if smoothing is not None:
+            payload["smoothing"] = smoothing
+
+        return await self._convert_to_graphic(
+            endpoint="/bmp",
+            payload=payload,
+            payload_model=BmpPdfRestPayload,
+            extra_query=extra_query,
+            extra_headers=extra_headers,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
+
+    async def convert_to_gif(
+        self,
+        files: PdfRestFile | Sequence[PdfRestFile],
+        *,
+        output_prefix: str | None = None,
+        page_range: str | Sequence[str] | None = None,
+        resolution: int = 300,
+        color_model: Literal["rgb", "gray"] = "rgb",
+        smoothing: Literal["none", "all", "text", "line", "image"]
+        | Sequence[Literal["none", "all", "text", "line", "image"]]
+        | None = None,
+        extra_query: Query | None = None,
+        extra_headers: AnyMapping | None = None,
+        extra_body: Body | None = None,
+        timeout: TimeoutTypes | None = None,
+    ) -> PdfRestFileBasedResponse:
+        """Asynchronously convert one or more pdfRest files to GIF images."""
+
+        payload: dict[str, Any] = {
+            "files": files,
+            "resolution": resolution,
+            "color_model": color_model,
+        }
+        if output_prefix is not None:
+            payload["output_prefix"] = output_prefix
+        if page_range is not None:
+            payload["page_range"] = page_range
+        if smoothing is not None:
+            payload["smoothing"] = smoothing
+
+        return await self._convert_to_graphic(
+            endpoint="/gif",
+            payload=payload,
+            payload_model=GifPdfRestPayload,
+            extra_query=extra_query,
+            extra_headers=extra_headers,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
+
+    async def convert_to_jpeg(
+        self,
+        files: PdfRestFile | Sequence[PdfRestFile],
+        *,
+        output_prefix: str | None = None,
+        page_range: str | Sequence[str] | None = None,
+        resolution: int = 300,
+        color_model: Literal["rgb", "cmyk", "gray"] = "rgb",
+        smoothing: Literal["none", "all", "text", "line", "image"]
+        | Sequence[Literal["none", "all", "text", "line", "image"]]
+        | None = None,
+        jpeg_quality: int | None = None,
+        extra_query: Query | None = None,
+        extra_headers: AnyMapping | None = None,
+        extra_body: Body | None = None,
+        timeout: TimeoutTypes | None = None,
+    ) -> PdfRestFileBasedResponse:
+        """Asynchronously convert one or more pdfRest files to JPEG images."""
+
+        payload: dict[str, Any] = {
+            "files": files,
+            "resolution": resolution,
+            "color_model": color_model,
+        }
+        if output_prefix is not None:
+            payload["output_prefix"] = output_prefix
+        if page_range is not None:
+            payload["page_range"] = page_range
+        if smoothing is not None:
+            payload["smoothing"] = smoothing
+        if jpeg_quality is not None:
+            payload["jpeg_quality"] = jpeg_quality
+
+        return await self._convert_to_graphic(
+            endpoint="/jpg",
+            payload=payload,
+            payload_model=JpegPdfRestPayload,
+            extra_query=extra_query,
+            extra_headers=extra_headers,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
+
+    async def convert_to_tiff(
+        self,
+        files: PdfRestFile | Sequence[PdfRestFile],
+        *,
+        output_prefix: str | None = None,
+        page_range: str | Sequence[str] | None = None,
+        resolution: int = 300,
+        color_model: Literal["rgb", "rgba", "cmyk", "lab", "gray"] = "rgb",
+        smoothing: Literal["none", "all", "text", "line", "image"]
+        | Sequence[Literal["none", "all", "text", "line", "image"]]
+        | None = None,
+        extra_query: Query | None = None,
+        extra_headers: AnyMapping | None = None,
+        extra_body: Body | None = None,
+        timeout: TimeoutTypes | None = None,
+    ) -> PdfRestFileBasedResponse:
+        """Asynchronously convert one or more pdfRest files to TIFF images."""
+
+        payload: dict[str, Any] = {
+            "files": files,
+            "resolution": resolution,
+            "color_model": color_model,
+        }
+        if output_prefix is not None:
+            payload["output_prefix"] = output_prefix
+        if page_range is not None:
+            payload["page_range"] = page_range
+        if smoothing is not None:
+            payload["smoothing"] = smoothing
+
+        return await self._convert_to_graphic(
+            endpoint="/tif",
+            payload=payload,
+            payload_model=TiffPdfRestPayload,
+            extra_query=extra_query,
+            extra_headers=extra_headers,
+            extra_body=extra_body,
+            timeout=timeout,
         )

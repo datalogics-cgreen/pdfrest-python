@@ -3,7 +3,7 @@ from __future__ import annotations
 import re
 from collections.abc import Callable
 from pathlib import PurePath
-from typing import Annotated, Any, Literal
+from typing import Annotated, Any, Generic, Literal, TypeVar
 
 from pydantic import (
     AfterValidator,
@@ -178,7 +178,10 @@ class UploadURLs(BaseModel):
     ]
 
 
-class ConvertToGraphic(BaseModel):
+ColorModelT = TypeVar("ColorModelT", bound=str)
+
+
+class BasePdfRestGraphicPayload(BaseModel, Generic[ColorModelT]):
     files: Annotated[
         list[PdfRestFile],
         Field(
@@ -207,13 +210,48 @@ class ConvertToGraphic(BaseModel):
         PlainSerializer(_serialize_as_comma_separated_string),
     ]
     resolution: Annotated[int, Field(ge=12, le=2400, default=300)]
-    color_model: Annotated[Literal["rgb", "rgba", "gray"], Field(default="rgb")]
+    color_model: Annotated[ColorModelT, Field(default=...)]
     smoothing: Annotated[
         list[Literal["none", "all", "text", "line", "image"]],
         Field(default="none"),
         BeforeValidator(_ensure_list),
         BeforeValidator(_split_comma_list),
         PlainSerializer(_serialize_as_comma_separated_string),
+    ]
+
+
+class PngPdfRestPayload(BasePdfRestGraphicPayload[Literal["rgb", "rgba", "gray"]]):
+    """Adapt caller options into a pdfRest-ready PNG request payload."""
+
+    color_model: Annotated[Literal["rgb", "rgba", "gray"], Field(default="rgb")]
+
+
+class BmpPdfRestPayload(BasePdfRestGraphicPayload[Literal["rgb", "gray"]]):
+    """Adapt caller options into a pdfRest-ready BMP request payload."""
+
+    color_model: Annotated[Literal["rgb", "gray"], Field(default="rgb")]
+
+
+class GifPdfRestPayload(BasePdfRestGraphicPayload[Literal["rgb", "gray"]]):
+    """Adapt caller options into a pdfRest-ready GIF request payload."""
+
+    color_model: Annotated[Literal["rgb", "gray"], Field(default="rgb")]
+
+
+class JpegPdfRestPayload(BasePdfRestGraphicPayload[Literal["rgb", "cmyk", "gray"]]):
+    """Adapt caller options into a pdfRest-ready JPEG request payload."""
+
+    color_model: Annotated[Literal["rgb", "cmyk", "gray"], Field(default="rgb")]
+    jpeg_quality: Annotated[int, Field(ge=1, le=100, default=75)]
+
+
+class TiffPdfRestPayload(
+    BasePdfRestGraphicPayload[Literal["rgb", "rgba", "cmyk", "lab", "gray"]]
+):
+    """Adapt caller options into a pdfRest-ready TIFF request payload."""
+
+    color_model: Annotated[
+        Literal["rgb", "rgba", "cmyk", "lab", "gray"], Field(default="rgb")
     ]
 
 
