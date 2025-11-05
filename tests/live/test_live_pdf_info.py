@@ -7,7 +7,7 @@ import pytest
 from pdfrest import AsyncPdfRestClient, PdfRestApiError, PdfRestClient
 from pdfrest.models import PdfRestFile, PdfRestInfoResponse
 from pdfrest.models._internal import PdfInfoPayload
-from pdfrest.types import PdfInfoQuery
+from pdfrest.types import ALL_PDF_INFO_QUERIES, PdfInfoQuery
 
 from ..resources import get_test_resource_path
 
@@ -19,6 +19,7 @@ def _allowed_queries() -> tuple[PdfInfoQuery, ...]:
 
 
 ALLOWED_QUERIES: tuple[PdfInfoQuery, ...] = _allowed_queries()
+assert ALLOWED_QUERIES == ALL_PDF_INFO_QUERIES
 
 
 EXPECTED_VALUES: dict[PdfInfoQuery, Any] = {

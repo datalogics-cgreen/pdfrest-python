@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
-from typing import Literal
+from typing import Literal, cast, get_args
 
-__all__ = ("PdfInfoQuery",)
+__all__ = ("ALL_PDF_INFO_QUERIES", "PdfInfoQuery")
 
 PdfInfoQuery = Literal[
     "tagged",
@@ -39,3 +39,7 @@ PdfInfoQuery = Literal[
     "pdfx_claim",
     "requires_password_to_open",
 ]
+
+ALL_PDF_INFO_QUERIES: tuple[PdfInfoQuery, ...] = cast(
+    tuple[PdfInfoQuery, ...], get_args(PdfInfoQuery)
+)

@@ -9,7 +9,7 @@ from pydantic import ValidationError
 
 from pdfrest import AsyncPdfRestClient, PdfRestClient
 from pdfrest.models import PdfRestFileID, PdfRestInfoResponse
-from pdfrest.types import PdfInfoQuery
+from pdfrest.types import ALL_PDF_INFO_QUERIES, PdfInfoQuery
 
 from .graphics_test_helpers import ASYNC_API_KEY, VALID_API_KEY, make_pdf_file
 
@@ -59,6 +59,39 @@ def test_query_pdf_info_success(
     assert response.title == "Example Document"
     assert response.tagged is True
     assert response.all_queries_processed is True
+
+
+def test_query_pdf_info_default_queries(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("PDFREST_API_KEY", raising=False)
+    input_file = make_pdf_file(str(PdfRestFileID.generate()))
+    expected_serialized = ",".join(ALL_PDF_INFO_QUERIES)
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.method != "POST" or request.url.path != "/pdf-info":
+            msg = f"Unexpected request {request.method} {request.url}"
+            raise AssertionError(msg)
+        payload = json.loads(request.content.decode("utf-8"))
+        assert payload == {
+            "id": str(input_file.id),
+            "queries": expected_serialized,
+        }
+        return httpx.Response(
+            200,
+            json={
+                "inputId": str(input_file.id),
+                "page_count": 1,
+                "tagged": False,
+                "allQueriesProcessed": True,
+            },
+        )
+
+    transport = httpx.MockTransport(handler)
+    with PdfRestClient(api_key=VALID_API_KEY, transport=transport) as client:
+        response = client.query_pdf_info(input_file)
+
+    assert isinstance(response, PdfRestInfoResponse)
+    assert response.page_count == 1
+    assert response.tagged is False
 
 
 def test_query_pdf_info_request_customization(monkeypatch: pytest.MonkeyPatch) -> None:

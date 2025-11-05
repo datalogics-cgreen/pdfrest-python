@@ -45,7 +45,7 @@ from .models._internal import (
     TiffPdfRestPayload,
     UploadURLs,
 )
-from .types import PdfInfoQuery
+from .types import ALL_PDF_INFO_QUERIES, PdfInfoQuery
 
 DEFAULT_BASE_URL = "https://api.pdfrest.com"
 API_KEY_ENV_VAR = "PDFREST_API_KEY"
@@ -1420,7 +1420,7 @@ class PdfRestClient(_SyncApiClient):
         self,
         file: PdfRestFile | Sequence[PdfRestFile],
         *,
-        queries: Sequence[PdfInfoQuery] | PdfInfoQuery,
+        queries: Sequence[PdfInfoQuery] | PdfInfoQuery = ALL_PDF_INFO_QUERIES,
         extra_query: Query | None = None,
         extra_headers: AnyMapping | None = None,
         extra_body: Body | None = None,
@@ -1687,7 +1687,7 @@ class AsyncPdfRestClient(_AsyncApiClient):
         self,
         file: PdfRestFile | Sequence[PdfRestFile],
         *,
-        queries: Sequence[PdfInfoQuery] | PdfInfoQuery,
+        queries: Sequence[PdfInfoQuery] | PdfInfoQuery = ALL_PDF_INFO_QUERIES,
         extra_query: Query | None = None,
         extra_headers: AnyMapping | None = None,
         extra_body: Body | None = None,
