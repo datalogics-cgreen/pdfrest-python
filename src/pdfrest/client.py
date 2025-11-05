@@ -28,6 +28,7 @@ from .models import (
     PdfRestFile,
     PdfRestFileBasedResponse,
     PdfRestFileID,
+    PdfRestInfoResponse,
     UpResponse,
 )
 
@@ -38,11 +39,13 @@ from .models._internal import (
     BmpPdfRestPayload,
     GifPdfRestPayload,
     JpegPdfRestPayload,
+    PdfInfoPayload,
     PdfRestRawFileResponse,
     PngPdfRestPayload,
     TiffPdfRestPayload,
     UploadURLs,
 )
+from .types import PdfInfoQuery
 
 DEFAULT_BASE_URL = "https://api.pdfrest.com"
 API_KEY_ENV_VAR = "PDFREST_API_KEY"
@@ -1413,6 +1416,33 @@ class PdfRestClient(_SyncApiClient):
             }
         )
 
+    def query_pdf_info(
+        self,
+        file: PdfRestFile | Sequence[PdfRestFile],
+        *,
+        queries: Sequence[PdfInfoQuery] | PdfInfoQuery,
+        extra_query: Query | None = None,
+        extra_headers: AnyMapping | None = None,
+        extra_body: Body | None = None,
+        timeout: TimeoutTypes | None = None,
+    ) -> PdfRestInfoResponse:
+        """Query pdfRest for metadata describing a PDF document."""
+
+        payload = PdfInfoPayload.model_validate({"file": file, "queries": queries})
+        request = self.prepare_request(
+            "POST",
+            "/pdf-info",
+            json_body=payload.model_dump(
+                mode="json", by_alias=True, exclude_none=True, exclude_defaults=True
+            ),
+            extra_query=extra_query,
+            extra_headers=extra_headers,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
+        raw_payload = self._send_request(request)
+        return PdfRestInfoResponse.model_validate(raw_payload)
+
     def convert_to_png(
         self,
         files: PdfRestFile | Sequence[PdfRestFile],
@@ -1652,6 +1682,33 @@ class AsyncPdfRestClient(_AsyncApiClient):
     @property
     def files(self) -> _AsyncFilesClient:
         return self._files_client
+
+    async def query_pdf_info(
+        self,
+        file: PdfRestFile | Sequence[PdfRestFile],
+        *,
+        queries: Sequence[PdfInfoQuery] | PdfInfoQuery,
+        extra_query: Query | None = None,
+        extra_headers: AnyMapping | None = None,
+        extra_body: Body | None = None,
+        timeout: TimeoutTypes | None = None,
+    ) -> PdfRestInfoResponse:
+        """Query pdfRest for metadata describing a PDF document asynchronously."""
+
+        payload = PdfInfoPayload.model_validate({"file": file, "queries": queries})
+        request = self.prepare_request(
+            "POST",
+            "/pdf-info",
+            json_body=payload.model_dump(
+                mode="json", by_alias=True, exclude_none=True, exclude_defaults=True
+            ),
+            extra_query=extra_query,
+            extra_headers=extra_headers,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
+        raw_payload = await self._send_request(request)
+        return PdfRestInfoResponse.model_validate(raw_payload)
 
     async def up(
         self,

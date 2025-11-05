@@ -284,3 +284,290 @@ class PdfRestFileBasedResponse(BaseModel):
         else:
             msg = "multiple output files were returned by the pdfRest operation"
         raise ValueError(msg)
+
+
+class PdfRestInfoResponse(BaseModel):
+    """A response containing the output from the /info route."""
+
+    # Allow all extra fields to be stored and serialized
+    # See: https://docs.pydantic.dev/latest/concepts/models/#extra-fields
+    model_config = ConfigDict(extra="allow")
+
+    input_id: Annotated[
+        PdfRestFileID,
+        Field(
+            validation_alias=AliasChoices("input_id", "inputId"),
+            description="The id of the input file",
+        ),
+    ]
+    tagged: Annotated[
+        bool | None,
+        Field(
+            description="Indicates whether structure tags are present in the PDF "
+            "document. The result is true or false."
+        ),
+    ] = None
+    image_only: Annotated[
+        bool | None,
+        Field(
+            description=(
+                "Indicates whether the document is 'image only,' meaning it consists "
+                "solely of embedded graphical images with no text or other standard "
+                "PDF document features except for metadata. The result is true or "
+                "false."
+            )
+        ),
+    ] = None
+    title: Annotated[
+        str | None,
+        Field(
+            description=(
+                "The title of the PDF as retrieved from the metadata. The result is a "
+                "string that may be empty if the document does not have a title."
+            )
+        ),
+    ] = None
+    subject: Annotated[
+        str | None,
+        Field(
+            description=(
+                "The subject of the PDF as retrieved from the metadata. The result is "
+                "a string that may be empty if the document does not have a subject."
+            )
+        ),
+    ] = None
+    author: Annotated[
+        str | None,
+        Field(
+            description=(
+                "The author of the PDF as retrieved from the metadata. The result is "
+                "a string that may be empty if the document does not have an author."
+            )
+        ),
+    ] = None
+    producer: Annotated[
+        str | None,
+        Field(
+            description=(
+                "The producer of the PDF as retrieved from the metadata. The result "
+                "is a string that may be empty if the document does not have a "
+                "producer."
+            )
+        ),
+    ] = None
+    creator: Annotated[
+        str | None,
+        Field(
+            description=(
+                "The creator of the PDF as retrieved from the metadata. The result is "
+                "a string that may be empty if the document does not have a creator."
+            )
+        ),
+    ] = None
+    creation_date: Annotated[
+        str | None,
+        Field(
+            description=(
+                "The creation date of the PDF as retrieved from the metadata. The "
+                "result is a string that may be empty if the document does not "
+                "have a creation date."
+            )
+        ),
+    ] = None
+    modified_date: Annotated[
+        str | None,
+        Field(
+            description=(
+                "The most recent modification date of the PDF as retrieved from the "
+                "metadata. The result is a string that may be empty if the document "
+                "does not have a modification date."
+            )
+        ),
+    ] = None
+    keywords: Annotated[
+        str | None,
+        Field(
+            description=(
+                "The keywords of the PDF as retrieved from the metadata. The result "
+                "is a string that may be empty if the document does not include "
+                "keywords."
+            )
+        ),
+    ] = None
+    custom_metadata: Annotated[
+        dict[str, Any] | None,
+        Field(
+            description=(
+                "Custom metadata entries extracted from the PDF. The result is a "
+                "dictionary mapping keys to their stored values, or None when no "
+                "custom metadata exists."
+            )
+        ),
+    ] = None
+    doc_language: Annotated[
+        str | None,
+        Field(
+            description="The language of the document as declared in its metadata. "
+            "The result is a string."
+        ),
+    ] = None
+    page_count: Annotated[
+        int | None,
+        Field(
+            description="The number of pages in the PDF document. The result is an "
+            "integer."
+        ),
+    ] = None
+    contains_annotations: Annotated[
+        bool | None,
+        Field(
+            description=(
+                "Indicates whether the PDF document contains annotations such as "
+                "notes, highlighted text, file attachments, crossed-out text, or text "
+                "callout boxes. The result is true or false."
+            )
+        ),
+    ] = None
+    contains_signature: Annotated[
+        bool | None,
+        Field(
+            description="Indicates whether the PDF contains any digital signatures. "
+            "The result is true or false."
+        ),
+    ] = None
+    pdf_version: Annotated[
+        str | None,
+        Field(
+            description=(
+                "The version of the PDF standard used to create the document. The "
+                "result is a string in the format X.Y.Z, where X, Y, and Z represent "
+                "the major, minor, and extension versions."
+            )
+        ),
+    ] = None
+    file_size: Annotated[
+        int | None,
+        Field(
+            description="The size of the PDF file in bytes. The result is an integer."
+        ),
+    ] = None
+    filename: Annotated[
+        str | None,
+        Field(description="The name of the PDF file. The result is a string."),
+    ] = None
+    restrict_permissions_set: Annotated[
+        bool | None,
+        Field(
+            description=(
+                "Indicates whether the PDF file has restricted permissions, such as "
+                "preventing printing, copying, or signing. The result is true or "
+                "false."
+            )
+        ),
+    ] = None
+    contains_xfa: Annotated[
+        bool | None,
+        Field(
+            description="Indicates whether the PDF contains XFA forms. The result is "
+            "true or false."
+        ),
+    ] = None
+    contains_acroforms: Annotated[
+        bool | None,
+        Field(
+            description="Indicates whether the PDF contains Acroforms. The result is "
+            "true or false."
+        ),
+    ] = None
+    contains_javascript: Annotated[
+        bool | None,
+        Field(
+            description="Indicates whether the PDF contains JavaScript. The result is "
+            "true or false."
+        ),
+    ] = None
+    contains_transparency: Annotated[
+        bool | None,
+        Field(
+            description="Indicates whether the PDF contains transparent objects. The "
+            "result is true or false."
+        ),
+    ] = None
+    contains_embedded_file: Annotated[
+        bool | None,
+        Field(
+            description="Indicates whether the PDF contains one or more embedded "
+            "files. The result is true or false."
+        ),
+    ] = None
+    uses_embedded_fonts: Annotated[
+        bool | None,
+        Field(
+            description="Indicates whether the PDF contains fully embedded fonts. "
+            "The result is true or false."
+        ),
+    ] = None
+    uses_nonembedded_fonts: Annotated[
+        bool | None,
+        Field(
+            description="Indicates whether the PDF contains non-embedded fonts. The "
+            "result is true or false."
+        ),
+    ] = None
+    pdfa: Annotated[
+        bool | None,
+        Field(
+            description="Indicates whether the document conforms to the PDF/A "
+            "standard. The result is true or false."
+        ),
+    ] = None
+    pdfua_claim: Annotated[
+        bool | None,
+        Field(
+            description="Indicates whether the document claims to conform to the "
+            "PDF/UA standard. The result is true or false."
+        ),
+    ] = None
+    pdfe_claim: Annotated[
+        bool | None,
+        Field(
+            description="Indicates whether the document claims to conform to the "
+            "PDF/E standard. The result is true or false."
+        ),
+    ] = None
+    pdfx_claim: Annotated[
+        bool | None,
+        Field(
+            description="Indicates whether the document claims to conform to the "
+            "PDF/X standard. The result is true or false."
+        ),
+    ] = None
+    requires_password_to_open: Annotated[
+        bool | None,
+        Field(
+            description=(
+                "Indicates whether the PDF requires a password to open. The result "
+                "is true or false. *Note*: A document requiring a password cannot be "
+                "opened by this route and will not provide much other information."
+            )
+        ),
+    ] = None
+    all_queries_processed: Annotated[
+        bool,
+        Field(
+            validation_alias=AliasChoices(
+                "all_queries_processed", "allQueriesProcessed"
+            ),
+            description=(
+                "Indicates whether all possible queries about the PDF document were "
+                "successfully processed. This field is required, and the result is "
+                "true or false."
+            ),
+        ),
+    ]
+    warning: Annotated[
+        str | None,
+        Field(
+            description="A warning indicating why not all queries could be processed.",
+        ),
+    ] = None

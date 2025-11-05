@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import re
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from pathlib import PurePath
 from typing import Annotated, Any, Generic, Literal, TypeVar
 
@@ -17,6 +17,7 @@ from pydantic import (
     model_validator,
 )
 
+from ..types import PdfInfoQuery
 from . import PdfRestFile
 from .public import PdfRestFileID
 
@@ -24,9 +25,11 @@ from .public import PdfRestFileID
 def _ensure_list(value: Any) -> Any:
     if value is None:
         return None
-    if not isinstance(value, list):
-        return [value]
-    return value
+    if isinstance(value, list):
+        return value
+    if isinstance(value, Sequence) and not isinstance(value, (str, bytes, bytearray)):
+        return list(value)
+    return [value]
 
 
 def _list_of_strings(value: list[Any]) -> list[str]:
@@ -118,6 +121,8 @@ def _split_comma_list(value: Any) -> Any:
         return value.split(",")
     if isinstance(value, list):
         return value
+    if isinstance(value, Sequence) and not isinstance(value, (str, bytes, bytearray)):
+        return list(value)
     msg = "Must be a comma separated string or a list of strings."
     raise ValueError(msg)
 
@@ -175,6 +180,29 @@ class UploadURLs(BaseModel):
         Field(min_length=1),
         BeforeValidator(_list_of_strings),
         BeforeValidator(_ensure_list),
+    ]
+
+
+class PdfInfoPayload(BaseModel):
+    """Adapt caller options into a pdfRest-ready pdf-info request payload."""
+
+    files: Annotated[
+        list[PdfRestFile],
+        Field(
+            min_length=1,
+            max_length=1,
+            validation_alias=AliasChoices("file", "files"),
+            serialization_alias="id",
+        ),
+        BeforeValidator(_ensure_list),
+        PlainSerializer(_serialize_as_first_file_id),
+    ]
+    queries: Annotated[
+        list[PdfInfoQuery],
+        Field(min_length=1),
+        BeforeValidator(_ensure_list),
+        BeforeValidator(_split_comma_list),
+        PlainSerializer(_serialize_as_comma_separated_string),
     ]
 
 
