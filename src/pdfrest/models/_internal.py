@@ -195,6 +195,9 @@ class PdfInfoPayload(BaseModel):
             serialization_alias="id",
         ),
         BeforeValidator(_ensure_list),
+        AfterValidator(
+            _allowed_mime_types("application/pdf", error_msg="Must be a PDF file")
+        ),
         PlainSerializer(_serialize_as_first_file_id),
     ]
     queries: Annotated[
