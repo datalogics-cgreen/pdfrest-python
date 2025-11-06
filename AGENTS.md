@@ -57,13 +57,34 @@
   `async with AsyncPdfRestClient(...)`), nest any synchronous companions such as
   `pytest.raises` inside the async block—Python forbids mixing `async with` and
   regular `with` clauses in the same statement. When working with `HttpUrl`
-  objects, cast to `str` before string operations such as suffix checks.
+  objects, cast to `str` before string operations such as suffix checks. *When
+  using `pytest.raises`, prefer combining it into the same `with` clause as
+  another synchronous context manager when semantics allow.*
 - For image conversions, adapt request data with `BasePdfRestGraphicPayload`
   generics; name concrete payloads `BmpPdfRestPayload`, `GifPdfRestPayload`,
   `JpegPdfRestPayload`, `PngPdfRestPayload`, and `TiffPdfRestPayload`. Client
   helpers should accept a `payload_model` argument and use fully spelled-out
   method names such as `convert_to_jpeg`/`convert_to_tiff` (avoid historic
   three-letter suffixes).
+- Define reusable literals and simple aliases under `src/pdfrest/types/` and
+  import them from `pdfrest.types` (e.g., `PdfInfoQuery`) instead of reaching
+  into underscored modules. Treat that package as the public surface for shared
+  type contracts consumed by both clients and tests.
+- Payload models that reference uploaded resources should accept
+  `list[PdfRestFile]` with explicit length bounds and serialize IDs for the
+  allowed cardinality (`serialization_alias="id"` plus a serializer that emits
+  either the first id when `max_length == 1` or a list when larger). Client
+  helpers should pass sequences through without converting to raw IDs manually.
+- When a payload accepts uploaded content, validate MIME types via
+  `_allowed_mime_types` to surface clear errors before making the request.
+- When an endpoint expects JSON-encoded structures (e.g., arrays of redaction
+  rules), expose typed arguments (TypedDicts, Literals, etc.) via
+  `pdfrest.types` and let the payload serializer produce the JSON string for the
+  request body.
+- Client helpers that consume existing resources must accept `PdfRestFile`
+  instances (optionally sequences) rather than raw IDs or strings; use the
+  `files` client helpers to resolve file IDs before invoking conversion or
+  metadata routes.
 - When adding new services, provide per-endpoint test modules mirroring PNG’s
   coverage: parameterized successes for every allowed literal value, request
   customization (sync + async), validation failures, and multi-file guards. Add
@@ -86,6 +107,8 @@
 - For parameterized tests prefer `pytest.param(..., id="short-label")` so test
   IDs stay readable; make assertions for every relevant response attribute (name
   prefix, MIME type, size, URLs, warnings).
+- Avoid manual loops over test parameters; prefer `@pytest.mark.parametrize`
+  with explicit `id=` values so each combination is visible and reproducible.
 - Always couple `pytest.raises` with an explicit `match=` regex that reflects
   the intended validation error wording—mirror the human-readable text rather
   than relying on default exception formatting.
@@ -120,7 +143,13 @@
   pdfRest raises errors for out-of-range or unsupported values. When bypassing
   local validation to reach the server (e.g., for negative tests), inject the
   override via `extra_body` and expect `PdfRestApiError` (or the precise
-  exception surfaced by the client).
+  exception surfaced by the client). When test fixtures produce deterministic
+  results (e.g., `tests/resources/report.pdf`), assert the concrete values
+  returned by pdfRest rather than only checking for presence or type.
+- Developers can load a pdfRest API key from `.env` during ad-hoc exploration.
+  The repo includes `python-dotenv`; call `load_dotenv()` (optionally pointing
+  to `.env`) in temporary scripts to drive the in-flight client against live
+  endpoints and capture responses for test data and assertions.
 
 ## Commit & Pull Request Guidelines
 
