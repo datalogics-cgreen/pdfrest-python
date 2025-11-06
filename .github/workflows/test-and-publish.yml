@@ -35,7 +35,7 @@ jobs:
           cache-suffix: test-and-publish
           cache-dependency-glob: uv.lock
       - name: Run tests with nox
-        run: uvx nox --python ${{ matrix.python-version }} --session tests
+        run: uvx nox --python ${{ matrix.python-version }} --session tests -- --no-parallel
         env:
           PDFREST_API_KEY: ${{ secrets.PDFREST_API_KEY }}
 
