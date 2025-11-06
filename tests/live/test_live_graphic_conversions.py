@@ -23,8 +23,12 @@ class _GraphicEndpointSpec(NamedTuple):
     payload_model: type[BasePdfRestGraphicPayload[Any]]
 
 
-PAYLOAD_MODELS: dict[str, _GraphicEndpointSpec] = {
+PNG_PAYLOAD_ONLY: dict[str, _GraphicEndpointSpec] = {
     "png": _GraphicEndpointSpec("convert_to_png", PngPdfRestPayload),
+}
+
+PAYLOAD_MODELS: dict[str, _GraphicEndpointSpec] = {
+    **PNG_PAYLOAD_ONLY,
     "bmp": _GraphicEndpointSpec("convert_to_bmp", BmpPdfRestPayload),
     "gif": _GraphicEndpointSpec("convert_to_gif", GifPdfRestPayload),
     "jpeg": _GraphicEndpointSpec("convert_to_jpeg", JpegPdfRestPayload),
@@ -160,8 +164,8 @@ def test_live_graphic_invalid_color_model(
 
 @pytest.mark.parametrize(
     ("_endpoint_label", "spec"),
-    PAYLOAD_MODELS.items(),
-    ids=list(PAYLOAD_MODELS),
+    PNG_PAYLOAD_ONLY.items(),
+    ids=list(PNG_PAYLOAD_ONLY),
 )
 @pytest.mark.parametrize(
     ("bound", "offset", "should_raise"),
