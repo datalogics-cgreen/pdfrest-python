@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import re
 from collections.abc import Callable, Sequence
 from pathlib import PurePath
@@ -16,6 +17,8 @@ from pydantic import (
     PlainSerializer,
     model_validator,
 )
+
+from pdfrest.types.public import PdfRedactionPreset
 
 from ..types import PdfInfoQuery
 from . import PdfRestFile
@@ -127,6 +130,17 @@ def _split_comma_list(value: Any) -> Any:
     raise ValueError(msg)
 
 
+def _split_comma_string(value: Any) -> list[Any] | None:
+    if value is None:
+        return None
+    if isinstance(value, str):
+        return value.split(",")
+    if isinstance(value, Sequence) and not isinstance(value, (bytes, bytearray, str)):
+        return list(value)
+    msg = "Must be a list, or a comma separated string."
+    raise ValueError(msg)
+
+
 def _pdfrest_file_to_id(value: Any) -> Any:
     if isinstance(value, PdfRestFile):
         return value.id
@@ -140,10 +154,15 @@ def _serialize_as_first_file_id(value: list[PdfRestFile]) -> str:
 def _serialize_as_comma_separated_string(value: list[Any] | None) -> str | None:
     if value is None:
         return None
-    return ",".join(value)
+    return ",".join(str(element) for element in value)
 
 
 PageRangeEntry = Annotated[str, AfterValidator(_validate_page_range_entry)]
+
+
+def _serialize_redactions(value: list[_PdfRedactionVariant]) -> str:
+    payload = [entry.model_dump(mode="json", exclude_none=True) for entry in value]
+    return json.dumps(payload, separators=(",", ":"))
 
 
 def _allowed_mime_types(
@@ -207,6 +226,90 @@ class PdfInfoPayload(BaseModel):
         BeforeValidator(_split_comma_list),
         PlainSerializer(_serialize_as_comma_separated_string),
     ]
+
+
+RgbChannel = Annotated[int, Field(ge=0, le=255)]
+
+
+class PdfLiteralRedactionModel(BaseModel):
+    type: Literal["literal"]
+    value: Annotated[str, Field(min_length=1)]
+
+
+class PdfRegexRedactionModel(BaseModel):
+    type: Literal["regex"]
+    value: Annotated[str, Field(min_length=1)]
+
+
+class PdfPresetRedactionModel(BaseModel):
+    type: Literal["preset"]
+    value: PdfRedactionPreset
+
+
+_PdfRedactionVariant = Annotated[
+    PdfLiteralRedactionModel | PdfRegexRedactionModel | PdfPresetRedactionModel,
+    Field(discriminator="type"),
+]
+
+
+class PdfRedactionPreviewPayload(BaseModel):
+    """Adapt caller options into a pdfRest-compatible redaction preview request."""
+
+    files: Annotated[
+        list[PdfRestFile],
+        Field(
+            min_length=1,
+            max_length=1,
+            validation_alias=AliasChoices("file", "files"),
+            serialization_alias="id",
+        ),
+        BeforeValidator(_ensure_list),
+        AfterValidator(
+            _allowed_mime_types("application/pdf", error_msg="Must be a PDF file")
+        ),
+        PlainSerializer(_serialize_as_first_file_id),
+    ]
+    redactions: Annotated[
+        list[_PdfRedactionVariant],
+        Field(min_length=1),
+        BeforeValidator(_ensure_list),
+        PlainSerializer(_serialize_redactions),
+    ]
+    output: Annotated[
+        str | None,
+        Field(serialization_alias="output", min_length=1, default=None),
+        AfterValidator(_validate_output_prefix),
+    ] = None
+
+
+class PdfRedactionApplyPayload(BaseModel):
+    """Adapt caller options into a pdfRest-compatible redaction application request."""
+
+    files: Annotated[
+        list[PdfRestFile],
+        Field(
+            min_length=1,
+            max_length=1,
+            validation_alias=AliasChoices("file", "files"),
+            serialization_alias="id",
+        ),
+        BeforeValidator(_ensure_list),
+        AfterValidator(
+            _allowed_mime_types("application/pdf", error_msg="Must be a PDF file")
+        ),
+        PlainSerializer(_serialize_as_first_file_id),
+    ]
+    rgb_color: Annotated[
+        tuple[RgbChannel, RgbChannel, RgbChannel] | None,
+        Field(serialization_alias="rgb_color", default=None),
+        BeforeValidator(_split_comma_string),
+        PlainSerializer(_serialize_as_comma_separated_string),
+    ] = None
+    output: Annotated[
+        str | None,
+        Field(serialization_alias="output", min_length=1, default=None),
+        AfterValidator(_validate_output_prefix),
+    ] = None
 
 
 ColorModelT = TypeVar("ColorModelT", bound=str)

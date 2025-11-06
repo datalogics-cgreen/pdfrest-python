@@ -40,12 +40,19 @@ from .models._internal import (
     GifPdfRestPayload,
     JpegPdfRestPayload,
     PdfInfoPayload,
+    PdfRedactionApplyPayload,
+    PdfRedactionPreviewPayload,
     PdfRestRawFileResponse,
     PngPdfRestPayload,
     TiffPdfRestPayload,
     UploadURLs,
 )
-from .types import ALL_PDF_INFO_QUERIES, PdfInfoQuery
+from .types import (
+    ALL_PDF_INFO_QUERIES,
+    PdfInfoQuery,
+    PdfRedactionInstruction,
+    PdfRGBColor,
+)
 
 DEFAULT_BASE_URL = "https://api.pdfrest.com"
 API_KEY_ENV_VAR = "PDFREST_API_KEY"
@@ -598,6 +605,54 @@ class _SyncApiClient(_BaseApiClient[httpx.Client]):
             raise translate_httpx_error(exc) from exc
         return self._handle_response(response)
 
+    def _post_file_operation(
+        self,
+        *,
+        endpoint: str,
+        payload: dict[str, Any],
+        payload_model: type[BaseModel],
+        extra_query: Query | None = None,
+        extra_headers: AnyMapping | None = None,
+        extra_body: Body | None = None,
+        timeout: TimeoutTypes | None = None,
+    ) -> PdfRestFileBasedResponse:
+        job_options = payload_model.model_validate(payload)
+        json_body = job_options.model_dump(
+            mode="json", by_alias=True, exclude_none=True, exclude_unset=True
+        )
+        request = self.prepare_request(
+            "POST",
+            endpoint,
+            json_body=json_body,
+            extra_query=extra_query,
+            extra_headers=extra_headers,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
+        raw_payload = self._send_request(request)
+        raw_response = PdfRestRawFileResponse.model_validate(raw_payload)
+
+        output_ids = raw_response.ids or []
+        output_files = [
+            self.fetch_file_info(
+                str(file_id),
+                extra_query=extra_query,
+                extra_headers=extra_headers,
+                timeout=timeout,
+            )
+            for file_id in output_ids
+        ]
+
+        return PdfRestFileBasedResponse.model_validate(
+            {
+                "input_id": [str(file_id) for file_id in raw_response.input_id],
+                "output_file": [
+                    file.model_dump(mode="json", by_alias=True) for file in output_files
+                ],
+                "warning": raw_response.warning,
+            }
+        )
+
     def send_request(self, request: _RequestModel) -> Any:
         return self._send_request(request)
 
@@ -674,6 +729,7 @@ class _AsyncApiClient(_BaseApiClient[httpx.AsyncClient]):
         headers: AnyMapping | None = None,
         http_client: httpx.AsyncClient | None = None,
         transport: httpx.AsyncBaseTransport | None = None,
+        concurrency_limit: int = DEFAULT_FILE_INFO_CONCURRENCY,
     ) -> None:
         super().__init__(
             api_key=api_key,
@@ -688,6 +744,7 @@ class _AsyncApiClient(_BaseApiClient[httpx.AsyncClient]):
             timeout=self._config.timeout,
             transport=transport,
         )
+        self._concurrency_limit = concurrency_limit
 
     async def aclose(self) -> None:
         if self._owns_http_client:
@@ -715,6 +772,62 @@ class _AsyncApiClient(_BaseApiClient[httpx.AsyncClient]):
         except httpx.HTTPError as exc:
             raise translate_httpx_error(exc) from exc
         return self._handle_response(response)
+
+    async def _post_file_operation(
+        self,
+        *,
+        endpoint: str,
+        payload: dict[str, Any],
+        payload_model: type[BaseModel],
+        extra_query: Query | None = None,
+        extra_headers: AnyMapping | None = None,
+        extra_body: Body | None = None,
+        timeout: TimeoutTypes | None = None,
+    ) -> PdfRestFileBasedResponse:
+        job_options = payload_model.model_validate(payload)
+        request = self.prepare_request(
+            "POST",
+            endpoint,
+            json_body=job_options.model_dump(
+                mode="json", by_alias=True, exclude_none=True, exclude_unset=True
+            ),
+            extra_query=extra_query,
+            extra_headers=extra_headers,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
+        raw_payload = await self._send_request(request)
+        raw_response = PdfRestRawFileResponse.model_validate(raw_payload)
+
+        output_ids = raw_response.ids or []
+        output_files: list[PdfRestFile] = []
+        semaphore = asyncio.Semaphore(self._concurrency_limit)
+
+        async def throttled_fetch_file_info(file_id: str) -> PdfRestFile:
+            async with semaphore:
+                return await self.fetch_file_info(
+                    str(file_id),
+                    extra_query=extra_query,
+                    extra_headers=extra_headers,
+                    timeout=timeout,
+                )
+
+        if output_ids:
+            output_files = list(
+                await asyncio.gather(
+                    *(throttled_fetch_file_info(str(file_id)) for file_id in output_ids)
+                )
+            )
+
+        return PdfRestFileBasedResponse.model_validate(
+            {
+                "input_id": [str(file_id) for file_id in raw_response.input_id],
+                "output_file": [
+                    file.model_dump(mode="json", by_alias=True) for file in output_files
+                ],
+                "warning": raw_response.warning,
+            }
+        )
 
     async def send_request(self, request: _RequestModel) -> Any:
         return await self._send_request(request)
@@ -1380,40 +1493,14 @@ class PdfRestClient(_SyncApiClient):
         extra_body: Body | None = None,
         timeout: TimeoutTypes | None = None,
     ) -> PdfRestFileBasedResponse:
-        conversion_options = payload_model.model_validate(payload)
-        request = self.prepare_request(
-            "POST",
-            endpoint,
-            json_body=conversion_options.model_dump(
-                mode="json", by_alias=True, exclude_none=True, exclude_unset=True
-            ),
+        return self._post_file_operation(
+            endpoint=endpoint,
+            payload=payload,
+            payload_model=payload_model,
             extra_query=extra_query,
             extra_headers=extra_headers,
             extra_body=extra_body,
             timeout=timeout,
-        )
-        raw_payload = self._send_request(request)
-        raw_response = PdfRestRawFileResponse.model_validate(raw_payload)
-
-        output_ids = raw_response.ids or []
-        output_files = [
-            self.fetch_file_info(
-                str(file_id),
-                extra_query=extra_query,
-                extra_headers=extra_headers,
-                timeout=timeout,
-            )
-            for file_id in output_ids
-        ]
-
-        return PdfRestFileBasedResponse.model_validate(
-            {
-                "input_id": [str(file_id) for file_id in raw_response.input_id],
-                "output_file": [
-                    file.model_dump(mode="json", by_alias=True) for file in output_files
-                ],
-                "warning": raw_response.warning,
-            }
         )
 
     def query_pdf_info(
@@ -1442,6 +1529,67 @@ class PdfRestClient(_SyncApiClient):
         )
         raw_payload = self._send_request(request)
         return PdfRestInfoResponse.model_validate(raw_payload)
+
+    def preview_redactions(
+        self,
+        file: PdfRestFile | Sequence[PdfRestFile],
+        *,
+        redactions: PdfRedactionInstruction | Sequence[PdfRedactionInstruction],
+        output: str | None = None,
+        extra_query: Query | None = None,
+        extra_headers: AnyMapping | None = None,
+        extra_body: Body | None = None,
+        timeout: TimeoutTypes | None = None,
+    ) -> PdfRestFileBasedResponse:
+        """Generate a PDF redaction preview with annotated redaction rectangles."""
+
+        payload: dict[str, Any] = {
+            "files": file,
+            "redactions": redactions,
+        }
+        if output is not None:
+            payload["output"] = output
+
+        return self._post_file_operation(
+            endpoint="/pdf-with-redacted-text-preview",
+            payload=payload,
+            payload_model=PdfRedactionPreviewPayload,
+            extra_query=extra_query,
+            extra_headers=extra_headers,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
+
+    def apply_redactions(
+        self,
+        file: PdfRestFile | Sequence[PdfRestFile],
+        *,
+        rgb_color: PdfRGBColor | Sequence[int] | None = None,
+        output: str | None = None,
+        extra_query: Query | None = None,
+        extra_headers: AnyMapping | None = None,
+        extra_body: Body | None = None,
+        timeout: TimeoutTypes | None = None,
+    ) -> PdfRestFileBasedResponse:
+        """Apply previously previewed redactions and return the final redacted PDF."""
+
+        payload: dict[str, Any] = {
+            "files": file,
+        }
+        if rgb_color is not None:
+            payload["rgb_color"] = rgb_color
+        if output is not None:
+            payload["output"] = output
+
+        return self._post_file_operation(
+            endpoint="/pdf-with-redacted-text-applied",
+            payload=payload,
+            payload_model=PdfRedactionApplyPayload,
+            extra_query=extra_query,
+            extra_headers=extra_headers,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
 
     def convert_to_png(
         self,
@@ -1659,6 +1807,7 @@ class AsyncPdfRestClient(_AsyncApiClient):
         headers: AnyMapping | None = None,
         http_client: httpx.AsyncClient | None = None,
         transport: httpx.AsyncBaseTransport | None = None,
+        concurrency_limit: int = DEFAULT_FILE_INFO_CONCURRENCY,
     ) -> None:
         """Create an asynchronous pdfRest client."""
 
@@ -1669,6 +1818,7 @@ class AsyncPdfRestClient(_AsyncApiClient):
             headers=headers,
             http_client=http_client,
             transport=transport,
+            concurrency_limit=concurrency_limit,
         )
         self._files_client = _AsyncFilesClient(self)
 
@@ -1710,6 +1860,67 @@ class AsyncPdfRestClient(_AsyncApiClient):
         raw_payload = await self._send_request(request)
         return PdfRestInfoResponse.model_validate(raw_payload)
 
+    async def preview_redactions(
+        self,
+        file: PdfRestFile | Sequence[PdfRestFile],
+        *,
+        redactions: PdfRedactionInstruction | Sequence[PdfRedactionInstruction],
+        output: str | None = None,
+        extra_query: Query | None = None,
+        extra_headers: AnyMapping | None = None,
+        extra_body: Body | None = None,
+        timeout: TimeoutTypes | None = None,
+    ) -> PdfRestFileBasedResponse:
+        """Asynchronously generate a PDF redaction preview."""
+
+        payload: dict[str, Any] = {
+            "files": file,
+            "redactions": redactions,
+        }
+        if output is not None:
+            payload["output"] = output
+
+        return await self._post_file_operation(
+            endpoint="/pdf-with-redacted-text-preview",
+            payload=payload,
+            payload_model=PdfRedactionPreviewPayload,
+            extra_query=extra_query,
+            extra_headers=extra_headers,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
+
+    async def apply_redactions(
+        self,
+        file: PdfRestFile | Sequence[PdfRestFile],
+        *,
+        rgb_color: PdfRGBColor | Sequence[int] | None = None,
+        output: str | None = None,
+        extra_query: Query | None = None,
+        extra_headers: AnyMapping | None = None,
+        extra_body: Body | None = None,
+        timeout: TimeoutTypes | None = None,
+    ) -> PdfRestFileBasedResponse:
+        """Asynchronously apply PDF redactions."""
+
+        payload: dict[str, Any] = {
+            "files": file,
+        }
+        if rgb_color is not None:
+            payload["rgb_color"] = rgb_color
+        if output is not None:
+            payload["output"] = output
+
+        return await self._post_file_operation(
+            endpoint="/pdf-with-redacted-text-applied",
+            payload=payload,
+            payload_model=PdfRedactionApplyPayload,
+            extra_query=extra_query,
+            extra_headers=extra_headers,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
+
     async def up(
         self,
         *,
@@ -1742,46 +1953,14 @@ class AsyncPdfRestClient(_AsyncApiClient):
         extra_body: Body | None = None,
         timeout: TimeoutTypes | None = None,
     ) -> PdfRestFileBasedResponse:
-        conversion_options = payload_model.model_validate(payload)
-        request = self.prepare_request(
-            "POST",
-            endpoint,
-            json_body=conversion_options.model_dump(
-                mode="json", by_alias=True, exclude_none=True, exclude_unset=True
-            ),
+        return await self._post_file_operation(
+            endpoint=endpoint,
+            payload=payload,
+            payload_model=payload_model,
             extra_query=extra_query,
             extra_headers=extra_headers,
             extra_body=extra_body,
             timeout=timeout,
-        )
-        raw_payload = await self._send_request(request)
-        raw_response = PdfRestRawFileResponse.model_validate(raw_payload)
-
-        output_ids = raw_response.ids or []
-        output_files: list[PdfRestFile] = []
-        if output_ids:
-            output_files = list(
-                await asyncio.gather(
-                    *(
-                        self.fetch_file_info(
-                            str(file_id),
-                            extra_query=extra_query,
-                            extra_headers=extra_headers,
-                            timeout=timeout,
-                        )
-                        for file_id in output_ids
-                    )
-                )
-            )
-
-        return PdfRestFileBasedResponse.model_validate(
-            {
-                "input_id": [str(file_id) for file_id in raw_response.input_id],
-                "output_file": [
-                    file.model_dump(mode="json", by_alias=True) for file in output_files
-                ],
-                "warning": raw_response.warning,
-            }
         )
 
     async def convert_to_png(

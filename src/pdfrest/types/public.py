@@ -4,7 +4,16 @@ from __future__ import annotations
 
 from typing import Literal, cast, get_args
 
-__all__ = ("ALL_PDF_INFO_QUERIES", "PdfInfoQuery")
+from typing_extensions import TypedDict
+
+__all__ = (
+    "ALL_PDF_INFO_QUERIES",
+    "PdfInfoQuery",
+    "PdfRGBColor",
+    "PdfRedactionInstruction",
+    "PdfRedactionPreset",
+    "PdfRedactionType",
+)
 
 PdfInfoQuery = Literal[
     "tagged",
@@ -43,3 +52,28 @@ PdfInfoQuery = Literal[
 ALL_PDF_INFO_QUERIES: tuple[PdfInfoQuery, ...] = cast(
     tuple[PdfInfoQuery, ...], get_args(PdfInfoQuery)
 )
+
+PdfRedactionType = Literal["literal", "regex", "preset"]
+
+PdfRedactionPreset = Literal[
+    "email",
+    "phone_number",
+    "date",
+    "us_ssn",
+    "url",
+    "credit_card",
+    "credit_debit_pin",
+    "bank_routing_number",
+    "international_bank_account_number",
+    "swift_bic_number",
+    "ipv4",
+    "ipv6",
+]
+
+
+class PdfRedactionInstruction(TypedDict):
+    type: PdfRedactionType
+    value: PdfRedactionPreset | str
+
+
+PdfRGBColor = tuple[int, int, int]
