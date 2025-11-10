@@ -40,9 +40,11 @@ from .models._internal import (
     GifPdfRestPayload,
     JpegPdfRestPayload,
     PdfInfoPayload,
+    PdfMergePayload,
     PdfRedactionApplyPayload,
     PdfRedactionPreviewPayload,
     PdfRestRawFileResponse,
+    PdfSplitPayload,
     PngPdfRestPayload,
     TiffPdfRestPayload,
     UploadURLs,
@@ -50,6 +52,8 @@ from .models._internal import (
 from .types import (
     ALL_PDF_INFO_QUERIES,
     PdfInfoQuery,
+    PdfMergeInput,
+    PdfPageSelection,
     PdfRedactionInstruction,
     PdfRGBColor,
 )
@@ -1591,6 +1595,61 @@ class PdfRestClient(_SyncApiClient):
             timeout=timeout,
         )
 
+    def split_pdf(
+        self,
+        file: PdfRestFile | Sequence[PdfRestFile],
+        *,
+        page_groups: Sequence[PdfPageSelection] | PdfPageSelection | None = None,
+        output_prefix: str | None = None,
+        extra_query: Query | None = None,
+        extra_headers: AnyMapping | None = None,
+        extra_body: Body | None = None,
+        timeout: TimeoutTypes | None = None,
+    ) -> PdfRestFileBasedResponse:
+        """Split a PDF into one or more PDF files based on the provided page groups."""
+
+        payload: dict[str, Any] = {"files": file}
+        if page_groups is not None:
+            payload["page_groups"] = page_groups
+        if output_prefix is not None:
+            payload["output_prefix"] = output_prefix
+
+        return self._post_file_operation(
+            endpoint="/split-pdf",
+            payload=payload,
+            payload_model=PdfSplitPayload,
+            extra_query=extra_query,
+            extra_headers=extra_headers,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
+
+    def merge_pdfs(
+        self,
+        sources: Sequence[PdfMergeInput],
+        *,
+        output_prefix: str | None = None,
+        extra_query: Query | None = None,
+        extra_headers: AnyMapping | None = None,
+        extra_body: Body | None = None,
+        timeout: TimeoutTypes | None = None,
+    ) -> PdfRestFileBasedResponse:
+        """Merge multiple PDFs (or page subsets) into a single PDF file."""
+
+        payload: dict[str, Any] = {"sources": sources}
+        if output_prefix is not None:
+            payload["output_prefix"] = output_prefix
+
+        return self._post_file_operation(
+            endpoint="/merged-pdf",
+            payload=payload,
+            payload_model=PdfMergePayload,
+            extra_query=extra_query,
+            extra_headers=extra_headers,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
+
     def convert_to_png(
         self,
         files: PdfRestFile | Sequence[PdfRestFile],
@@ -1957,6 +2016,61 @@ class AsyncPdfRestClient(_AsyncApiClient):
             endpoint=endpoint,
             payload=payload,
             payload_model=payload_model,
+            extra_query=extra_query,
+            extra_headers=extra_headers,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
+
+    async def split_pdf(
+        self,
+        file: PdfRestFile | Sequence[PdfRestFile],
+        *,
+        page_groups: Sequence[PdfPageSelection] | PdfPageSelection | None = None,
+        output_prefix: str | None = None,
+        extra_query: Query | None = None,
+        extra_headers: AnyMapping | None = None,
+        extra_body: Body | None = None,
+        timeout: TimeoutTypes | None = None,
+    ) -> PdfRestFileBasedResponse:
+        """Asynchronously split a PDF into one or more PDF files."""
+
+        payload: dict[str, Any] = {"files": file}
+        if page_groups is not None:
+            payload["page_groups"] = page_groups
+        if output_prefix is not None:
+            payload["output_prefix"] = output_prefix
+
+        return await self._post_file_operation(
+            endpoint="/split-pdf",
+            payload=payload,
+            payload_model=PdfSplitPayload,
+            extra_query=extra_query,
+            extra_headers=extra_headers,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
+
+    async def merge_pdfs(
+        self,
+        sources: Sequence[PdfMergeInput],
+        *,
+        output_prefix: str | None = None,
+        extra_query: Query | None = None,
+        extra_headers: AnyMapping | None = None,
+        extra_body: Body | None = None,
+        timeout: TimeoutTypes | None = None,
+    ) -> PdfRestFileBasedResponse:
+        """Asynchronously merge multiple PDFs (or page subsets) into a single PDF."""
+
+        payload: dict[str, Any] = {"sources": sources}
+        if output_prefix is not None:
+            payload["output_prefix"] = output_prefix
+
+        return await self._post_file_operation(
+            endpoint="/merged-pdf",
+            payload=payload,
+            payload_model=PdfMergePayload,
             extra_query=extra_query,
             extra_headers=extra_headers,
             extra_body=extra_body,

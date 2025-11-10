@@ -2,13 +2,22 @@
 
 from __future__ import annotations
 
-from typing import Literal, cast, get_args
+from collections.abc import Sequence
+from typing import TYPE_CHECKING, Any, Literal, cast, get_args
 
-from typing_extensions import TypedDict
+from typing_extensions import Required, TypedDict
+
+if TYPE_CHECKING:
+    from pdfrest.models import PdfRestFile
+else:  # pragma: no cover - used only for typing at runtime
+    PdfRestFile = Any
 
 __all__ = (
     "ALL_PDF_INFO_QUERIES",
     "PdfInfoQuery",
+    "PdfMergeInput",
+    "PdfMergeSource",
+    "PdfPageSelection",
     "PdfRGBColor",
     "PdfRedactionInstruction",
     "PdfRedactionPreset",
@@ -77,3 +86,13 @@ class PdfRedactionInstruction(TypedDict):
 
 
 PdfRGBColor = tuple[int, int, int]
+
+PdfPageSelection = str | int | Sequence[str | int]
+
+
+class PdfMergeSource(TypedDict, total=False):
+    file: Required[PdfRestFile]
+    pages: PdfPageSelection | None
+
+
+PdfMergeInput = PdfRestFile | PdfMergeSource | tuple[PdfRestFile, PdfPageSelection]

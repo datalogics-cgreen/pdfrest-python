@@ -15,6 +15,7 @@ from pydantic import (
     Field,
     HttpUrl,
     PlainSerializer,
+    model_serializer,
     model_validator,
 )
 
@@ -122,6 +123,12 @@ def _serialize_page_ranges(value: list[str | int | tuple[str | int, ...]]) -> st
     return ",".join(join_tuple(v) for v in value)
 
 
+def _serialize_grouped_page_ranges(
+    value: list[list[str | int | tuple[str | int, ...]]],
+) -> list[str]:
+    return [_serialize_page_ranges(v) for v in value]
+
+
 def _serialize_redactions(value: list[_PdfRedactionVariant]) -> str:
     payload = [entry.model_dump(mode="json", exclude_none=True) for entry in value]
     return json.dumps(payload, separators=(",", ":"))
@@ -181,6 +188,17 @@ def _ascending_page_range(
         raise ValueError(msg)
     return range
 
+
+_PageRangeTupleWithLast = Annotated[
+    tuple[PageNumber, PageNumber]
+    | tuple[Literal["last"], PageNumber]
+    | tuple[PageNumber, Literal["last"]],
+    BeforeValidator(_split_page_range_tuple),
+]
+
+SplitMergePageRange = (
+    Literal["even", "odd", "last"] | PageNumber | _PageRangeTupleWithLast
+)
 
 _AscendingPageRangeTuple = Annotated[
     tuple[PageNumber, PageNumber] | tuple[PageNumber, Literal["last"]],
@@ -347,6 +365,121 @@ class PngPdfRestPayload(BasePdfRestGraphicPayload[Literal["rgb", "rgba", "gray"]
     """Adapt caller options into a pdfRest-ready PNG request payload."""
 
     color_model: Annotated[Literal["rgb", "rgba", "gray"], Field(default="rgb")]
+
+
+_DEFAULT_FULL_DOCUMENT_RANGE: list[str] = ["1-last"]
+
+
+class PdfSplitPayload(BaseModel):
+    """Adapt caller options into a pdfRest-ready split request payload."""
+
+    files: Annotated[
+        list[PdfRestFile],
+        Field(
+            min_length=1,
+            max_length=1,
+            validation_alias=AliasChoices("file", "files"),
+            serialization_alias="id",
+        ),
+        BeforeValidator(_ensure_list),
+        AfterValidator(
+            _allowed_mime_types("application/pdf", error_msg="Must be a PDF file")
+        ),
+        PlainSerializer(_serialize_as_first_file_id),
+    ]
+    page_groups: Annotated[
+        list[
+            Annotated[
+                list[SplitMergePageRange],
+                BeforeValidator(_ensure_list),
+                BeforeValidator(_split_comma_string),
+            ]
+        ]
+        | None,
+        Field(
+            default=None,
+            validation_alias=AliasChoices("pages", "page_groups"),
+            serialization_alias="pages",
+            min_length=1,
+        ),
+        BeforeValidator(_ensure_list),
+        BeforeValidator(_int_to_string),
+        PlainSerializer(_serialize_grouped_page_ranges),
+    ]
+    output_prefix: Annotated[
+        str | None,
+        Field(serialization_alias="output", min_length=1, default=None),
+        AfterValidator(_validate_output_prefix),
+    ] = None
+
+
+class _PdfMergeItem(BaseModel):
+    file: Annotated[
+        PdfRestFile,
+        AfterValidator(
+            _allowed_mime_types("application/pdf", error_msg="Must be a PDF file")
+        ),
+    ]
+    pages: Annotated[
+        list[SplitMergePageRange],
+        Field(
+            min_length=1,
+            default_factory=lambda: list(_DEFAULT_FULL_DOCUMENT_RANGE).copy(),
+        ),
+        BeforeValidator(_list_of_strings),
+        BeforeValidator(_ensure_list),
+        PlainSerializer(_serialize_page_ranges),
+    ]
+
+    @model_validator(mode="before")
+    @classmethod
+    def _transform_input(cls, data: Any) -> Any:
+        if isinstance(data, tuple):
+            if len(data) != 2:
+                msg = (
+                    "Tuple merge entries must contain exactly two items: (file, pages)."
+                )
+                raise ValueError(msg)
+            file_candidate, pages = data
+            return {"file": file_candidate, "pages": pages}
+        if isinstance(data, PdfRestFile):
+            return {"file": data}
+        return data
+
+
+class PdfMergePayload(BaseModel):
+    """Adapt caller options into a pdfRest-ready merge request payload."""
+
+    sources: Annotated[
+        list[_PdfMergeItem],
+        Field(
+            min_length=2,
+            validation_alias=AliasChoices("sources", "documents", "files"),
+        ),
+        BeforeValidator(_ensure_list),
+    ]
+    output_prefix: Annotated[
+        str | None,
+        Field(serialization_alias="output", min_length=1, default=None),
+        AfterValidator(_validate_output_prefix),
+    ] = None
+
+    @model_serializer(mode="wrap")
+    def _serialize_pdf_merge_payload(
+        self, handler: Callable[[PdfMergePayload], dict[str, Any]]
+    ) -> dict[str, Any]:
+        # Invoke all the serializers on the payload, which then properly serializes
+        # all the fields.
+        payload = handler(self)
+        # Reorganize the serialized data into the parallel arrays that pdfRest expects
+        payload["type"] = ["id"] * len(self.sources)
+        payload["pages"] = [
+            source.get("pages", _DEFAULT_FULL_DOCUMENT_RANGE[0])
+            for source in payload["sources"]
+        ]
+        payload["id"] = [source["file"]["id"] for source in payload["sources"]]
+        del payload["sources"]
+        return payload
 
 
 class BmpPdfRestPayload(BasePdfRestGraphicPayload[Literal["rgb", "gray"]]):
