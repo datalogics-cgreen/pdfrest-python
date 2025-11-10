@@ -85,6 +85,22 @@
   instances (optionally sequences) rather than raw IDs or strings; use the
   `files` client helpers to resolve file IDs before invoking conversion or
   metadata routes.
+- For document splitting and merging, expose rich Python types on the client
+  surface (`PdfPageSelection`, `PdfMergeInput`) and validate them through the
+  `PdfSplitPayload`/`PdfMergePayload` models. Normalize per-output page groups
+  with the shared page-range validator, default merge items without explicit
+  ranges to `"1-last"`, and serialize merge requests into the parallel `id`,
+  `pages`, and `type` arrays that pdfRest expects (always emitting `"id"` for
+  `type[]`). Split/merge payloads accept descending ranges (e.g., `"9-2"`) and
+  the `"even"`/`"odd"` selectors; graphic conversions remain limited to positive
+  numbers, `"last"`, and ascending ranges to match the live API behaviour.
+- Favor declarative Pydantic validation over bespoke “normalize” helpers: define
+  nested models, unions, and annotated tuples that parse complex strings into
+  typed structures (as with the split/merge page-range tuples) and let small
+  validators enforce the constraints (`BeforeValidator` for parsing,
+  `AfterValidator` for relational checks). Reserve standalone normalization
+  functions for behaviour that cannot live on the schema—simpler models produce
+  clearer errors and are easier for new contributors to understand.
 - When adding new services, provide per-endpoint test modules mirroring PNG’s
   coverage: parameterized successes for every allowed literal value, request
   customization (sync + async), validation failures, and multi-file guards. Add
@@ -146,6 +162,11 @@
   exception surfaced by the client). When test fixtures produce deterministic
   results (e.g., `tests/resources/report.pdf`), assert the concrete values
   returned by pdfRest rather than only checking for presence or type.
+- Use `tests/resources/20-pages.pdf` for high-page-count scenarios such as split
+  and merge endpoints so boundary coverage (multi-output splits, staggered page
+  selections) remains reproducible. Parameterize live split/merge tests to cover
+  multiple page-group patterns, and pair each success case with an invalid input
+  that reaches the server by overriding the JSON body via `extra_body`.
 - Developers can load a pdfRest API key from `.env` during ad-hoc exploration.
   The repo includes `python-dotenv`; call `load_dotenv()` (optionally pointing
   to `.env`) in temporary scripts to drive the in-flight client against live
