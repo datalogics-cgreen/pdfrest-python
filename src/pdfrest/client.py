@@ -6,12 +6,29 @@ import asyncio
 import importlib.metadata
 import json
 import os
+import random
+import time
 import uuid
-from collections.abc import AsyncIterator, Iterator, Mapping, Sequence
+from collections.abc import (
+    AsyncIterator,
+    Awaitable,
+    Callable,
+    Iterator,
+    Mapping,
+    Sequence,
+)
 from contextlib import ExitStack
 from os import PathLike
 from pathlib import Path
-from typing import IO, Any, Generic, Literal, TypeAlias, TypeVar, cast
+from typing import (
+    IO,
+    Any,
+    Generic,
+    Literal,
+    TypeAlias,
+    TypeVar,
+    cast,
+)
 
 import httpx
 from httpx import URL
@@ -21,6 +38,10 @@ from .exceptions import (
     PdfRestApiError,
     PdfRestAuthenticationError,
     PdfRestConfigurationError,
+    PdfRestError,
+    PdfRestRequestError,
+    PdfRestTimeoutError,
+    PdfRestTransportError,
     translate_httpx_error,
 )
 from .models import (
@@ -65,6 +86,10 @@ DEFAULT_GENERAL_TIMEOUT_SECONDS = 10.0
 DEFAULT_READ_TIMEOUT_SECONDS = 120.0
 FILE_UPLOAD_FIELD_NAME = "file"
 DEFAULT_FILE_INFO_CONCURRENCY = 8
+DEFAULT_MAX_RETRIES = 2
+INITIAL_BACKOFF_SECONDS = 0.5
+MAX_BACKOFF_SECONDS = 8.0
+BACKOFF_JITTER_SECONDS = 0.1
 
 HttpMethod = Literal["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS", "HEAD"]
 QueryParamValue = str | int | float | bool | None
@@ -245,6 +270,7 @@ def _normalize_file_id(file_ref: PdfRestFileID | str) -> PdfRestFileID:
 
 
 ClientType = TypeVar("ClientType", httpx.Client, httpx.AsyncClient)
+ReturnType = TypeVar("ReturnType")
 
 
 class _ClientConfig(BaseModel):
@@ -341,7 +367,12 @@ class _BaseApiClient(Generic[ClientType]):
         base_url: str | URL | None = None,
         timeout: TimeoutTypes | None = None,
         headers: AnyMapping | None = None,
+        max_retries: int = DEFAULT_MAX_RETRIES,
     ) -> None:
+        if not isinstance(max_retries, int) or max_retries < 0:
+            msg = "max_retries must be a non-negative integer."
+            raise PdfRestConfigurationError(msg)
+        self._max_retries = max_retries
         raw_api_key = api_key if api_key is not None else os.getenv(API_KEY_ENV_VAR)
         resolved_api_key = (
             raw_api_key.strip() if raw_api_key and raw_api_key.strip() else None
@@ -386,6 +417,27 @@ class _BaseApiClient(Generic[ClientType]):
             raise
         except ValidationError as exc:  # pragma: no cover - defensive
             raise PdfRestConfigurationError(str(exc)) from exc
+
+    @staticmethod
+    def _is_retryable_status(status_code: int) -> bool:
+        return status_code == 429 or 500 <= status_code < 600
+
+    def _should_retry_exception(self, exc: PdfRestError) -> bool:
+        if isinstance(exc, PdfRestApiError):
+            return self._is_retryable_status(exc.status_code)
+        return isinstance(
+            exc, (PdfRestTimeoutError, PdfRestTransportError, PdfRestRequestError)
+        )
+
+    def _compute_backoff_delay(self, retry_number: int) -> float:
+        base_delay = min(
+            INITIAL_BACKOFF_SECONDS * (2**retry_number),
+            MAX_BACKOFF_SECONDS,
+        )
+        # ignoring S311 because this isn't being used for cryptography
+        jitter = random.uniform(-BACKOFF_JITTER_SECONDS, BACKOFF_JITTER_SECONDS)  # noqa: S311
+        delay = base_delay + jitter
+        return delay if delay > 0 else 0.0
 
     @staticmethod
     def _base_url_requires_api_key(url: URL) -> bool:
@@ -567,12 +619,14 @@ class _SyncApiClient(_BaseApiClient[httpx.Client]):
         headers: AnyMapping | None = None,
         http_client: httpx.Client | None = None,
         transport: httpx.BaseTransport | None = None,
+        max_retries: int = DEFAULT_MAX_RETRIES,
     ) -> None:
         super().__init__(
             api_key=api_key,
             base_url=base_url,
             timeout=timeout,
             headers=headers,
+            max_retries=max_retries,
         )
         self._owns_http_client = http_client is None
         self._client = http_client or httpx.Client(
@@ -592,8 +646,30 @@ class _SyncApiClient(_BaseApiClient[httpx.Client]):
     def __exit__(self, exc_type: Any, exc: Any, traceback: Any) -> None:
         self.close()
 
+    def _execute_with_retry(self, func: Callable[[], ReturnType]) -> ReturnType:
+        for attempt in range(self._max_retries + 1):
+            try:
+                return func()
+            except PdfRestError as exc:
+                if attempt == self._max_retries or not self._should_retry_exception(
+                    exc
+                ):
+                    raise
+                delay = self._compute_backoff_delay(attempt)
+                if delay > 0:
+                    time.sleep(delay)
+        msg = "Retry loop exited unexpectedly."
+        raise RuntimeError(msg)  # pragma: no cover
+
     def _send_request(self, request: _RequestModel) -> Any:
         http_client = self._client
+        return self._execute_with_retry(
+            lambda: self._perform_request(http_client, request)
+        )
+
+    def _perform_request(
+        self, http_client: httpx.Client, request: _RequestModel
+    ) -> Any:
         try:
             response = http_client.request(
                 method=request.method,
@@ -607,7 +683,13 @@ class _SyncApiClient(_BaseApiClient[httpx.Client]):
             )
         except httpx.HTTPError as exc:
             raise translate_httpx_error(exc) from exc
-        return self._handle_response(response)
+        try:
+            payload = self._handle_response(response)
+        except PdfRestApiError:
+            response.close()
+            raise
+        response.close()
+        return payload
 
     def _post_file_operation(
         self,
@@ -668,13 +750,18 @@ class _SyncApiClient(_BaseApiClient[httpx.Client]):
         extra_headers: AnyMapping | None = None,
         timeout: TimeoutTypes | None = None,
     ) -> httpx.Response:
-        request = self.prepare_request(
+        request_model = self.prepare_request(
             "GET",
             f"/resource/{file_id}",
             extra_query=extra_query,
             extra_headers=extra_headers,
             timeout=timeout,
         )
+        return self._execute_with_retry(
+            lambda: self._download_with_retry(request_model)
+        )
+
+    def _download_with_retry(self, request: _RequestModel) -> httpx.Response:
         http_request = self._client.build_request(
             request.method,
             request.endpoint,
@@ -692,12 +779,14 @@ class _SyncApiClient(_BaseApiClient[httpx.Client]):
             response = self._client.send(http_request, stream=True)
         except httpx.HTTPError as exc:
             raise translate_httpx_error(exc) from exc
-        if not response.is_success:
-            try:
-                self._handle_response(response)
-            finally:
-                response.close()
-        return response
+        if response.is_success:
+            return response
+        try:
+            self._handle_response(response)
+        finally:
+            response.close()
+        msg = "Unreachable"
+        raise RuntimeError(msg)  # pragma: no cover
 
     def fetch_file_info(
         self,
@@ -734,12 +823,14 @@ class _AsyncApiClient(_BaseApiClient[httpx.AsyncClient]):
         http_client: httpx.AsyncClient | None = None,
         transport: httpx.AsyncBaseTransport | None = None,
         concurrency_limit: int = DEFAULT_FILE_INFO_CONCURRENCY,
+        max_retries: int = DEFAULT_MAX_RETRIES,
     ) -> None:
         super().__init__(
             api_key=api_key,
             base_url=base_url,
             timeout=timeout,
             headers=headers,
+            max_retries=max_retries,
         )
         self._owns_http_client = http_client is None
         self._client = http_client or httpx.AsyncClient(
@@ -760,8 +851,32 @@ class _AsyncApiClient(_BaseApiClient[httpx.AsyncClient]):
     async def __aexit__(self, exc_type: Any, exc: Any, traceback: Any) -> None:
         await self.aclose()
 
+    async def _execute_with_retry(
+        self, func: Callable[[], Awaitable[ReturnType]]
+    ) -> ReturnType:
+        for attempt in range(self._max_retries + 1):
+            try:
+                return await func()
+            except PdfRestError as exc:
+                if attempt == self._max_retries or not self._should_retry_exception(
+                    exc
+                ):
+                    raise
+                delay = self._compute_backoff_delay(attempt)
+                if delay > 0:
+                    await asyncio.sleep(delay)
+        msg = "Retry loop exited unexpectedly."
+        raise RuntimeError(msg)  # pragma: no cover
+
     async def _send_request(self, request: _RequestModel) -> Any:
         http_client = self._client
+        return await self._execute_with_retry(
+            lambda: self._perform_request(http_client, request)
+        )
+
+    async def _perform_request(
+        self, http_client: httpx.AsyncClient, request: _RequestModel
+    ) -> Any:
         try:
             response = await http_client.request(
                 method=request.method,
@@ -775,7 +890,13 @@ class _AsyncApiClient(_BaseApiClient[httpx.AsyncClient]):
             )
         except httpx.HTTPError as exc:
             raise translate_httpx_error(exc) from exc
-        return self._handle_response(response)
+        try:
+            payload = self._handle_response(response)
+        except PdfRestApiError:
+            await response.aclose()
+            raise
+        await response.aclose()
+        return payload
 
     async def _post_file_operation(
         self,
@@ -844,13 +965,18 @@ class _AsyncApiClient(_BaseApiClient[httpx.AsyncClient]):
         extra_headers: AnyMapping | None = None,
         timeout: TimeoutTypes | None = None,
     ) -> httpx.Response:
-        request = self.prepare_request(
+        request_model = self.prepare_request(
             "GET",
             f"/resource/{file_id}",
             extra_query=extra_query,
             extra_headers=extra_headers,
             timeout=timeout,
         )
+        return await self._execute_with_retry(
+            lambda: self._download_with_retry(request_model)
+        )
+
+    async def _download_with_retry(self, request: _RequestModel) -> httpx.Response:
         http_request = self._client.build_request(
             request.method,
             request.endpoint,
@@ -868,12 +994,14 @@ class _AsyncApiClient(_BaseApiClient[httpx.AsyncClient]):
             response = await self._client.send(http_request, stream=True)
         except httpx.HTTPError as exc:
             raise translate_httpx_error(exc) from exc
-        if not response.is_success:
-            try:
-                self._handle_response(response)
-            finally:
-                await response.aclose()
-        return response
+        if response.is_success:
+            return response
+        try:
+            self._handle_response(response)
+        finally:
+            await response.aclose()
+        msg = "Unreachable"
+        raise RuntimeError(msg)  # pragma: no cover
 
     async def fetch_file_info(
         self,
@@ -1441,6 +1569,7 @@ class PdfRestClient(_SyncApiClient):
         headers: AnyMapping | None = None,
         http_client: httpx.Client | None = None,
         transport: httpx.BaseTransport | None = None,
+        max_retries: int = DEFAULT_MAX_RETRIES,
     ) -> None:
         """Create a synchronous pdfRest client."""
 
@@ -1451,6 +1580,7 @@ class PdfRestClient(_SyncApiClient):
             headers=headers,
             http_client=http_client,
             transport=transport,
+            max_retries=max_retries,
         )
         self._files_client = _FilesClient(self)
 
@@ -1867,6 +1997,7 @@ class AsyncPdfRestClient(_AsyncApiClient):
         http_client: httpx.AsyncClient | None = None,
         transport: httpx.AsyncBaseTransport | None = None,
         concurrency_limit: int = DEFAULT_FILE_INFO_CONCURRENCY,
+        max_retries: int = DEFAULT_MAX_RETRIES,
     ) -> None:
         """Create an asynchronous pdfRest client."""
 
@@ -1878,6 +2009,7 @@ class AsyncPdfRestClient(_AsyncApiClient):
             http_client=http_client,
             transport=transport,
             concurrency_limit=concurrency_limit,
+            max_retries=max_retries,
         )
         self._files_client = _AsyncFilesClient(self)
 

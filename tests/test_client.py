@@ -193,6 +193,97 @@ def test_up_rejects_extra_body(monkeypatch: pytest.MonkeyPatch) -> None:
         client.up(extra_body={"unexpected": "value"})
 
 
+def test_client_retries_on_server_error(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("PDFREST_API_KEY", VALID_API_KEY)
+    monkeypatch.setattr(client_module.random, "uniform", lambda *_: 0.0)
+    sleep_calls: list[float] = []
+    monkeypatch.setattr(
+        client_module.time, "sleep", lambda delay: sleep_calls.append(delay)
+    )
+
+    attempts = {"count": 0}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        attempts["count"] += 1
+        if attempts["count"] < 3:
+            return httpx.Response(500, json={"error": "try-again"})
+        return httpx.Response(200, json=_build_up_response())
+
+    transport = httpx.MockTransport(handler)
+    with PdfRestClient(api_key=VALID_API_KEY, transport=transport) as client:
+        response = client.up()
+
+    assert attempts["count"] == 3
+    assert response.status == "OK"
+    assert sleep_calls == [0.5, 1.0]
+
+
+def test_client_raises_after_retry_limit(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("PDFREST_API_KEY", VALID_API_KEY)
+    monkeypatch.setattr(client_module.random, "uniform", lambda *_: 0.0)
+    sleep_calls: list[float] = []
+    monkeypatch.setattr(
+        client_module.time, "sleep", lambda delay: sleep_calls.append(delay)
+    )
+
+    attempts = {"count": 0}
+
+    def handler(_: httpx.Request) -> httpx.Response:
+        attempts["count"] += 1
+        return httpx.Response(503, json={"error": "busy"})
+
+    transport = httpx.MockTransport(handler)
+    with (
+        pytest.raises(PdfRestApiError),
+        PdfRestClient(
+            api_key=VALID_API_KEY, transport=transport, max_retries=1
+        ) as client,
+    ):
+        client.up()
+
+    assert attempts["count"] == 2
+    assert sleep_calls == [0.5]
+
+
+@pytest.mark.asyncio
+async def test_async_client_retries_on_server_error(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("PDFREST_API_KEY", ASYNC_API_KEY)
+    monkeypatch.setattr(client_module.random, "uniform", lambda *_: 0.0)
+    sleep_calls: list[float] = []
+
+    async def fake_sleep(delay: float) -> None:
+        sleep_calls.append(delay)
+
+    monkeypatch.setattr(client_module.asyncio, "sleep", fake_sleep)
+
+    attempts = {"count": 0}
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        attempts["count"] += 1
+        if attempts["count"] < 3:
+            return httpx.Response(503, json={"error": "retry"})
+        return httpx.Response(200, json=_build_up_response())
+
+    transport = httpx.MockTransport(handler)
+    async with AsyncPdfRestClient(api_key=ASYNC_API_KEY, transport=transport) as client:
+        response = await client.up()
+
+    assert attempts["count"] == 3
+    assert response.status == "OK"
+    assert sleep_calls == [0.5, 1.0]
+
+
+def test_client_rejects_negative_max_retries(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("PDFREST_API_KEY", VALID_API_KEY)
+
+    with pytest.raises(PdfRestConfigurationError):
+        PdfRestClient(max_retries=-1)
+
+
 def test_prepare_request_merges_queries(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("PDFREST_API_KEY", "key")
     with PdfRestClient(api_key=VALID_API_KEY) as client:
