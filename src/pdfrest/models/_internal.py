@@ -75,50 +75,6 @@ def _validate_output_prefix(value: str | None) -> str | None:
     return value
 
 
-def _require_positive_page(
-    text: str, *, description: str, require_page_word: bool = False
-) -> str:
-    if not text.isdigit() or int(text) < 1:
-        message = (
-            f"{description} must be a page number greater than or equal to 1."
-            if require_page_word
-            else f"{description} must be greater than or equal to 1."
-        )
-        raise ValueError(message)
-    return text
-
-
-def _validate_page_range_entry(value: str) -> str:
-    """Normalize and validate a single page range entry."""
-    if not isinstance(value, str):
-        msg = "Each page range entry must be a string."
-        raise TypeError(msg)
-    entry = value.strip()
-    if entry == "":
-        msg = "Each page range entry must be a non-empty string."
-        raise ValueError(msg)
-    if entry == "last":
-        return entry
-    if entry.isdigit():
-        return _require_positive_page(entry, description="Page numbers")
-    if "-" in entry:
-        start_raw, end_raw = (part.strip() for part in entry.split("-", maxsplit=1))
-        start = _require_positive_page(
-            start_raw, description="Page range start", require_page_word=True
-        )
-        if end_raw == "last":
-            return f"{start}-last"
-        end = _require_positive_page(
-            end_raw, description="Page range end", require_page_word=True
-        )
-        if int(end) < int(start):
-            msg = "Page range end must be greater than or equal to the start."
-            raise ValueError(msg)
-        return f"{start}-{end}"
-    msg = "Page range entries must be positive integers, 'last', or a range like '1-3' or '6-last'."
-    raise ValueError(msg)
-
-
 def _split_comma_list(value: Any) -> Any:
     if isinstance(value, str):
         return value.split(",")
@@ -157,7 +113,13 @@ def _serialize_as_comma_separated_string(value: list[Any] | None) -> str | None:
     return ",".join(str(element) for element in value)
 
 
-PageRangeEntry = Annotated[str, AfterValidator(_validate_page_range_entry)]
+def _serialize_page_ranges(value: list[str | int | tuple[str | int, ...]]) -> str:
+    def join_tuple(value: str | int | tuple[str | int, ...]) -> str:
+        if isinstance(value, tuple):
+            return "-".join(str(e) for e in value)
+        return str(value)
+
+    return ",".join(join_tuple(v) for v in value)
 
 
 def _serialize_redactions(value: list[_PdfRedactionVariant]) -> str:
@@ -200,6 +162,33 @@ class UploadURLs(BaseModel):
         BeforeValidator(_list_of_strings),
         BeforeValidator(_ensure_list),
     ]
+
+
+PageNumber = Annotated[int, Field(ge=1), PlainSerializer(lambda x: str(x))]
+
+
+def _split_page_range_tuple(x: str) -> tuple[str, str]:
+    start, end = x.split("-", maxsplit=1)
+    return start, end
+
+
+def _ascending_page_range(
+    range: tuple[int, int | Literal["last"]],
+) -> tuple[int, int | Literal["last"]]:
+    start, end = range
+    if end != "last" and int(start) > int(end):
+        msg = "The start page must be less than or equal to the end page."
+        raise ValueError(msg)
+    return range
+
+
+_AscendingPageRangeTuple = Annotated[
+    tuple[PageNumber, PageNumber] | tuple[PageNumber, Literal["last"]],
+    BeforeValidator(_split_page_range_tuple),
+    AfterValidator(_ascending_page_range),
+]
+
+AscendingPageRange = PageNumber | Literal["last"] | _AscendingPageRangeTuple
 
 
 class PdfInfoPayload(BaseModel):
@@ -336,12 +325,12 @@ class BasePdfRestGraphicPayload(BaseModel, Generic[ColorModelT]):
         AfterValidator(_validate_output_prefix),
     ]
     page_range: Annotated[
-        list[PageRangeEntry] | None,
+        list[AscendingPageRange] | None,
         Field(serialization_alias="pages", min_length=1, default=None),
         BeforeValidator(_ensure_list),
         BeforeValidator(_split_comma_list),
         BeforeValidator(_int_to_string),
-        PlainSerializer(_serialize_as_comma_separated_string),
+        PlainSerializer(_serialize_page_ranges),
     ]
     resolution: Annotated[int, Field(ge=12, le=2400, default=300)]
     color_model: Annotated[ColorModelT, Field(default=...)]
