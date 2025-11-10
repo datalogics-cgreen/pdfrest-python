@@ -1,11 +1,12 @@
 from __future__ import annotations
 
-from collections.abc import Iterable
+from collections.abc import Iterable, Sequence
 from typing import Any, NamedTuple, get_args
 
 import pytest
 
 from pdfrest import PdfRestApiError, PdfRestClient
+from pdfrest.models import PdfRestFile
 from pdfrest.models._internal import (
     BasePdfRestGraphicPayload,
     BmpPdfRestPayload,
@@ -105,6 +106,19 @@ def _invalid_smoothing_cases() -> list[Any]:
             )
             cases.append(pytest.param(label, spec, candidate, id=case_id))
     return cases
+
+
+@pytest.fixture(scope="module")
+def uploaded_20_page_pdf(
+    pdfrest_api_key: str,
+    pdfrest_live_base_url: str,
+) -> PdfRestFile:
+    resource = get_test_resource_path("20-pages.pdf")
+    with PdfRestClient(
+        api_key=pdfrest_api_key,
+        base_url=pdfrest_live_base_url,
+    ) as client:
+        return client.files.create_from_paths([resource])[0]
 
 
 @pytest.mark.parametrize(
@@ -253,3 +267,130 @@ def test_live_graphic_invalid_smoothing(
                 smoothing="none",
                 extra_body={"smoothing": invalid_smoothing},
             )
+
+
+@pytest.mark.parametrize(
+    ("page_range", "expect_success"),
+    [
+        pytest.param("5", True, id="single"),
+        pytest.param("3-7", True, id="ascending-range"),
+        pytest.param("last", True, id="last"),
+        pytest.param("1-last", True, id="entire-document"),
+        pytest.param(["1", "3", "5-7"], True, id="list-mixed"),
+    ],
+)
+def test_live_png_page_range_variants(
+    pdfrest_api_key: str,
+    pdfrest_live_base_url: str,
+    uploaded_20_page_pdf: PdfRestFile,
+    page_range: Any,
+    expect_success: bool,
+    request: pytest.FixtureRequest,
+) -> None:
+    case_id = request.node.callspec.id
+    with PdfRestClient(
+        api_key=pdfrest_api_key,
+        base_url=pdfrest_live_base_url,
+    ) as client:
+        info = client.query_pdf_info(uploaded_20_page_pdf)
+
+        assert info.page_count == 20
+        assert str(info.input_id) == str(uploaded_20_page_pdf.id)
+        assert info.filename is None or info.filename.endswith(".pdf")
+
+        if expect_success:
+            response = client.convert_to_png(
+                uploaded_20_page_pdf,
+                output_prefix=f"live-range-{case_id}",
+                page_range=page_range,
+            )
+
+            expected_pages = _expand_page_selection(page_range, total_pages=20)
+            assert len(response.output_files) == len(expected_pages)
+            assert any(
+                file_info.name.endswith(".png") for file_info in response.output_files
+            )
+            assert all(
+                file_info.type == "image/png" and file_info.size > 0
+                for file_info in response.output_files
+            )
+            assert str(response.input_id) == str(uploaded_20_page_pdf.id)
+        else:
+            with pytest.raises(PdfRestApiError):
+                client.convert_to_png(
+                    uploaded_20_page_pdf,
+                    output_prefix=f"live-range-{case_id}",
+                    extra_body={"page_range": page_range},
+                )
+
+
+@pytest.mark.parametrize(
+    "page_override",
+    [
+        pytest.param("0", id="zero"),
+        pytest.param("last-0", id="range-with-zero"),
+        pytest.param("7-3", id="descending-range"),
+        pytest.param("even", id="even"),
+        pytest.param("odd", id="odd"),
+        pytest.param("odd,even", id="odd-even"),
+    ],
+)
+def test_live_png_page_range_invalid_overrides(
+    pdfrest_api_key: str,
+    pdfrest_live_base_url: str,
+    uploaded_20_page_pdf: PdfRestFile,
+    page_override: str,
+    request: pytest.FixtureRequest,
+) -> None:
+    case_id = request.node.callspec.id
+    with (
+        PdfRestClient(
+            api_key=pdfrest_api_key,
+            base_url=pdfrest_live_base_url,
+        ) as client,
+        pytest.raises(PdfRestApiError),
+    ):
+        client.convert_to_png(
+            uploaded_20_page_pdf,
+            output_prefix=f"live-range-invalid-{case_id}",
+            page_range="1",
+            extra_body={"pages": page_override},
+        )
+
+
+def _expand_page_selection(
+    selection: Any,
+    *,
+    total_pages: int,
+) -> list[int]:
+    def expand_entry(entry: Any) -> list[int]:
+        if isinstance(entry, int):
+            return [entry]
+        text = str(entry).strip()
+        lowered = text.lower()
+        if lowered == "even":
+            return list(range(2, total_pages + 1, 2))
+        if lowered == "odd":
+            return list(range(1, total_pages + 1, 2))
+        if lowered == "last":
+            return [total_pages]
+        if "-" in lowered:
+            start_raw, end_raw = (part.strip() for part in lowered.split("-", 1))
+
+            def resolve(range_token: str) -> int:
+                return total_pages if range_token == "last" else int(range_token)  # noqa: S105
+
+            start = resolve(start_raw)
+            end = resolve(end_raw)
+            step = 1 if end >= start else -1
+            return list(range(start, end + step, step))
+        return [int(text)]
+
+    if isinstance(selection, Sequence) and not isinstance(
+        selection, (str, bytes, bytearray)
+    ):
+        expanded: list[int] = []
+        for segment in selection:
+            expanded.extend(expand_entry(segment))
+        return expanded
+    return expand_entry(selection)
