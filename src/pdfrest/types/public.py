@@ -1,0 +1,98 @@
+"""Public type definitions for the pdfrest client."""
+
+from __future__ import annotations
+
+from collections.abc import Sequence
+from typing import TYPE_CHECKING, Any, Literal, cast, get_args
+
+from typing_extensions import Required, TypedDict
+
+if TYPE_CHECKING:
+    from pdfrest.models import PdfRestFile
+else:  # pragma: no cover - used only for typing at runtime
+    PdfRestFile = Any
+
+__all__ = (
+    "ALL_PDF_INFO_QUERIES",
+    "PdfInfoQuery",
+    "PdfMergeInput",
+    "PdfMergeSource",
+    "PdfPageSelection",
+    "PdfRGBColor",
+    "PdfRedactionInstruction",
+    "PdfRedactionPreset",
+    "PdfRedactionType",
+)
+
+PdfInfoQuery = Literal[
+    "tagged",
+    "image_only",
+    "title",
+    "subject",
+    "author",
+    "producer",
+    "creator",
+    "creation_date",
+    "modified_date",
+    "keywords",
+    "custom_metadata",
+    "doc_language",
+    "page_count",
+    "contains_annotations",
+    "contains_signature",
+    "pdf_version",
+    "file_size",
+    "filename",
+    "restrict_permissions_set",
+    "contains_xfa",
+    "contains_acroforms",
+    "contains_javascript",
+    "contains_transparency",
+    "contains_embedded_file",
+    "uses_embedded_fonts",
+    "uses_nonembedded_fonts",
+    "pdfa",
+    "pdfua_claim",
+    "pdfe_claim",
+    "pdfx_claim",
+    "requires_password_to_open",
+]
+
+ALL_PDF_INFO_QUERIES: tuple[PdfInfoQuery, ...] = cast(
+    tuple[PdfInfoQuery, ...], get_args(PdfInfoQuery)
+)
+
+PdfRedactionType = Literal["literal", "regex", "preset"]
+
+PdfRedactionPreset = Literal[
+    "email",
+    "phone_number",
+    "date",
+    "us_ssn",
+    "url",
+    "credit_card",
+    "credit_debit_pin",
+    "bank_routing_number",
+    "international_bank_account_number",
+    "swift_bic_number",
+    "ipv4",
+    "ipv6",
+]
+
+
+class PdfRedactionInstruction(TypedDict):
+    type: PdfRedactionType
+    value: PdfRedactionPreset | str
+
+
+PdfRGBColor = tuple[int, int, int]
+
+PdfPageSelection = str | int | Sequence[str | int]
+
+
+class PdfMergeSource(TypedDict, total=False):
+    file: Required[PdfRestFile]
+    pages: PdfPageSelection | None
+
+
+PdfMergeInput = PdfRestFile | PdfMergeSource | tuple[PdfRestFile, PdfPageSelection]

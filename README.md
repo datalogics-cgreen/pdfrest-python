@@ -1,2 +1,31 @@
-# pdfrest-python
-Python API library for pdfRest
+# pdfrest
+
+Python client library for the PDFRest service. The project is managed with
+[uv](https://docs.astral.sh/uv/) and targets Python 3.9 and newer.
+
+## Getting started
+
+```bash
+uv sync
+uv run python -c "import pdfrest; print(pdfrest.__version__)"
+```
+
+## Development
+
+To install the tooling used by CI locally, include the `--group dev` flag:
+
+```bash
+uv sync --group dev
+```
+
+It is recommended to enable the pre-commit hooks after installation:
+
+```bash
+uv run pre-commit install
+```
+
+Run the test suite with:
+
+```bash
+uv run pytest
+```

@@ -1,0 +1,551 @@
+from __future__ import annotations
+
+import json
+import re
+
+import httpx
+import pytest
+from pydantic import ValidationError
+
+from pdfrest import AsyncPdfRestClient, PdfRestClient
+from pdfrest.models import PdfRestFileBasedResponse, PdfRestFileID
+from pdfrest.models._internal import GifPdfRestPayload
+
+from .graphics_test_helpers import (
+    ASYNC_API_KEY,
+    VALID_API_KEY,
+    assert_conversion_payload,
+    build_file_info_payload,
+    make_pdf_file,
+)
+from .resources import get_test_resource_path
+
+
+@pytest.mark.parametrize("color_model", ["rgb", "gray"])
+def test_convert_to_gif_success(
+    monkeypatch: pytest.MonkeyPatch, color_model: str
+) -> None:
+    monkeypatch.delenv("PDFREST_API_KEY", raising=False)
+    input_file = make_pdf_file(PdfRestFileID.generate(1))
+    output_id = str(PdfRestFileID.generate())
+    expected_name = f"converted-{color_model}-001.gif"
+
+    request_payload = GifPdfRestPayload.model_validate(
+        {
+            "files": [input_file],
+            "output_prefix": "converted",
+            "page_range": ["1", "3-4"],
+            "resolution": 500,
+            "color_model": color_model,
+            "smoothing": ["text", "image"],
+        }
+    ).model_dump(mode="json", by_alias=True)
+
+    seen: dict[str, int] = {"post": 0, "get": 0}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.method == "POST" and request.url.path == "/gif":
+            seen["post"] += 1
+            payload = json.loads(request.content.decode("utf-8"))
+            assert_conversion_payload(payload, request_payload)
+            return httpx.Response(
+                200,
+                json={"inputId": [input_file.id], "outputId": [output_id]},
+            )
+        if request.method == "GET" and request.url.path == f"/resource/{output_id}":
+            seen["get"] += 1
+            return httpx.Response(
+                200,
+                json=build_file_info_payload(output_id, expected_name, "image/gif"),
+            )
+        msg = f"Unexpected request {request.method} {request.url}"
+        raise AssertionError(msg)
+
+    transport = httpx.MockTransport(handler)
+    with PdfRestClient(api_key=VALID_API_KEY, transport=transport) as client:
+        response = client.convert_to_gif(
+            input_file,
+            output_prefix="converted",
+            page_range=["1", "3-4"],
+            resolution=500,
+            color_model=color_model,  # type: ignore[arg-type]
+            smoothing=["text", "image"],
+        )
+
+    assert seen == {"post": 1, "get": 1}
+    output_file = response.output_files[0]
+    assert output_file.name == expected_name
+    assert output_file.type == "image/gif"
+    assert str(output_file.url).endswith(output_id)
+
+
+def test_convert_to_gif_defaults_excluded(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("PDFREST_API_KEY", raising=False)
+    input_file = make_pdf_file(PdfRestFileID.generate(1))
+    output_id = "5b6c7d8e-2345-4bcd-9ef0-abcdefabcdef"
+
+    request_payload = GifPdfRestPayload.model_validate(
+        {"files": input_file}
+    ).model_dump(mode="json", by_alias=True, exclude_none=True, exclude_defaults=True)
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.method == "POST" and request.url.path == "/gif":
+            payload = json.loads(request.content.decode("utf-8"))
+            assert_conversion_payload(payload, request_payload)
+            return httpx.Response(
+                200,
+                json={"inputId": [input_file.id], "outputId": [output_id]},
+            )
+        if request.method == "GET" and request.url.path == f"/resource/{output_id}":
+            return httpx.Response(
+                200,
+                json=build_file_info_payload(output_id, "example-001.gif", "image/gif"),
+            )
+        msg = f"Unexpected request {request.method} {request.url}"
+        raise AssertionError(msg)
+
+    transport = httpx.MockTransport(handler)
+    with PdfRestClient(api_key=VALID_API_KEY, transport=transport) as client:
+        response = client.convert_to_gif(input_file)
+
+    output_file = response.output_files[0]
+    assert output_file.name == "example-001.gif"
+    assert output_file.type == "image/gif"
+
+
+@pytest.mark.parametrize("resolution", [12, 2400])
+def test_convert_to_gif_resolution_limits(
+    monkeypatch: pytest.MonkeyPatch, resolution: int
+) -> None:
+    monkeypatch.delenv("PDFREST_API_KEY", raising=False)
+    input_file = make_pdf_file(PdfRestFileID.generate(1))
+    output_id = str(PdfRestFileID.generate())
+
+    request_payload = GifPdfRestPayload.model_validate(
+        {
+            "files": [input_file],
+            "resolution": resolution,
+        }
+    ).model_dump(mode="json", by_alias=True, exclude_none=True, exclude_defaults=True)
+
+    seen: dict[str, int] = {"post": 0, "get": 0}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.method == "POST" and request.url.path == "/gif":
+            seen["post"] += 1
+            payload = json.loads(request.content.decode("utf-8"))
+            assert_conversion_payload(payload, request_payload)
+            return httpx.Response(
+                200,
+                json={"inputId": [input_file.id], "outputId": [output_id]},
+            )
+        if request.method == "GET" and request.url.path == f"/resource/{output_id}":
+            seen["get"] += 1
+            return httpx.Response(
+                200,
+                json=build_file_info_payload(
+                    output_id, f"example-resolution-{resolution}.gif", "image/gif"
+                ),
+            )
+        msg = f"Unexpected request {request.method} {request.url}"
+        raise AssertionError(msg)
+
+    transport = httpx.MockTransport(handler)
+    with PdfRestClient(api_key=VALID_API_KEY, transport=transport) as client:
+        response = client.convert_to_gif(
+            input_file,
+            resolution=resolution,
+        )
+
+    assert seen == {"post": 1, "get": 1}
+    assert response.output_files[0].name == f"example-resolution-{resolution}.gif"
+
+
+@pytest.mark.parametrize(
+    "invalid_color",
+    [
+        pytest.param("rgba", id="rgba"),
+        pytest.param("cmyk", id="cmyk"),
+        pytest.param("lab", id="lab"),
+    ],
+)
+def test_convert_to_gif_invalid_color_model(
+    monkeypatch: pytest.MonkeyPatch, invalid_color: str
+) -> None:
+    monkeypatch.delenv("PDFREST_API_KEY", raising=False)
+
+    def handler(_: httpx.Request) -> httpx.Response:
+        pytest.fail("Request should not be sent when validation fails.")
+
+    transport = httpx.MockTransport(handler)
+    with (
+        PdfRestClient(api_key=VALID_API_KEY, transport=transport) as client,
+        pytest.raises(
+            ValidationError,
+            match=re.escape("Input should be 'rgb' or 'gray'"),
+        ),
+    ):
+        client.convert_to_gif(
+            make_pdf_file(PdfRestFileID.generate(1)),
+            color_model=invalid_color,  # type: ignore[arg-type]
+        )
+
+
+@pytest.mark.parametrize("invalid_resolution", [11, 2401])
+def test_convert_to_gif_resolution_out_of_bounds(
+    monkeypatch: pytest.MonkeyPatch, invalid_resolution: int
+) -> None:
+    monkeypatch.delenv("PDFREST_API_KEY", raising=False)
+
+    def handler(_: httpx.Request) -> httpx.Response:
+        pytest.fail("Request should not be sent when validation fails.")
+
+    transport = httpx.MockTransport(handler)
+    with (
+        PdfRestClient(api_key=VALID_API_KEY, transport=transport) as client,
+        pytest.raises(
+            ValidationError,
+            match=r"less than or equal to 2400|greater than or equal to 12",
+        ),
+    ):
+        client.convert_to_gif(
+            make_pdf_file(PdfRestFileID.generate(1)),
+            resolution=invalid_resolution,
+        )
+
+
+@pytest.mark.asyncio
+async def test_async_convert_to_gif_success(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.delenv("PDFREST_API_KEY", raising=False)
+    input_file = make_pdf_file(PdfRestFileID.generate(1))
+    output_id = "6c7d8e9f-3456-4cde-af01-cdefabcdef12"
+
+    request_payload = GifPdfRestPayload.model_validate(
+        {
+            "files": [input_file],
+            "output_prefix": "async-output",
+            "page_range": "1-2",
+            "resolution": 400,
+            "color_model": "gray",
+            "smoothing": ["all"],
+        }
+    ).model_dump(mode="json", by_alias=True)
+
+    seen: dict[str, int] = {"post": 0, "get": 0}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.method == "POST" and request.url.path == "/gif":
+            seen["post"] += 1
+            payload = json.loads(request.content.decode("utf-8"))
+            assert_conversion_payload(payload, request_payload)
+            return httpx.Response(
+                200,
+                json={"inputId": [input_file.id], "outputId": [output_id]},
+            )
+        if request.method == "GET" and request.url.path == f"/resource/{output_id}":
+            seen["get"] += 1
+            assert request.url.params["format"] == "info"
+            return httpx.Response(
+                200,
+                json=build_file_info_payload(
+                    output_id, "async-output-001.gif", "image/gif"
+                ),
+            )
+        msg = f"Unexpected request {request.method} {request.url}"
+        raise AssertionError(msg)
+
+    transport = httpx.MockTransport(handler)
+    async with AsyncPdfRestClient(api_key=ASYNC_API_KEY, transport=transport) as client:
+        response = await client.convert_to_gif(
+            [input_file],
+            output_prefix="async-output",
+            page_range="1-2",
+            resolution=400,
+            color_model="gray",
+            smoothing=["all"],
+        )
+
+    assert seen == {"post": 1, "get": 1}
+    output_file = response.output_files[0]
+    assert output_file.name == "async-output-001.gif"
+    assert output_file.type == "image/gif"
+
+
+def test_convert_to_gif_request_customization(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.delenv("PDFREST_API_KEY", raising=False)
+    input_file = make_pdf_file(PdfRestFileID.generate(1))
+    output_id = "7d8e9f00-4567-4ef0-90ab-abcdefabcdef"
+    captured_timeout: dict[str, float | dict[str, float] | None] = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.method == "POST" and request.url.path == "/gif":
+            assert request.url.params["trace"] == "true"
+            assert request.headers["X-Debug"] == "gif"
+            captured_timeout["value"] = request.extensions.get("timeout")
+            payload = json.loads(request.content.decode("utf-8"))
+            assert payload["debug"] is True
+            assert payload["resolution"] == 475
+            assert payload["id"] == str(input_file.id)
+            return httpx.Response(
+                200,
+                json={"inputId": [input_file.id], "outputId": [output_id]},
+            )
+        if request.method == "GET" and request.url.path == f"/resource/{output_id}":
+            assert request.url.params["trace"] == "true"
+            assert request.url.params["format"] == "info"
+            assert request.headers["X-Debug"] == "gif"
+            return httpx.Response(
+                200,
+                json=build_file_info_payload(output_id, "custom-001.gif", "image/gif"),
+            )
+        msg = f"Unexpected request {request.method} {request.url}"
+        raise AssertionError(msg)
+
+    transport = httpx.MockTransport(handler)
+    with PdfRestClient(api_key=VALID_API_KEY, transport=transport) as client:
+        response = client.convert_to_gif(
+            input_file,
+            resolution=475,
+            extra_query={"trace": "true"},
+            extra_headers={"X-Debug": "gif"},
+            extra_body={"debug": True},
+            timeout=0.35,
+        )
+
+    assert response.output_files[0].name == "custom-001.gif"
+    timeout_value = captured_timeout["value"]
+    assert timeout_value is not None
+    if isinstance(timeout_value, dict):
+        assert all(
+            component == pytest.approx(0.35) for component in timeout_value.values()
+        )
+    else:
+        assert timeout_value == pytest.approx(0.35)
+
+
+def test_convert_to_gif_validation_error(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("PDFREST_API_KEY", raising=False)
+
+    def handler(_: httpx.Request) -> httpx.Response:
+        pytest.fail("Request should not be sent when validation fails.")
+
+    transport = httpx.MockTransport(handler)
+    with (
+        PdfRestClient(api_key=VALID_API_KEY, transport=transport) as client,
+        pytest.raises(
+            ValidationError,
+            match="less than or equal to 2400",
+        ),
+    ):
+        client.convert_to_gif(
+            make_pdf_file(PdfRestFileID.generate(1)),
+            resolution=9999,
+        )
+
+
+def test_convert_to_gif_invalid_smoothing_value(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.delenv("PDFREST_API_KEY", raising=False)
+
+    def handler(_: httpx.Request) -> httpx.Response:
+        pytest.fail("Request should not be sent when validation fails.")
+
+    transport = httpx.MockTransport(handler)
+    with (
+        PdfRestClient(api_key=VALID_API_KEY, transport=transport) as client,
+        pytest.raises(
+            ValidationError,
+            match=re.escape("Input should be 'none', 'all', 'text', 'line' or 'image'"),
+        ),
+    ):
+        client.convert_to_gif(
+            make_pdf_file(PdfRestFileID.generate(1)),
+            smoothing="invalid",  # type: ignore[arg-type]
+        )
+
+
+def test_convert_to_gif_multiple_files_rejected(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.delenv("PDFREST_API_KEY", raising=False)
+
+    def handler(_: httpx.Request) -> httpx.Response:
+        pytest.fail("Request should not be sent when validation fails.")
+
+    first = make_pdf_file(PdfRestFileID.generate(1))
+    second = make_pdf_file(PdfRestFileID.generate(1))
+    transport = httpx.MockTransport(handler)
+    with (
+        PdfRestClient(api_key=VALID_API_KEY, transport=transport) as client,
+        pytest.raises(
+            ValidationError,
+            match=re.escape("List should have at most 1 item after validation"),
+        ),
+    ):
+        client.convert_to_gif([first, second])
+
+
+def test_convert_to_gif_empty_page_range_rejected(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.delenv("PDFREST_API_KEY", raising=False)
+
+    def handler(_: httpx.Request) -> httpx.Response:
+        pytest.fail("Request should not be sent when validation fails.")
+
+    transport = httpx.MockTransport(handler)
+    with (
+        PdfRestClient(api_key=VALID_API_KEY, transport=transport) as client,
+        pytest.raises(
+            ValidationError,
+            match=re.escape("List should have at least 1 item after validation"),
+        ),
+    ):
+        client.convert_to_gif(
+            make_pdf_file(PdfRestFileID.generate(1)),
+            page_range=[],
+        )
+
+
+def test_convert_to_gif_sequence_arguments(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("PDFREST_API_KEY", raising=False)
+    input_file = make_pdf_file(PdfRestFileID.generate(1))
+    output_id = "8e9f0011-5678-4f01-a234-cdefabcdef55"
+
+    request_payload = GifPdfRestPayload.model_validate(
+        {
+            "files": [input_file],
+            "page_range": "1, 3",
+            "smoothing": "text",
+        }
+    ).model_dump(mode="json", by_alias=True, exclude_none=True, exclude_defaults=True)
+
+    seen: dict[str, int] = {"post": 0, "get": 0}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.method == "POST" and request.url.path == "/gif":
+            seen["post"] += 1
+            payload = json.loads(request.content.decode("utf-8"))
+            assert_conversion_payload(payload, request_payload)
+            return httpx.Response(
+                200,
+                json={"inputId": [input_file.id], "outputId": [output_id]},
+            )
+        if request.method == "GET" and request.url.path == f"/resource/{output_id}":
+            seen["get"] += 1
+            return httpx.Response(
+                200,
+                json=build_file_info_payload(output_id, "example-001.gif", "image/gif"),
+            )
+        msg = f"Unexpected request {request.method} {request.url}"
+        raise AssertionError(msg)
+
+    transport = httpx.MockTransport(handler)
+    with PdfRestClient(api_key=VALID_API_KEY, transport=transport) as client:
+        response = client.convert_to_gif(
+            [input_file],
+            page_range="1, 3",
+            smoothing="text",
+        )
+
+    assert seen == {"post": 1, "get": 1}
+    assert response.output_files[0].name == "example-001.gif"
+
+
+@pytest.mark.asyncio
+async def test_async_convert_to_gif_request_customization(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.delenv("PDFREST_API_KEY", raising=False)
+    input_file = make_pdf_file(PdfRestFileID.generate(1))
+    output_id = "9f001122-6789-4012-b345-cdefabcdef66"
+    captured_timeout: dict[str, float | dict[str, float] | None] = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.method == "POST" and request.url.path == "/gif":
+            assert request.url.params["trace"] == "true"
+            assert request.headers["X-Debug"] == "async-gif"
+            captured_timeout["value"] = request.extensions.get("timeout")
+            payload = json.loads(request.content.decode("utf-8"))
+            assert payload["debug"] is True
+            assert payload["resolution"] == 425
+            assert payload["id"] == str(input_file.id)
+            return httpx.Response(
+                200,
+                json={"inputId": [input_file.id], "outputId": [output_id]},
+            )
+        if request.method == "GET" and request.url.path == f"/resource/{output_id}":
+            assert request.url.params["trace"] == "true"
+            assert request.headers["X-Debug"] == "async-gif"
+            assert request.url.params["format"] == "info"
+            return httpx.Response(
+                200,
+                json=build_file_info_payload(
+                    output_id, "async-custom-001.gif", "image/gif"
+                ),
+            )
+        msg = f"Unexpected request {request.method} {request.url}"
+        raise AssertionError(msg)
+
+    transport = httpx.MockTransport(handler)
+    async with AsyncPdfRestClient(api_key=ASYNC_API_KEY, transport=transport) as client:
+        response = await client.convert_to_gif(
+            input_file,
+            resolution=425,
+            extra_query={"trace": "true"},
+            extra_headers={"X-Debug": "async-gif"},
+            extra_body={"debug": True},
+            timeout=0.48,
+        )
+
+    assert response.output_files[0].name == "async-custom-001.gif"
+    timeout_value = captured_timeout["value"]
+    assert timeout_value is not None
+    if isinstance(timeout_value, dict):
+        assert all(
+            component == pytest.approx(0.48) for component in timeout_value.values()
+        )
+    else:
+        assert timeout_value == pytest.approx(0.48)
+
+
+def test_live_convert_to_gif(
+    pdfrest_api_key: str,
+    pdfrest_live_base_url: str,
+) -> None:
+    resource = get_test_resource_path("report.pdf")
+    with PdfRestClient(
+        api_key=pdfrest_api_key, base_url=pdfrest_live_base_url
+    ) as client:
+        uploaded = client.files.create_from_paths([resource])
+        response = client.convert_to_gif(
+            uploaded[0],
+            output_prefix="live-gif",
+            page_range="1",
+        )
+    assert isinstance(response, PdfRestFileBasedResponse)
+    assert response.output_files
+
+
+@pytest.mark.asyncio
+async def test_live_async_convert_to_gif(
+    pdfrest_api_key: str,
+    pdfrest_live_base_url: str,
+) -> None:
+    resource = get_test_resource_path("report.pdf")
+    async with AsyncPdfRestClient(
+        api_key=pdfrest_api_key, base_url=pdfrest_live_base_url
+    ) as client:
+        uploaded = await client.files.create_from_paths([resource])
+        response = await client.convert_to_gif(
+            uploaded[0],
+            output_prefix="live-async-gif",
+            page_range="1",
+        )
+    assert isinstance(response, PdfRestFileBasedResponse)
+    assert response.output_files

@@ -1,0 +1,80 @@
+name: Test and Publish
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+      - develop
+      - feature-*
+  release:
+    types:
+      - published
+
+jobs:
+  tests:
+    name: Tests (Python ${{ matrix.python-version }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.10", "3.11", "3.12", "3.13", "3.14"]
+    permissions:
+      id-token: write
+      contents: read
+      packages: write
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6
+        with:
+          version: 0.8.22
+          python-version: ${{ matrix.python-version }}
+          enable-cache: true
+          cache-suffix: test-and-publish
+          cache-dependency-glob: uv.lock
+      - name: Run tests with nox
+        run: uvx nox --python ${{ matrix.python-version }} --session tests -- --no-parallel
+        env:
+          PDFREST_API_KEY: ${{ secrets.PDFREST_API_KEY }}
+
+  publish:
+    name: Publish to CodeArtifact
+    needs: tests
+    if: github.event_name == 'release'
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+      packages: write
+    env:
+      UV_PROJECT_ENVIRONMENT: .venv-release
+    steps:
+      - uses: actions/checkout@v4
+      - name: Assume AWS role for repository CI
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::304774597385:role/cit-oidc-role-${{ github.event.repository.name }}-ci
+          aws-region: us-east-2
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6
+        with:
+          version: 0.8.22
+          enable-cache: true
+          cache-suffix: pre-commit
+          cache-dependency-glob: uv.lock
+      - name: Restore venv cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            ${{ env.UV_PROJECT_ENVIRONMENT }}
+          key: ${{ runner.os }}-uv-release-${{ hashFiles('pyproject.toml') }}
+      - name: Install keyring
+        run: uv tool install keyring --with keyrings.codeartifact
+      - name: Synchronize project dependencies
+        run: uv sync --group dev
+      - name: Build distribution artifacts
+        run: uv build --python 3.11
+      - name: Publish package to CodeArtifact
+        run: uv publish --index cit-pypi
