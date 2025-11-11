@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import importlib.metadata
 import json
+import logging
 import os
 import random
 import time
@@ -97,6 +98,48 @@ TimeoutTypes = float | httpx.Timeout | None
 AnyMapping = Mapping[str, Any]
 Query = Mapping[str, QueryParamValue]
 Body = Mapping[str, Any]
+
+PDFREST_LOGGER = logging.getLogger("pdfrest")
+PDFREST_LOGGER.addHandler(logging.NullHandler())
+LOGGER = logging.getLogger("pdfrest.client")
+_PDFREST_HANDLER_IDS: set[int] = set()
+
+
+def _ensure_stream_handler(
+    logger: logging.Logger, formatter: logging.Formatter
+) -> None:
+    for handler in logger.handlers:
+        if id(handler) in _PDFREST_HANDLER_IDS:
+            return
+    handler = logging.StreamHandler()
+    handler.setFormatter(formatter)
+    logger.addHandler(handler)
+    _PDFREST_HANDLER_IDS.add(id(handler))
+
+
+def _configure_logging() -> None:
+    level_name = os.getenv("PDFREST_LOG")
+    if not level_name:
+        return
+    normalized = level_name.strip().lower()
+    level_map = {"debug": logging.DEBUG, "info": logging.INFO}
+    level = level_map.get(normalized)
+    if level is None:
+        return
+    formatter = logging.Formatter("%(asctime)s %(levelname)s [%(name)s] %(message)s")
+    pdfrest_logger = PDFREST_LOGGER
+    pdfrest_logger.setLevel(level)
+    _ensure_stream_handler(pdfrest_logger, formatter)
+    pdfrest_logger.propagate = False
+
+    httpx_logger = logging.getLogger("httpx")
+    httpx_logger.setLevel(level)
+    _ensure_stream_handler(httpx_logger, formatter)
+    httpx_logger.propagate = False
+
+
+_configure_logging()
+
 
 FileContent = IO[bytes] | bytes | str
 FileTuple2 = tuple[str | None, FileContent]
@@ -369,6 +412,7 @@ class _BaseApiClient(Generic[ClientType]):
         headers: AnyMapping | None = None,
         max_retries: int = DEFAULT_MAX_RETRIES,
     ) -> None:
+        self._logger = LOGGER
         if not isinstance(max_retries, int) or max_retries < 0:
             msg = "max_retries must be a non-negative integer."
             raise PdfRestConfigurationError(msg)
@@ -438,6 +482,42 @@ class _BaseApiClient(Generic[ClientType]):
         jitter = random.uniform(-BACKOFF_JITTER_SECONDS, BACKOFF_JITTER_SECONDS)  # noqa: S311
         delay = base_delay + jitter
         return delay if delay > 0 else 0.0
+
+    @staticmethod
+    def _sanitize_headers(headers: Mapping[str, Any] | None) -> dict[str, Any]:
+        if not headers:
+            return {}
+        sanitized: dict[str, Any] = {}
+        for key, value in headers.items():
+            if key.lower() == API_KEY_HEADER_NAME.lower():
+                sanitized[key] = "******"
+            else:
+                sanitized[key] = value
+        return sanitized
+
+    def _log_request(self, request: _RequestModel) -> None:
+        if not self._logger.isEnabledFor(logging.DEBUG):
+            return
+        sanitized_headers = self._sanitize_headers(request.headers)
+        self._logger.debug(
+            "Request %s %s params=%s timeout=%s headers=%s",
+            request.method,
+            request.endpoint,
+            request.params,
+            request.timeout,
+            sanitized_headers,
+        )
+        if request.method in {"POST", "PUT", "PATCH"} and request.json_body is not None:
+            self._logger.debug(
+                "Request payload %s %s: %s",
+                request.method,
+                request.endpoint,
+                request.json_body,
+            )
+
+    @staticmethod
+    def _describe_request(request: _RequestModel) -> str:
+        return f"{request.method} {request.endpoint}"
 
     @staticmethod
     def _base_url_requires_api_key(url: URL) -> bool:
@@ -567,17 +647,44 @@ class _BaseApiClient(Generic[ClientType]):
         return payload
 
     def _handle_response(self, response: httpx.Response) -> Any:
+        request = response.request
+        request_label = (
+            f"{getattr(request, 'method', 'UNKNOWN')} {getattr(request, 'url', '')}"
+            if request is not None
+            else "UNKNOWN"
+        )
         if response.is_success:
+            if self._logger.isEnabledFor(logging.DEBUG):
+                self._logger.debug(
+                    "Response %s status=%s", request_label, response.status_code
+                )
             return self._decode_json(response)
 
         message, error_payload = self._extract_error_details(response)
 
         if response.status_code == 401:
             auth_message = message or "Authentication with pdfRest failed."
+            if self._logger.isEnabledFor(logging.DEBUG):
+                self._logger.debug(
+                    "Authentication error response %s status=%s message=%s payload=%s",
+                    request_label,
+                    response.status_code,
+                    auth_message,
+                    error_payload,
+                )
             raise PdfRestAuthenticationError(
                 response.status_code,
                 message=auth_message,
                 response_content=error_payload,
+            )
+
+        if self._logger.isEnabledFor(logging.DEBUG):
+            self._logger.debug(
+                "Error response %s status=%s message=%s payload=%s",
+                request_label,
+                response.status_code,
+                message,
+                error_payload,
             )
 
         raise PdfRestApiError(
@@ -646,16 +753,29 @@ class _SyncApiClient(_BaseApiClient[httpx.Client]):
     def __exit__(self, exc_type: Any, exc: Any, traceback: Any) -> None:
         self.close()
 
-    def _execute_with_retry(self, func: Callable[[], ReturnType]) -> ReturnType:
-        for attempt in range(self._max_retries + 1):
+    def _execute_with_retry(
+        self, func: Callable[[], ReturnType], *, operation: str
+    ) -> ReturnType:
+        total_attempts = self._max_retries + 1
+        for attempt in range(total_attempts):
             try:
                 return func()
             except PdfRestError as exc:
-                if attempt == self._max_retries or not self._should_retry_exception(
-                    exc
-                ):
+                self._logger.debug(
+                    "Exception during %s attempt %d/%d: %s",
+                    operation,
+                    attempt + 1,
+                    total_attempts,
+                    exc,
+                )
+                should_retry = (
+                    attempt < self._max_retries and self._should_retry_exception(exc)
+                )
+                if not should_retry:
+                    self._logger.debug("No retry for %s; raising exception.", operation)
                     raise
                 delay = self._compute_backoff_delay(attempt)
+                self._logger.debug("Retrying %s after %.2f seconds.", operation, delay)
                 if delay > 0:
                     time.sleep(delay)
         msg = "Retry loop exited unexpectedly."
@@ -664,12 +784,14 @@ class _SyncApiClient(_BaseApiClient[httpx.Client]):
     def _send_request(self, request: _RequestModel) -> Any:
         http_client = self._client
         return self._execute_with_retry(
-            lambda: self._perform_request(http_client, request)
+            lambda: self._perform_request(http_client, request),
+            operation=self._describe_request(request),
         )
 
     def _perform_request(
         self, http_client: httpx.Client, request: _RequestModel
     ) -> Any:
+        self._log_request(request)
         try:
             response = http_client.request(
                 method=request.method,
@@ -682,7 +804,13 @@ class _SyncApiClient(_BaseApiClient[httpx.Client]):
                 data=request.data,
             )
         except httpx.HTTPError as exc:
-            raise translate_httpx_error(exc) from exc
+            translated = translate_httpx_error(exc)
+            self._logger.debug(
+                "HTTPX exception for %s: %s",
+                self._describe_request(request),
+                translated,
+            )
+            raise translated from exc
         try:
             payload = self._handle_response(response)
         except PdfRestApiError:
@@ -758,10 +886,12 @@ class _SyncApiClient(_BaseApiClient[httpx.Client]):
             timeout=timeout,
         )
         return self._execute_with_retry(
-            lambda: self._download_with_retry(request_model)
+            lambda: self._download_with_retry(request_model),
+            operation=f"{request_model.method} {request_model.endpoint} (download)",
         )
 
     def _download_with_retry(self, request: _RequestModel) -> httpx.Response:
+        self._log_request(request)
         http_request = self._client.build_request(
             request.method,
             request.endpoint,
@@ -778,7 +908,13 @@ class _SyncApiClient(_BaseApiClient[httpx.Client]):
         try:
             response = self._client.send(http_request, stream=True)
         except httpx.HTTPError as exc:
-            raise translate_httpx_error(exc) from exc
+            translated = translate_httpx_error(exc)
+            self._logger.debug(
+                "HTTPX exception for %s: %s",
+                self._describe_request(request),
+                translated,
+            )
+            raise translated from exc
         if response.is_success:
             return response
         try:
@@ -852,17 +988,28 @@ class _AsyncApiClient(_BaseApiClient[httpx.AsyncClient]):
         await self.aclose()
 
     async def _execute_with_retry(
-        self, func: Callable[[], Awaitable[ReturnType]]
+        self, func: Callable[[], Awaitable[ReturnType]], *, operation: str
     ) -> ReturnType:
-        for attempt in range(self._max_retries + 1):
+        total_attempts = self._max_retries + 1
+        for attempt in range(total_attempts):
             try:
                 return await func()
             except PdfRestError as exc:
-                if attempt == self._max_retries or not self._should_retry_exception(
-                    exc
-                ):
+                self._logger.debug(
+                    "Exception during %s attempt %d/%d: %s",
+                    operation,
+                    attempt + 1,
+                    total_attempts,
+                    exc,
+                )
+                should_retry = (
+                    attempt < self._max_retries and self._should_retry_exception(exc)
+                )
+                if not should_retry:
+                    self._logger.debug("No retry for %s; raising exception.", operation)
                     raise
                 delay = self._compute_backoff_delay(attempt)
+                self._logger.debug("Retrying %s after %.2f seconds.", operation, delay)
                 if delay > 0:
                     await asyncio.sleep(delay)
         msg = "Retry loop exited unexpectedly."
@@ -871,12 +1018,14 @@ class _AsyncApiClient(_BaseApiClient[httpx.AsyncClient]):
     async def _send_request(self, request: _RequestModel) -> Any:
         http_client = self._client
         return await self._execute_with_retry(
-            lambda: self._perform_request(http_client, request)
+            lambda: self._perform_request(http_client, request),
+            operation=self._describe_request(request),
         )
 
     async def _perform_request(
         self, http_client: httpx.AsyncClient, request: _RequestModel
     ) -> Any:
+        self._log_request(request)
         try:
             response = await http_client.request(
                 method=request.method,
@@ -889,7 +1038,13 @@ class _AsyncApiClient(_BaseApiClient[httpx.AsyncClient]):
                 data=request.data,
             )
         except httpx.HTTPError as exc:
-            raise translate_httpx_error(exc) from exc
+            translated = translate_httpx_error(exc)
+            self._logger.debug(
+                "HTTPX exception for %s: %s",
+                self._describe_request(request),
+                translated,
+            )
+            raise translated from exc
         try:
             payload = self._handle_response(response)
         except PdfRestApiError:
@@ -973,10 +1128,12 @@ class _AsyncApiClient(_BaseApiClient[httpx.AsyncClient]):
             timeout=timeout,
         )
         return await self._execute_with_retry(
-            lambda: self._download_with_retry(request_model)
+            lambda: self._download_with_retry(request_model),
+            operation=f"{request_model.method} {request_model.endpoint} (download)",
         )
 
     async def _download_with_retry(self, request: _RequestModel) -> httpx.Response:
+        self._log_request(request)
         http_request = self._client.build_request(
             request.method,
             request.endpoint,
@@ -993,7 +1150,13 @@ class _AsyncApiClient(_BaseApiClient[httpx.AsyncClient]):
         try:
             response = await self._client.send(http_request, stream=True)
         except httpx.HTTPError as exc:
-            raise translate_httpx_error(exc) from exc
+            translated = translate_httpx_error(exc)
+            self._logger.debug(
+                "HTTPX exception for %s: %s",
+                self._describe_request(request),
+                translated,
+            )
+            raise translated from exc
         if response.is_success:
             return response
         try:
