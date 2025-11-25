@@ -144,7 +144,7 @@ def _allowed_mime_types(
     ) -> PdfRestFile | list[PdfRestFile]:
         if isinstance(value, list):
             for item in value:
-                allowed_mime_types_validator(item)
+                _ = allowed_mime_types_validator(item)
             return value
         if value.type not in combined_allowed_mime_types:
             msg = error_msg or f"The file type must be one of: {allowed_mime_types}"

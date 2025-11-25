@@ -577,7 +577,7 @@ class _BaseApiClient(Generic[ClientType]):
             msg = "pdfRest API keys must be 36 characters (UUID format)."
             raise PdfRestConfigurationError(msg)
         try:
-            uuid.UUID(api_key)
+            _ = uuid.UUID(api_key)
         except ValueError:
             msg = "pdfRest API keys must be valid UUID strings."
             raise PdfRestConfigurationError(msg) from None
@@ -1621,7 +1621,7 @@ class _FilesClient:
         try:
             with path.open("wb") as file_handle:
                 for chunk in response.iter_bytes():
-                    file_handle.write(chunk)
+                    _ = file_handle.write(chunk)
         finally:
             response.close()
         return path
@@ -1895,7 +1895,7 @@ class _AsyncFilesClient:
         try:
             with path.open("wb") as file_handle:
                 async for chunk in response.aiter_bytes():
-                    file_handle.write(chunk)
+                    _ = file_handle.write(chunk)
         finally:
             await response.aclose()
         return path
@@ -1945,7 +1945,7 @@ class PdfRestClient(_SyncApiClient):
         self._files_client = _FilesClient(self)
 
     def __enter__(self) -> PdfRestClient:
-        super().__enter__()
+        _ = super().__enter__()
         return self
 
     def __exit__(self, exc_type: Any, exc: Any, traceback: Any) -> None:
@@ -2374,7 +2374,7 @@ class AsyncPdfRestClient(_AsyncApiClient):
         self._files_client = _AsyncFilesClient(self)
 
     async def __aenter__(self) -> AsyncPdfRestClient:
-        await super().__aenter__()
+        _ = await super().__aenter__()
         return self
 
     async def __aexit__(self, exc_type: Any, exc: Any, traceback: Any) -> None:
