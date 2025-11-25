@@ -451,3 +451,5 @@ $RECYCLE.BIN/
 # Profiling
 *.prof.txt
 *.speedscope.json
+
+!pyrightconfig.json
