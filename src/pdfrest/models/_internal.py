@@ -98,12 +98,6 @@ def _split_comma_string(value: Any) -> list[Any] | None:
     raise ValueError(msg)
 
 
-def _pdfrest_file_to_id(value: Any) -> Any:
-    if isinstance(value, PdfRestFile):
-        return value.id
-    return value
-
-
 def _serialize_as_first_file_id(value: list[PdfRestFile]) -> str:
     return str(value[0].id)
 
