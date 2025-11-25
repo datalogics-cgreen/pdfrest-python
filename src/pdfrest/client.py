@@ -732,8 +732,6 @@ class _BaseApiClient(Generic[ClientType]):
         request = response.request
         request_label = (
             f"{getattr(request, 'method', 'UNKNOWN')} {getattr(request, 'url', '')}"
-            if request is not None
-            else "UNKNOWN"
         )
         if response.is_success:
             if self._logger.isEnabledFor(logging.DEBUG):

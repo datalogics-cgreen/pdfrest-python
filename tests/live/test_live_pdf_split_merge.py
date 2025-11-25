@@ -56,9 +56,6 @@ def _extract_merge_entry(
         return entry
     if isinstance(entry, dict):
         file = entry["file"]
-        if file is None:
-            msg = "PdfMergeDocument entries must include a 'file' key."
-            raise KeyError(msg)
         pages = entry.get("pages")
         selection: PdfPageSelection | Sequence[PdfPageSelection] = (
             pages if pages is not None else "1-last"
