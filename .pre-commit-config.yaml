@@ -77,7 +77,7 @@ repos:
     rev: 0.8.24
     hooks:
       - id: uv-lock
-  - repo: https://github.com/RobertCraigie/pyright-python
-    rev: v1.1.406
+  - repo: https://github.com/DetachHead/basedpyright-pre-commit-mirror
+    rev: 1.34.0 # or whatever the latest version is at the time
     hooks:
-      - id: pyright
+      - id: basedpyright
