@@ -441,8 +441,6 @@ class _BaseApiClient(Generic[ClientType]):
     """Shared logic between sync and async client variants."""
 
     _config: _ClientConfig
-    _client: ClientType
-    _owns_http_client: bool
 
     def __init__(
         self,
@@ -811,6 +809,7 @@ class _SyncApiClient(_BaseApiClient[httpx.Client]):
     """Internal synchronous client implementation."""
 
     _client: httpx.Client
+    _owns_http_client: bool
 
     def __init__(
         self,
@@ -1072,6 +1071,7 @@ class _AsyncApiClient(_BaseApiClient[httpx.AsyncClient]):
     """Internal asynchronous client implementation."""
 
     _client: httpx.AsyncClient
+    _owns_http_client: bool
 
     def __init__(
         self,
