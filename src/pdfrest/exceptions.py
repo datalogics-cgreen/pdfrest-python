@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import Any
 
 import httpx
+from typing_extensions import override
 
 __all__ = (
     "PdfRestApiError",
@@ -65,6 +66,7 @@ class PdfRestApiError(PdfRestError):
         detail = message or f"pdfRest API returned status code {status_code}"
         super().__init__(detail)
 
+    @override
     def __str__(self) -> str:  # pragma: no cover - mirrors Exception.__str__
         base = super().__str__()
         if self.response_content is None:

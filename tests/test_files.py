@@ -12,6 +12,7 @@ from typing import Any, cast
 import httpx
 import pytest
 import pytest_asyncio
+from typing_extensions import override
 
 from pdfrest import AsyncPdfRestClient, PdfRestClient
 from pdfrest.models import PdfRestFile, PdfRestFileID
@@ -26,12 +27,14 @@ class _StaticStream(httpx.SyncByteStream):
         self._payload = payload
         self._consumed = False
 
+    @override
     def __iter__(self) -> Iterator[bytes]:
         if self._consumed:
             return iter(())
         self._consumed = True
         return iter((self._payload,))
 
+    @override
     def close(self) -> None:  # pragma: no cover - trivial
         ...
 
@@ -41,11 +44,13 @@ class _StaticAsyncStream(httpx.AsyncByteStream):
         self._payload = payload
         self._consumed = False
 
+    @override
     async def __aiter__(self):
         if not self._consumed:
             self._consumed = True
             yield self._payload
 
+    @override
     async def aclose(self) -> None:  # pragma: no cover - trivial
         ...
 

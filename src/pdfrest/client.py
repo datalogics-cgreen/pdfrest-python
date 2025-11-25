@@ -43,6 +43,7 @@ from pydantic import (
     ValidationError,
     field_validator,
 )
+from typing_extensions import override
 
 from .exceptions import (
     PdfRestApiError,
@@ -1942,10 +1943,12 @@ class PdfRestClient(_SyncApiClient):
         )
         self._files_client = _FilesClient(self)
 
+    @override
     def __enter__(self) -> PdfRestClient:
         _ = super().__enter__()
         return self
 
+    @override
     def __exit__(self, exc_type: Any, exc: Any, traceback: Any) -> None:
         super().__exit__(exc_type, exc, traceback)
 
@@ -2371,10 +2374,12 @@ class AsyncPdfRestClient(_AsyncApiClient):
         )
         self._files_client = _AsyncFilesClient(self)
 
+    @override
     async def __aenter__(self) -> AsyncPdfRestClient:
         _ = await super().__aenter__()
         return self
 
+    @override
     async def __aexit__(self, exc_type: Any, exc: Any, traceback: Any) -> None:
         await super().__aexit__(exc_type, exc, traceback)
 

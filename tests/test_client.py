@@ -8,6 +8,7 @@ from typing import Any
 
 import httpx
 import pytest
+from typing_extensions import override
 
 from pdfrest import (
     AsyncPdfRestClient,
@@ -53,10 +54,12 @@ class NonSeekableByteStream(BytesIO):
     def __init__(self, payload: bytes) -> None:
         super().__init__(payload)
 
+    @override
     def seek(self, *args: Any, **kwargs: Any) -> int:
         msg = "non-seekable"
         raise UnsupportedOperation(msg)
 
+    @override
     def tell(self) -> int:
         msg = "non-seekable"
         raise UnsupportedOperation(msg)

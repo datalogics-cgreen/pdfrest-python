@@ -16,6 +16,7 @@ from pydantic import (
     HttpUrl,
 )
 from pydantic_core import CoreSchema
+from typing_extensions import override
 
 __all__ = ("PdfRestErrorResponse", "PdfRestFile", "PdfRestFileID", "UpResponse")
 
@@ -55,9 +56,11 @@ class PdfRestFileID(str):
             raise ValueError(msg)
         return str.__new__(cls, value.lower())
 
+    @override
     def __str__(self) -> str:
         return str.__str__(self)
 
+    @override
     def __repr__(self) -> str:
         return f"{self.__class__.__name__}({super().__repr__()})"
 
