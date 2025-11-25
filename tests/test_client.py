@@ -237,7 +237,7 @@ def test_client_retries_on_server_error(monkeypatch: pytest.MonkeyPatch) -> None
 
     attempts = {"count": 0}
 
-    def handler(request: httpx.Request) -> httpx.Response:
+    def handler(request: httpx.Request) -> httpx.Response:  # pyright: ignore[reportUnusedParameter]
         attempts["count"] += 1
         if attempts["count"] < 3:
             return httpx.Response(500, json={"error": "try-again"})
@@ -411,7 +411,7 @@ async def test_async_client_retries_on_server_error(
 
     attempts = {"count": 0}
 
-    async def handler(request: httpx.Request) -> httpx.Response:
+    async def handler(request: httpx.Request) -> httpx.Response:  # pyright: ignore[reportUnusedParameter]
         attempts["count"] += 1
         if attempts["count"] < 3:
             return httpx.Response(503, json={"error": "retry"})
