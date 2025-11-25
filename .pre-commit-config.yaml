@@ -72,15 +72,6 @@ repos:
     rev: v0.24.3
     hooks:
       - id: toml-sort-fix
-  - repo: https://github.com/pre-commit/mirrors-mypy
-    rev: "v1.18.2"
-    hooks:
-      - id: mypy
-        stages: [pre-push, manual]
-        name: mypy
-        additional_dependencies:
-          # Need pydantic to load the pydantic.mypy plugin
-          - pydantic>=2.12.0
   - repo: https://github.com/astral-sh/uv-pre-commit
     # uv version.
     rev: 0.8.24
