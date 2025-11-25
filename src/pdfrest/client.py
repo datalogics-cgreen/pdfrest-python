@@ -1516,7 +1516,7 @@ class _FilesClient:
     ) -> list[PdfRestFile]:
         """Upload one or more files by providing remote URLs."""
 
-        normalized_urls = UploadURLs.model_validate({"url": urls})  # pyright: ignore[reportPrivateUsage]
+        normalized_urls = UploadURLs.model_validate({"url": urls})
         request = self._client.prepare_request(
             "POST",
             "/upload",
