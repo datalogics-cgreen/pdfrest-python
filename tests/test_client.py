@@ -1,6 +1,8 @@
 from __future__ import annotations
 
-from datetime import date
+from datetime import date, datetime, timedelta, timezone
+from email.utils import format_datetime
+from io import BytesIO, UnsupportedOperation
 from typing import Any
 
 import httpx
@@ -29,6 +31,33 @@ def _build_up_response() -> dict[str, Any]:
         "releaseDate": "2025-09-25",
         "version": "2.31.1",
     }
+
+
+def _build_file_info(
+    file_id: str = "1de305d2-b6a0-4b5d-9a55-4e4e6d8c2d39",
+) -> dict[str, Any]:
+    return {
+        "id": file_id,
+        "name": "sample.pdf",
+        "url": "https://files.example.com/sample.pdf",
+        "type": "application/pdf",
+        "size": 1024,
+        "modified": "2024-01-01T00:00:00+00:00",
+        "scheduledDeletionTimeUtc": "2024-01-02T00:00:00+00:00",
+    }
+
+
+class NonSeekableByteStream(BytesIO):
+    def __init__(self, payload: bytes) -> None:
+        super().__init__(payload)
+
+    def seek(self, *args: Any, **kwargs: Any) -> int:
+        msg = "non-seekable"
+        raise UnsupportedOperation(msg)
+
+    def tell(self) -> int:
+        msg = "non-seekable"
+        raise UnsupportedOperation(msg)
 
 
 def test_client_uses_provided_api_key(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -218,6 +247,123 @@ def test_client_retries_on_server_error(monkeypatch: pytest.MonkeyPatch) -> None
     assert sleep_calls == [0.5, 1.0]
 
 
+def test_client_retry_honors_retry_after_seconds(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("PDFREST_API_KEY", VALID_API_KEY)
+    monkeypatch.setattr(client_module.random, "uniform", lambda *_: 0.0)
+    sleep_calls: list[float] = []
+    monkeypatch.setattr(
+        client_module.time, "sleep", lambda delay: sleep_calls.append(delay)
+    )
+
+    attempts = {"count": 0}
+
+    def handler(_: httpx.Request) -> httpx.Response:
+        attempts["count"] += 1
+        if attempts["count"] == 1:
+            return httpx.Response(
+                429,
+                headers={"Retry-After": "2"},
+                json={"error": "slow down"},
+            )
+        return httpx.Response(200, json=_build_up_response())
+
+    transport = httpx.MockTransport(handler)
+    with PdfRestClient(api_key=VALID_API_KEY, transport=transport) as client:
+        response = client.up()
+
+    assert response.status == "OK"
+    assert attempts["count"] == 2
+    assert sleep_calls == [pytest.approx(2.0)]
+
+
+def test_client_retry_honors_retry_after_http_date(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("PDFREST_API_KEY", VALID_API_KEY)
+    monkeypatch.setattr(client_module.random, "uniform", lambda *_: 0.0)
+    sleep_calls: list[float] = []
+    monkeypatch.setattr(
+        client_module.time, "sleep", lambda delay: sleep_calls.append(delay)
+    )
+
+    attempts = {"count": 0}
+    retry_after = format_datetime(datetime.now(timezone.utc) + timedelta(seconds=3))
+
+    def handler(_: httpx.Request) -> httpx.Response:
+        attempts["count"] += 1
+        if attempts["count"] == 1:
+            return httpx.Response(
+                503,
+                headers={"Retry-After": retry_after},
+                json={"error": "busy"},
+            )
+        return httpx.Response(200, json=_build_up_response())
+
+    transport = httpx.MockTransport(handler)
+    with PdfRestClient(api_key=VALID_API_KEY, transport=transport) as client:
+        response = client.up()
+
+    assert response.status == "OK"
+    assert attempts["count"] == 2
+    assert sleep_calls
+    assert sleep_calls[0] >= 2.0
+
+
+def test_client_retries_on_timeout_exception(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("PDFREST_API_KEY", VALID_API_KEY)
+    monkeypatch.setattr(client_module.random, "uniform", lambda *_: 0.0)
+    sleep_calls: list[float] = []
+    monkeypatch.setattr(
+        client_module.time, "sleep", lambda delay: sleep_calls.append(delay)
+    )
+
+    attempts = {"count": 0}
+
+    def handler(_: httpx.Request) -> httpx.Response:
+        attempts["count"] += 1
+        if attempts["count"] == 1:
+            msg = "timeout"
+            raise httpx.TimeoutException(msg)
+        return httpx.Response(200, json=_build_up_response())
+
+    transport = httpx.MockTransport(handler)
+    with PdfRestClient(api_key=VALID_API_KEY, transport=transport) as client:
+        response = client.up()
+
+    assert response.status == "OK"
+    assert attempts["count"] == 2
+    assert sleep_calls == [0.5]
+
+
+def test_client_retries_on_408_status(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("PDFREST_API_KEY", VALID_API_KEY)
+    monkeypatch.setattr(client_module.random, "uniform", lambda *_: 0.0)
+    sleep_calls: list[float] = []
+    monkeypatch.setattr(
+        client_module.time, "sleep", lambda delay: sleep_calls.append(delay)
+    )
+
+    attempts = {"count": 0}
+
+    def handler(_: httpx.Request) -> httpx.Response:
+        attempts["count"] += 1
+        if attempts["count"] == 1:
+            return httpx.Response(408, text="timeout")
+        return httpx.Response(200, json=_build_up_response())
+
+    transport = httpx.MockTransport(handler)
+    with PdfRestClient(api_key=VALID_API_KEY, transport=transport) as client:
+        response = client.up()
+
+    assert response.status == "OK"
+    assert attempts["count"] == 2
+    assert sleep_calls == [0.5]
+
+
 def test_client_raises_after_retry_limit(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("PDFREST_API_KEY", VALID_API_KEY)
     monkeypatch.setattr(client_module.random, "uniform", lambda *_: 0.0)
@@ -275,6 +421,71 @@ async def test_async_client_retries_on_server_error(
     assert sleep_calls == [0.5, 1.0]
 
 
+@pytest.mark.asyncio
+async def test_async_client_retries_on_timeout_exception(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("PDFREST_API_KEY", ASYNC_API_KEY)
+    monkeypatch.setattr(client_module.random, "uniform", lambda *_: 0.0)
+    sleep_calls: list[float] = []
+
+    async def fake_sleep(delay: float) -> None:
+        sleep_calls.append(delay)
+
+    monkeypatch.setattr(client_module.asyncio, "sleep", fake_sleep)
+
+    attempts = {"count": 0}
+
+    async def handler(_: httpx.Request) -> httpx.Response:
+        attempts["count"] += 1
+        if attempts["count"] == 1:
+            msg = "timeout"
+            raise httpx.TimeoutException(msg)
+        return httpx.Response(200, json=_build_up_response())
+
+    transport = httpx.MockTransport(handler)
+    async with AsyncPdfRestClient(api_key=ASYNC_API_KEY, transport=transport) as client:
+        response = await client.up()
+
+    assert response.status == "OK"
+    assert attempts["count"] == 2
+    assert sleep_calls == [0.5]
+
+
+@pytest.mark.asyncio
+async def test_async_client_retry_honors_retry_after_seconds(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("PDFREST_API_KEY", ASYNC_API_KEY)
+    monkeypatch.setattr(client_module.random, "uniform", lambda *_: 0.0)
+    sleep_calls: list[float] = []
+
+    async def fake_sleep(delay: float) -> None:
+        sleep_calls.append(delay)
+
+    monkeypatch.setattr(client_module.asyncio, "sleep", fake_sleep)
+
+    attempts = {"count": 0}
+
+    async def handler(_: httpx.Request) -> httpx.Response:
+        attempts["count"] += 1
+        if attempts["count"] == 1:
+            return httpx.Response(
+                429,
+                headers={"Retry-After": "4"},
+                json={"error": "slow"},
+            )
+        return httpx.Response(200, json=_build_up_response())
+
+    transport = httpx.MockTransport(handler)
+    async with AsyncPdfRestClient(api_key=ASYNC_API_KEY, transport=transport) as client:
+        response = await client.up()
+
+    assert response.status == "OK"
+    assert attempts["count"] == 2
+    assert sleep_calls == [pytest.approx(4.0)]
+
+
 def test_client_rejects_negative_max_retries(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -319,6 +530,75 @@ def test_prepare_request_rejects_files_with_json(
             json_body={"foo": "bar"},
             files=[("file", b"data")],
         )
+
+
+def test_download_file_retries_on_error(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("PDFREST_API_KEY", VALID_API_KEY)
+    monkeypatch.setattr(client_module.random, "uniform", lambda *_: 0.0)
+    sleep_calls: list[float] = []
+    monkeypatch.setattr(
+        client_module.time, "sleep", lambda delay: sleep_calls.append(delay)
+    )
+
+    attempts = {"count": 0}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path == "/resource/file-123":
+            attempts["count"] += 1
+            if attempts["count"] == 1:
+                return httpx.Response(503, json={"error": "retry"})
+            return httpx.Response(200, content=b"file-bytes")
+        msg = f"Unexpected path {request.url.path}"
+        raise AssertionError(msg)
+
+    transport = httpx.MockTransport(handler)
+    with PdfRestClient(api_key=VALID_API_KEY, transport=transport) as client:
+        response = client.download_file("file-123")
+        try:
+            payload = response.read()
+        finally:
+            response.close()
+
+    assert payload == b"file-bytes"
+    assert attempts["count"] == 2
+    assert sleep_calls == [0.5]
+
+
+@pytest.mark.asyncio
+async def test_async_download_file_retries_on_error(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("PDFREST_API_KEY", ASYNC_API_KEY)
+    monkeypatch.setattr(client_module.random, "uniform", lambda *_: 0.0)
+    sleep_calls: list[float] = []
+
+    async def fake_sleep(delay: float) -> None:
+        sleep_calls.append(delay)
+
+    monkeypatch.setattr(client_module.asyncio, "sleep", fake_sleep)
+
+    attempts = {"count": 0}
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path == "/resource/async-file":
+            attempts["count"] += 1
+            if attempts["count"] == 1:
+                return httpx.Response(500, json={"error": "retry"})
+            return httpx.Response(200, content=b"async-bytes")
+        msg = f"Unexpected path {request.url.path}"
+        raise AssertionError(msg)
+
+    transport = httpx.MockTransport(handler)
+    async with AsyncPdfRestClient(api_key=ASYNC_API_KEY, transport=transport) as client:
+        response = await client.download_file("async-file")
+        try:
+            payload = await response.aread()
+        finally:
+            await response.aclose()
+
+    assert payload == b"async-bytes"
+    assert attempts["count"] == 2
+    assert sleep_calls == [0.5]
 
 
 def test_authentication_error_raises_specific_exception(
@@ -446,6 +726,142 @@ async def test_async_up_rejects_extra_body(
     with pytest.raises(PdfRestConfigurationError):
         async with AsyncPdfRestClient(transport=transport) as client:
             await client.up(extra_body={"unexpected": "value"})
+
+
+def test_client_rewinds_file_streams_between_retries(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("PDFREST_API_KEY", VALID_API_KEY)
+    monkeypatch.setattr(client_module.random, "uniform", lambda *_: 0.0)
+    monkeypatch.setattr(client_module.time, "sleep", lambda _delay: None)
+
+    file_id = _build_file_info()["id"]
+    upload_attempts = {"count": 0}
+    payload_sizes: list[int] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path == "/upload":
+            payload_sizes.append(len(request.content))
+            upload_attempts["count"] += 1
+            if upload_attempts["count"] == 1:
+                return httpx.Response(500, json={"error": "retry"})
+            return httpx.Response(200, json={"files": [{"id": file_id}]})
+        if request.url.path == f"/resource/{file_id}":
+            return httpx.Response(200, json=_build_file_info(file_id))
+        msg = f"Unexpected path {request.url.path}"
+        raise AssertionError(msg)
+
+    transport = httpx.MockTransport(handler)
+    file_stream = BytesIO(b"payload bytes")
+    with PdfRestClient(api_key=VALID_API_KEY, transport=transport) as client:
+        files = client.files.create([("doc.pdf", file_stream, "application/pdf")])
+
+    assert payload_sizes[0] == payload_sizes[1] > 0
+    assert upload_attempts["count"] == 2
+    assert len(files) == 1
+    assert files[0].id == file_id
+
+
+def test_client_retry_fails_for_non_seekable_stream(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("PDFREST_API_KEY", VALID_API_KEY)
+    monkeypatch.setattr(client_module.random, "uniform", lambda *_: 0.0)
+    monkeypatch.setattr(client_module.time, "sleep", lambda _delay: None)
+
+    attempts = {"count": 0}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path == "/upload":
+            attempts["count"] += 1
+            return httpx.Response(500, json={"error": "retry"})
+        msg = f"Unexpected path {request.url.path}"
+        raise AssertionError(msg)
+
+    transport = httpx.MockTransport(handler)
+    stream = NonSeekableByteStream(b"payload")
+    with (
+        pytest.raises(PdfRestApiError, match="retry"),
+        PdfRestClient(
+            api_key=VALID_API_KEY, transport=transport, max_retries=1
+        ) as client,
+    ):
+        client.files.create([("doc.pdf", stream, "application/pdf")])
+
+    assert attempts["count"] == 1
+
+
+@pytest.mark.asyncio
+async def test_async_client_rewinds_file_streams_between_retries(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("PDFREST_API_KEY", ASYNC_API_KEY)
+    monkeypatch.setattr(client_module.random, "uniform", lambda *_: 0.0)
+
+    async def fake_sleep(_delay: float) -> None:
+        return None
+
+    monkeypatch.setattr(client_module.asyncio, "sleep", fake_sleep)
+
+    file_id = _build_file_info()["id"]
+    upload_attempts = {"count": 0}
+    payload_sizes: list[int] = []
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path == "/upload":
+            payload_sizes.append(len(request.content))
+            upload_attempts["count"] += 1
+            if upload_attempts["count"] == 1:
+                return httpx.Response(503, json={"error": "retry"})
+            return httpx.Response(200, json={"files": [{"id": file_id}]})
+        if request.url.path == f"/resource/{file_id}":
+            return httpx.Response(200, json=_build_file_info(file_id))
+        msg = f"Unexpected path {request.url.path}"
+        raise AssertionError(msg)
+
+    transport = httpx.MockTransport(handler)
+    file_stream = BytesIO(b"async payload")
+    async with AsyncPdfRestClient(api_key=ASYNC_API_KEY, transport=transport) as client:
+        files = await client.files.create([("doc.pdf", file_stream, "application/pdf")])
+
+    assert payload_sizes[0] == payload_sizes[1] > 0
+    assert upload_attempts["count"] == 2
+    assert len(files) == 1
+    assert files[0].id == file_id
+
+
+@pytest.mark.asyncio
+async def test_async_retry_fails_for_non_seekable_stream(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("PDFREST_API_KEY", ASYNC_API_KEY)
+    monkeypatch.setattr(client_module.random, "uniform", lambda *_: 0.0)
+
+    async def fake_sleep(_delay: float) -> None:
+        return None
+
+    monkeypatch.setattr(client_module.asyncio, "sleep", fake_sleep)
+
+    attempts = {"count": 0}
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path == "/upload":
+            attempts["count"] += 1
+            return httpx.Response(500, json={"error": "retry"})
+        msg = f"Unexpected path {request.url.path}"
+        raise AssertionError(msg)
+
+    transport = httpx.MockTransport(handler)
+    stream = NonSeekableByteStream(b"payload")
+    with pytest.raises(PdfRestApiError, match="retry"):
+        async with AsyncPdfRestClient(
+            api_key=ASYNC_API_KEY,
+            transport=transport,
+            max_retries=1,
+        ) as client:
+            await client.files.create([("doc.pdf", stream, "application/pdf")])
+
+    assert attempts["count"] == 1
 
 
 def test_live_client_up(pdfrest_api_key: str, pdfrest_live_base_url: str) -> None:

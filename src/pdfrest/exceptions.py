@@ -46,9 +46,12 @@ class PdfRestApiError(PdfRestError):
         status_code: int,
         message: str | None = None,
         response_content: Any | None = None,
+        *,
+        retry_after: float | None = None,
     ) -> None:
         self.status_code = status_code
         self.response_content = response_content
+        self.retry_after = retry_after
         detail = message or f"pdfRest API returned status code {status_code}"
         super().__init__(detail)
 

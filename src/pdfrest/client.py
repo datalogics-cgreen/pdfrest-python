@@ -19,6 +19,8 @@ from collections.abc import (
     Sequence,
 )
 from contextlib import ExitStack
+from datetime import datetime, timezone
+from email.utils import parsedate_to_datetime
 from os import PathLike
 from pathlib import Path
 from typing import (
@@ -33,7 +35,14 @@ from typing import (
 
 import httpx
 from httpx import URL
-from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    PrivateAttr,
+    ValidationError,
+    field_validator,
+)
 
 from .exceptions import (
     PdfRestApiError,
@@ -91,6 +100,13 @@ DEFAULT_MAX_RETRIES = 2
 INITIAL_BACKOFF_SECONDS = 0.5
 MAX_BACKOFF_SECONDS = 8.0
 BACKOFF_JITTER_SECONDS = 0.1
+RETRYABLE_STATUS_CODES = {408, 425, 429, 499}
+FileStreamSnapshot = tuple[IO[Any], int]
+
+
+def _empty_snapshot_list() -> list[FileStreamSnapshot]:
+    return []
+
 
 HttpMethod = Literal["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS", "HEAD"]
 QueryParamValue = str | int | float | bool | None
@@ -139,6 +155,26 @@ def _configure_logging() -> None:
 
 
 _configure_logging()
+
+
+def _parse_retry_after_header(header_value: str | None) -> float | None:
+    if not header_value:
+        return None
+    trimmed = header_value.strip()
+    if not trimmed:
+        return None
+    try:
+        seconds = float(trimmed)
+    except ValueError:
+        try:
+            retry_datetime = parsedate_to_datetime(trimmed)
+        except (TypeError, ValueError):
+            return None
+        if retry_datetime.tzinfo is None:
+            retry_datetime = retry_datetime.replace(tzinfo=timezone.utc)
+        delay = (retry_datetime - datetime.now(timezone.utc)).total_seconds()
+        return delay if delay > 0 else 0.0
+    return seconds if seconds > 0 else 0.0
 
 
 FileContent = IO[bytes] | bytes | str
@@ -387,6 +423,12 @@ class _RequestModel(BaseModel):
 
     model_config = ConfigDict(arbitrary_types_allowed=True)
 
+    _stream_snapshots: list[FileStreamSnapshot] = PrivateAttr(
+        default_factory=_empty_snapshot_list
+    )
+    _stream_tracking_ready: bool = PrivateAttr(default=False)
+    _has_non_rewindable_streams: bool = PrivateAttr(default=False)
+
     @field_validator("endpoint")
     @classmethod
     def _validate_endpoint(cls, value: str) -> str:
@@ -394,6 +436,26 @@ class _RequestModel(BaseModel):
             msg = "endpoint must start with '/'."
             raise PdfRestConfigurationError(msg)
         return value
+
+    def stream_tracking_ready(self) -> bool:
+        return self._stream_tracking_ready
+
+    def mark_stream_tracking_ready(self) -> None:
+        self._stream_tracking_ready = True
+
+    def has_non_rewindable_streams(self) -> bool:
+        return self._has_non_rewindable_streams
+
+    def mark_non_rewindable_streams(self) -> None:
+        self._has_non_rewindable_streams = True
+        self._stream_snapshots.clear()
+        self._stream_tracking_ready = True
+
+    def record_stream_snapshot(self, stream: IO[Any], position: int) -> None:
+        self._stream_snapshots.append((stream, position))
+
+    def stream_snapshots(self) -> tuple[FileStreamSnapshot, ...]:
+        return tuple(self._stream_snapshots)
 
 
 class _BaseApiClient(Generic[ClientType]):
@@ -464,9 +526,14 @@ class _BaseApiClient(Generic[ClientType]):
 
     @staticmethod
     def _is_retryable_status(status_code: int) -> bool:
-        return status_code == 429 or 500 <= status_code < 600
+        if status_code in RETRYABLE_STATUS_CODES:
+            return True
+        return 500 <= status_code < 600
 
     def _should_retry_exception(self, exc: PdfRestError) -> bool:
+        allow_retry = getattr(exc, "allow_retry", True)
+        if not allow_retry:
+            return False
         if isinstance(exc, PdfRestApiError):
             return self._is_retryable_status(exc.status_code)
         return isinstance(
@@ -482,6 +549,13 @@ class _BaseApiClient(Generic[ClientType]):
         jitter = random.uniform(-BACKOFF_JITTER_SECONDS, BACKOFF_JITTER_SECONDS)  # noqa: S311
         delay = base_delay + jitter
         return delay if delay > 0 else 0.0
+
+    def _determine_retry_delay(self, attempt: int, exc: PdfRestError) -> float:
+        delay = self._compute_backoff_delay(attempt)
+        retry_after_value = getattr(exc, "retry_after", None)
+        if isinstance(retry_after_value, (int, float)):
+            delay = max(delay, float(retry_after_value))
+        return delay
 
     @staticmethod
     def _sanitize_headers(headers: Mapping[str, Any] | None) -> dict[str, Any]:
@@ -565,6 +639,10 @@ class _BaseApiClient(Generic[ClientType]):
             raise PdfRestConfigurationError(msg)
         timeout_value = timeout if timeout is not None else self._config.timeout
 
+        files_payload: Any | None = files
+        if isinstance(files_payload, Iterator):
+            files_payload = list(files_payload)
+
         try:
             request = _RequestModel(
                 method=method,
@@ -573,7 +651,7 @@ class _BaseApiClient(Generic[ClientType]):
                 headers=headers,
                 timeout=timeout_value,
                 json_body=json_payload,
-                files=files,
+                files=files_payload,
                 data=data,
             )
         except PdfRestConfigurationError:
@@ -646,6 +724,111 @@ class _BaseApiClient(Generic[ClientType]):
                 payload[str(key)] = value
         return payload
 
+    @staticmethod
+    def _iterate_file_like_objects(value: Any) -> Iterator[IO[Any]]:
+        if value is None:
+            return
+        if hasattr(value, "read"):
+            yield cast(IO[Any], value)
+            return
+        if isinstance(value, (bytes, bytearray, str)):
+            return
+        if isinstance(value, Mapping):
+            for item in value.values():
+                yield from _BaseApiClient._iterate_file_like_objects(item)
+            return
+        if isinstance(value, Sequence):
+            for item in value:
+                yield from _BaseApiClient._iterate_file_like_objects(item)
+
+    def _log_non_rewindable_stream(self, request: _RequestModel, reason: str) -> None:
+        self._logger.error(
+            "Cannot retry %s because %s",
+            self._describe_request(request),
+            reason,
+        )
+
+    def _capture_file_stream_positions(self, request: _RequestModel) -> None:
+        if request.stream_tracking_ready():
+            return
+        if request.files is None or self._max_retries == 0:
+            request.mark_stream_tracking_ready()
+            return
+        snapshots = request.stream_snapshots()
+        seen_ids: set[int] = {id(stream) for stream, _ in snapshots}
+        for stream in self._iterate_file_like_objects(request.files):
+            stream_id = id(stream)
+            if stream_id in seen_ids:
+                continue
+            seek_fn = getattr(stream, "seek", None)
+            tell_fn = getattr(stream, "tell", None)
+            if not callable(seek_fn) or not callable(tell_fn):
+                request.mark_non_rewindable_streams()
+                self._log_non_rewindable_stream(
+                    request,
+                    "one or more upload streams do not provide seek/tell",
+                )
+                return
+            try:
+                position_value = tell_fn()
+            except (OSError, ValueError):
+                request.mark_non_rewindable_streams()
+                self._log_non_rewindable_stream(
+                    request,
+                    "reading the current position failed for an upload stream",
+                )
+                return
+            position = cast(int, position_value)
+            request.record_stream_snapshot(stream, position)
+            seen_ids.add(stream_id)
+        request.mark_stream_tracking_ready()
+
+    def _rewind_stream_snapshots(self, request: _RequestModel) -> bool:
+        for stream, position in request.stream_snapshots():
+            seek_fn = getattr(stream, "seek", None)
+            if not callable(seek_fn):
+                request.mark_non_rewindable_streams()
+                self._log_non_rewindable_stream(
+                    request,
+                    "one or more upload streams do not support seek",
+                )
+                return False
+            try:
+                seek_fn(position)
+            except (OSError, ValueError) as exc:  # pragma: no cover - defensive
+                request.mark_non_rewindable_streams()
+                self._log_non_rewindable_stream(
+                    request,
+                    "resetting an upload stream failed",
+                )
+                if self._logger.isEnabledFor(logging.DEBUG):
+                    self._logger.debug(
+                        "Failed to reset upload stream for %s: %s",
+                        self._describe_request(request),
+                        exc,
+                    )
+                return False
+        return True
+
+    def _prepare_request_files_for_attempt(
+        self,
+        request: _RequestModel,
+        *,
+        is_retry: bool,
+    ) -> bool:
+        if request.files is None or self._max_retries == 0:
+            return True
+        if not request.stream_tracking_ready():
+            self._capture_file_stream_positions(request)
+        if not is_retry:
+            return True
+        if request.has_non_rewindable_streams():
+            return False
+        snapshots = request.stream_snapshots()
+        if not snapshots:
+            return True
+        return self._rewind_stream_snapshots(request)
+
     def _handle_response(self, response: httpx.Response) -> Any:
         request = response.request
         request_label = (
@@ -661,6 +844,7 @@ class _BaseApiClient(Generic[ClientType]):
             return self._decode_json(response)
 
         message, error_payload = self._extract_error_details(response)
+        retry_after = _parse_retry_after_header(response.headers.get("Retry-After"))
 
         if response.status_code == 401:
             auth_message = message or "Authentication with pdfRest failed."
@@ -676,6 +860,7 @@ class _BaseApiClient(Generic[ClientType]):
                 response.status_code,
                 message=auth_message,
                 response_content=error_payload,
+                retry_after=retry_after,
             )
 
         if self._logger.isEnabledFor(logging.DEBUG):
@@ -688,7 +873,10 @@ class _BaseApiClient(Generic[ClientType]):
             )
 
         raise PdfRestApiError(
-            response.status_code, message=message, response_content=error_payload
+            response.status_code,
+            message=message,
+            response_content=error_payload,
+            retry_after=retry_after,
         )
 
     def _decode_json(self, response: httpx.Response) -> Any:
@@ -754,13 +942,28 @@ class _SyncApiClient(_BaseApiClient[httpx.Client]):
         self.close()
 
     def _execute_with_retry(
-        self, func: Callable[[], ReturnType], *, operation: str
+        self,
+        func: Callable[[], ReturnType],
+        *,
+        operation: str,
+        before_attempt: Callable[[bool], bool] | None = None,
+        should_continue: Callable[[PdfRestError], bool] | None = None,
     ) -> ReturnType:
         total_attempts = self._max_retries + 1
+        last_exception: PdfRestError | None = None
         for attempt in range(total_attempts):
+            is_retry = attempt > 0
+            if before_attempt is not None:
+                can_continue = before_attempt(is_retry)
+                if not can_continue:
+                    if last_exception is not None:
+                        raise last_exception
+                    msg = "Retry aborted before the initial attempt."
+                    raise RuntimeError(msg)
             try:
                 return func()
             except PdfRestError as exc:
+                last_exception = exc
                 self._logger.debug(
                     "Exception during %s attempt %d/%d: %s",
                     operation,
@@ -768,13 +971,18 @@ class _SyncApiClient(_BaseApiClient[httpx.Client]):
                     total_attempts,
                     exc,
                 )
+                additional_retry_allowed = (
+                    should_continue(exc) if should_continue is not None else True
+                )
                 should_retry = (
-                    attempt < self._max_retries and self._should_retry_exception(exc)
+                    attempt < self._max_retries
+                    and self._should_retry_exception(exc)
+                    and additional_retry_allowed
                 )
                 if not should_retry:
                     self._logger.debug("No retry for %s; raising exception.", operation)
                     raise
-                delay = self._compute_backoff_delay(attempt)
+                delay = self._determine_retry_delay(attempt, exc)
                 self._logger.debug("Retrying %s after %.2f seconds.", operation, delay)
                 if delay > 0:
                     time.sleep(delay)
@@ -783,9 +991,14 @@ class _SyncApiClient(_BaseApiClient[httpx.Client]):
 
     def _send_request(self, request: _RequestModel) -> Any:
         http_client = self._client
+
+        def before_attempt(is_retry: bool) -> bool:
+            return self._prepare_request_files_for_attempt(request, is_retry=is_retry)
+
         return self._execute_with_retry(
             lambda: self._perform_request(http_client, request),
             operation=self._describe_request(request),
+            before_attempt=before_attempt,
         )
 
     def _perform_request(
@@ -988,13 +1201,28 @@ class _AsyncApiClient(_BaseApiClient[httpx.AsyncClient]):
         await self.aclose()
 
     async def _execute_with_retry(
-        self, func: Callable[[], Awaitable[ReturnType]], *, operation: str
+        self,
+        func: Callable[[], Awaitable[ReturnType]],
+        *,
+        operation: str,
+        before_attempt: Callable[[bool], bool] | None = None,
+        should_continue: Callable[[PdfRestError], bool] | None = None,
     ) -> ReturnType:
         total_attempts = self._max_retries + 1
+        last_exception: PdfRestError | None = None
         for attempt in range(total_attempts):
+            is_retry = attempt > 0
+            if before_attempt is not None:
+                can_continue = before_attempt(is_retry)
+                if not can_continue:
+                    if last_exception is not None:
+                        raise last_exception
+                    msg = "Retry aborted before the initial attempt."
+                    raise RuntimeError(msg)
             try:
                 return await func()
             except PdfRestError as exc:
+                last_exception = exc
                 self._logger.debug(
                     "Exception during %s attempt %d/%d: %s",
                     operation,
@@ -1002,13 +1230,18 @@ class _AsyncApiClient(_BaseApiClient[httpx.AsyncClient]):
                     total_attempts,
                     exc,
                 )
+                additional_retry_allowed = (
+                    should_continue(exc) if should_continue is not None else True
+                )
                 should_retry = (
-                    attempt < self._max_retries and self._should_retry_exception(exc)
+                    attempt < self._max_retries
+                    and self._should_retry_exception(exc)
+                    and additional_retry_allowed
                 )
                 if not should_retry:
                     self._logger.debug("No retry for %s; raising exception.", operation)
                     raise
-                delay = self._compute_backoff_delay(attempt)
+                delay = self._determine_retry_delay(attempt, exc)
                 self._logger.debug("Retrying %s after %.2f seconds.", operation, delay)
                 if delay > 0:
                     await asyncio.sleep(delay)
@@ -1017,9 +1250,14 @@ class _AsyncApiClient(_BaseApiClient[httpx.AsyncClient]):
 
     async def _send_request(self, request: _RequestModel) -> Any:
         http_client = self._client
+
+        def before_attempt(is_retry: bool) -> bool:
+            return self._prepare_request_files_for_attempt(request, is_retry=is_retry)
+
         return await self._execute_with_retry(
             lambda: self._perform_request(http_client, request),
             operation=self._describe_request(request),
+            before_attempt=before_attempt,
         )
 
     async def _perform_request(
