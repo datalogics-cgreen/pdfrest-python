@@ -1,4 +1,4 @@
-name: pre-commit
+name: basedpyright
 
 on:
   pull_request:
@@ -9,7 +9,7 @@ on:
       - feature-*
 
 jobs:
-  pre-commit:
+  basedpyright:
     runs-on: ubuntu-latest
     permissions:
       id-token: write
@@ -32,14 +32,7 @@ jobs:
           path: |
             .venv
           key: ${{ runner.os }}-uv-${{ hashFiles('uv.lock') }}
-      - name: Restore pre-commit cache
-        uses: actions/cache@v4
-        with:
-          path: ~/.cache/pre-commit
-          key: pre-commit-4|${{ hashFiles('.pre-commit-config.yaml') }}
       - name: Synchronize project dependencies
         run: uv sync --group dev
-      - name: Run pre-commit checks
-        run: uv run pre-commit run --show-diff-on-failure --all-files
-        env:
-          SKIP: basedpyright
+      - name: Run basedpyright
+        run: uv run basedpyright
