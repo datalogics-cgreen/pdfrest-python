@@ -15,6 +15,7 @@ from pydantic import (
     Field,
     HttpUrl,
 )
+from pydantic.json_schema import JsonSchemaValue
 from pydantic_core import CoreSchema
 from typing_extensions import override
 
@@ -160,7 +161,9 @@ class PdfRestFileID(str):
         )
 
     @classmethod
-    def __get_pydantic_json_schema__(cls, core_schema: Any, handler: Any) -> dict:
+    def __get_pydantic_json_schema__(
+        cls, core_schema: Any, handler: Any
+    ) -> JsonSchemaValue:
         """
         Provide a clean JSON Schema for OpenAPI/JSON Schema generators.
         """
