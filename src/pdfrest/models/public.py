@@ -47,9 +47,6 @@ class PdfRestFileID(str):
     )
 
     def __new__(cls, value: str) -> PdfRestFileID:
-        if not isinstance(value, str):
-            msg = "PdfRestPrefixedUUID4 requires a str"
-            raise TypeError(msg)
         if not cls._PY_PATTERN.fullmatch(value):
             msg = (
                 "Invalid PdfRestPrefixedUUID4. Expected: "
@@ -88,7 +85,7 @@ class PdfRestFileID(str):
     @classmethod
     def is_valid(cls, value: str) -> bool:
         """Quick validity check without constructing the object."""
-        return isinstance(value, str) and bool(cls._PY_PATTERN.fullmatch(value))
+        return bool(cls._PY_PATTERN.fullmatch(value))
 
     @classmethod
     def from_parts(

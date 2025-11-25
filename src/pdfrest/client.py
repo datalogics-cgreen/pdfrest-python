@@ -258,9 +258,6 @@ def _normalize_file_type(file_value: FileTypes) -> NormalizedFileTypes:
         normalized_content_type = (
             str(content_type) if content_type is not None else None
         )
-        if not isinstance(headers, Mapping):
-            msg = "Headers must be provided as a mapping of str keys to str values."
-            raise TypeError(msg)
         normalized_headers = _normalize_headers(headers)
         return (
             normalized_filename,
@@ -303,9 +300,6 @@ def _parse_path_spec(spec: FilePathTypes) -> tuple[Path, str | None, Mapping[str
             headers: Mapping[str, str] = {}
         elif length == 3:
             raw_path, content_type, headers = cast(FilePathTuple3, spec)
-            if not isinstance(headers, Mapping):
-                msg = "Headers must be provided as a mapping of str keys to str values."
-                raise TypeError(msg)
         else:
             msg = "File path tuples must contain a path plus optional content type and headers."
             raise TypeError(msg)
@@ -452,7 +446,7 @@ class _BaseApiClient(Generic[ClientType]):
         max_retries: int = DEFAULT_MAX_RETRIES,
     ) -> None:
         self._logger = LOGGER
-        if not isinstance(max_retries, int) or max_retries < 0:
+        if max_retries < 0:
             msg = "max_retries must be a non-negative integer."
             raise PdfRestConfigurationError(msg)
         self._max_retries = max_retries
