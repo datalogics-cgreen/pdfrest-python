@@ -103,6 +103,8 @@ trailing_comma_inline_array = true
 
 [tool.uv]
 keyring-provider = "subprocess"
+no-build = true
+no-binary-package = ["pdfrest"]
 
 [[tool.uv.index]]
 name = "cit-pypi"
