@@ -896,6 +896,22 @@ class _SyncApiClient(_BaseApiClient[httpx.Client]):
             should_continue=stream_retry_checker,
         )
 
+    def send_request_once(self, request: _RequestModel) -> Any:
+        return self._perform_request(self._client, request)
+
+    def run_with_retry(
+        self,
+        func: Callable[[], ReturnType],
+        *,
+        operation: str,
+        should_continue: Callable[[PdfRestError], bool] | None = None,
+    ) -> ReturnType:
+        return self._execute_with_retry(
+            func,
+            operation=operation,
+            should_continue=should_continue,
+        )
+
     def _perform_request(
         self, http_client: httpx.Client, request: _RequestModel
     ) -> Any:
@@ -1141,6 +1157,22 @@ class _AsyncApiClient(_BaseApiClient[httpx.AsyncClient]):
             lambda: self._perform_request(http_client, request),
             operation=self._describe_request(request),
             should_continue=stream_retry_checker,
+        )
+
+    async def send_request_once(self, request: _RequestModel) -> Any:
+        return await self._perform_request(self._client, request)
+
+    async def run_with_retry(
+        self,
+        func: Callable[[], Awaitable[ReturnType]],
+        *,
+        operation: str,
+        should_continue: Callable[[PdfRestError], bool] | None = None,
+    ) -> ReturnType:
+        return await self._execute_with_retry(
+            func,
+            operation=operation,
+            should_continue=should_continue,
         )
 
     async def _perform_request(
@@ -1441,25 +1473,44 @@ class _FilesClient:
         closed once the request completes.
         """
         normalized_paths = _normalize_path_inputs(file_paths)
+        path_specs = [_parse_path_spec(spec) for spec in normalized_paths]
 
-        with ExitStack() as stack:
-            upload_specs: list[FileTypes] = []
-            for spec in normalized_paths:
-                path, content_type, headers = _parse_path_spec(spec)
-                file_obj = stack.enter_context(path.open("rb"))
-                filename = path.name
-                if headers:
-                    upload_specs.append((filename, file_obj, content_type, headers))
-                elif content_type is not None:
-                    upload_specs.append((filename, file_obj, content_type))
-                else:
-                    upload_specs.append((filename, file_obj))
-            return self.create(
-                upload_specs,
-                extra_query=extra_query,
-                extra_headers=extra_headers,
-                timeout=timeout,
-            )
+        def attempt() -> list[PdfRestFile]:
+            with ExitStack() as stack:
+                upload_specs: list[tuple[str, FileTypes]] = []
+                for path, content_type, headers in path_specs:
+                    file_obj = stack.enter_context(path.open("rb"))
+                    filename = path.name
+                    normalized_spec: FileTypes
+                    if headers:
+                        normalized_spec = (filename, file_obj, content_type, headers)
+                    elif content_type is not None:
+                        normalized_spec = (filename, file_obj, content_type)
+                    else:
+                        normalized_spec = (filename, file_obj)
+                    upload_specs.append((FILE_UPLOAD_FIELD_NAME, normalized_spec))
+
+                request = self._client.prepare_request(
+                    "POST",
+                    "/upload",
+                    files=upload_specs,
+                    extra_query=extra_query,
+                    extra_headers=extra_headers,
+                    timeout=timeout,
+                )
+                payload = self._client.send_request_once(request)
+                file_ids = _extract_uploaded_file_ids(payload)
+                return [
+                    self._client.fetch_file_info(
+                        file_id,
+                        extra_query=extra_query,
+                        extra_headers=extra_headers,
+                        timeout=timeout,
+                    )
+                    for file_id in file_ids
+                ]
+
+        return self._client.run_with_retry(attempt, operation="POST /upload (paths)")
 
     def create_from_urls(
         self,
@@ -1681,25 +1732,56 @@ class _AsyncFilesClient:
         closed once the request completes.
         """
         normalized_paths = _normalize_path_inputs(file_paths)
+        path_specs = [_parse_path_spec(spec) for spec in normalized_paths]
 
-        with ExitStack() as stack:
-            upload_specs: list[FileTypes] = []
-            for spec in normalized_paths:
-                path, content_type, headers = _parse_path_spec(spec)
-                file_obj = stack.enter_context(path.open("rb"))
-                filename = path.name
-                if headers:
-                    upload_specs.append((filename, file_obj, content_type, headers))
-                elif content_type is not None:
-                    upload_specs.append((filename, file_obj, content_type))
-                else:
-                    upload_specs.append((filename, file_obj))
-            return await self.create(
-                upload_specs,
-                extra_query=extra_query,
-                extra_headers=extra_headers,
-                timeout=timeout,
-            )
+        async def attempt() -> list[PdfRestFile]:
+            with ExitStack() as stack:
+                upload_specs: list[tuple[str, FileTypes]] = []
+                for path, content_type, headers in path_specs:
+                    file_obj = stack.enter_context(path.open("rb"))
+                    filename = path.name
+                    normalized_spec: FileTypes
+                    if headers:
+                        normalized_spec = (filename, file_obj, content_type, headers)
+                    elif content_type is not None:
+                        normalized_spec = (filename, file_obj, content_type)
+                    else:
+                        normalized_spec = (filename, file_obj)
+                    upload_specs.append((FILE_UPLOAD_FIELD_NAME, normalized_spec))
+
+                request = self._client.prepare_request(
+                    "POST",
+                    "/upload",
+                    files=upload_specs,
+                    extra_query=extra_query,
+                    extra_headers=extra_headers,
+                    timeout=timeout,
+                )
+                payload = await self._client.send_request_once(request)
+                file_ids = _extract_uploaded_file_ids(payload)
+                results: list[PdfRestFile] = []
+                semaphore = asyncio.Semaphore(self._concurrency_limit)
+
+                async def throttled_fetch(file_id: str) -> PdfRestFile:
+                    async with semaphore:
+                        return await self._client.fetch_file_info(
+                            file_id,
+                            extra_query=extra_query,
+                            extra_headers=extra_headers,
+                            timeout=timeout,
+                        )
+
+                if file_ids:
+                    results = list(
+                        await asyncio.gather(
+                            *(throttled_fetch(fid) for fid in file_ids)
+                        )
+                    )
+                return results
+
+        return await self._client.run_with_retry(
+            attempt, operation="POST /upload (paths)"
+        )
 
     async def create_from_urls(
         self,
