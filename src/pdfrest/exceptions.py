@@ -10,7 +10,9 @@ __all__ = (
     "PdfRestApiError",
     "PdfRestAuthenticationError",
     "PdfRestConfigurationError",
+    "PdfRestConnectTimeoutError",
     "PdfRestError",
+    "PdfRestPoolTimeoutError",
     "PdfRestRequestError",
     "PdfRestTimeoutError",
     "PdfRestTransportError",
@@ -28,6 +30,14 @@ class PdfRestConfigurationError(PdfRestError):
 
 class PdfRestTimeoutError(PdfRestError):
     """Raised when a request to pdfrest exceeds the configured timeout."""
+
+
+class PdfRestConnectTimeoutError(PdfRestTimeoutError):
+    """Raised when the client cannot establish a connection before timeout."""
+
+
+class PdfRestPoolTimeoutError(PdfRestTimeoutError):
+    """Raised when the connection pool cannot provide a connection in time."""
 
 
 class PdfRestTransportError(PdfRestError):
@@ -69,6 +79,14 @@ class PdfRestAuthenticationError(PdfRestApiError):
 def translate_httpx_error(exc: httpx.HTTPError) -> PdfRestError:
     """Convert an httpx exception into a library-specific exception."""
 
+    if isinstance(exc, httpx.ConnectTimeout):
+        return PdfRestConnectTimeoutError(
+            str(exc) or "Connection timed out while calling pdfRest."
+        )
+    if isinstance(exc, httpx.PoolTimeout):
+        return PdfRestPoolTimeoutError(
+            str(exc) or "Connection pool timed out while calling pdfRest."
+        )
     if isinstance(exc, httpx.TimeoutException):
         return PdfRestTimeoutError(
             str(exc) or "Request timed out while calling pdfRest."

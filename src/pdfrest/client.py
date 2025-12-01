@@ -48,7 +48,9 @@ from .exceptions import (
     PdfRestApiError,
     PdfRestAuthenticationError,
     PdfRestConfigurationError,
+    PdfRestConnectTimeoutError,
     PdfRestError,
+    PdfRestPoolTimeoutError,
     PdfRestRequestError,
     PdfRestTimeoutError,
     PdfRestTransportError,
@@ -101,11 +103,6 @@ INITIAL_BACKOFF_SECONDS = 0.5
 MAX_BACKOFF_SECONDS = 8.0
 BACKOFF_JITTER_SECONDS = 0.1
 RETRYABLE_STATUS_CODES = {408, 425, 429, 499}
-FileStreamSnapshot = tuple[IO[Any], int]
-
-
-def _empty_snapshot_list() -> list[FileStreamSnapshot]:
-    return []
 
 
 HttpMethod = Literal["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS", "HEAD"]
@@ -423,11 +420,7 @@ class _RequestModel(BaseModel):
 
     model_config = ConfigDict(arbitrary_types_allowed=True)
 
-    _stream_snapshots: list[FileStreamSnapshot] = PrivateAttr(
-        default_factory=_empty_snapshot_list
-    )
-    _stream_tracking_ready: bool = PrivateAttr(default=False)
-    _has_non_rewindable_streams: bool = PrivateAttr(default=False)
+    _has_stream_uploads: bool = PrivateAttr(default=False)
 
     @field_validator("endpoint")
     @classmethod
@@ -437,25 +430,11 @@ class _RequestModel(BaseModel):
             raise PdfRestConfigurationError(msg)
         return value
 
-    def stream_tracking_ready(self) -> bool:
-        return self._stream_tracking_ready
+    def mark_has_stream_uploads(self) -> None:
+        self._has_stream_uploads = True
 
-    def mark_stream_tracking_ready(self) -> None:
-        self._stream_tracking_ready = True
-
-    def has_non_rewindable_streams(self) -> bool:
-        return self._has_non_rewindable_streams
-
-    def mark_non_rewindable_streams(self) -> None:
-        self._has_non_rewindable_streams = True
-        self._stream_snapshots.clear()
-        self._stream_tracking_ready = True
-
-    def record_stream_snapshot(self, stream: IO[Any], position: int) -> None:
-        self._stream_snapshots.append((stream, position))
-
-    def stream_snapshots(self) -> tuple[FileStreamSnapshot, ...]:
-        return tuple(self._stream_snapshots)
+    def has_stream_uploads(self) -> bool:
+        return self._has_stream_uploads
 
 
 class _BaseApiClient(Generic[ClientType]):
@@ -658,6 +637,8 @@ class _BaseApiClient(Generic[ClientType]):
             raise
         except ValidationError as exc:  # pragma: no cover - defensive
             raise PdfRestConfigurationError(str(exc)) from exc
+        if self._contains_open_stream(files_payload):
+            request.mark_has_stream_uploads()
         return request
 
     def prepare_request(
@@ -725,109 +706,35 @@ class _BaseApiClient(Generic[ClientType]):
         return payload
 
     @staticmethod
-    def _iterate_file_like_objects(value: Any) -> Iterator[IO[Any]]:
+    def _contains_open_stream(value: Any) -> bool:
         if value is None:
-            return
-        if hasattr(value, "read"):
-            yield cast(IO[Any], value)
-            return
-        if isinstance(value, (bytes, bytearray, str)):
-            return
-        if isinstance(value, Mapping):
-            for item in value.values():
-                yield from _BaseApiClient._iterate_file_like_objects(item)
-            return
-        if isinstance(value, Sequence):
-            for item in value:
-                yield from _BaseApiClient._iterate_file_like_objects(item)
-
-    def _log_non_rewindable_stream(self, request: _RequestModel, reason: str) -> None:
-        self._logger.error(
-            "Cannot retry %s because %s",
-            self._describe_request(request),
-            reason,
-        )
-
-    def _capture_file_stream_positions(self, request: _RequestModel) -> None:
-        if request.stream_tracking_ready():
-            return
-        if request.files is None or self._max_retries == 0:
-            request.mark_stream_tracking_ready()
-            return
-        snapshots = request.stream_snapshots()
-        seen_ids: set[int] = {id(stream) for stream, _ in snapshots}
-        for stream in self._iterate_file_like_objects(request.files):
-            stream_id = id(stream)
-            if stream_id in seen_ids:
-                continue
-            seek_fn = getattr(stream, "seek", None)
-            tell_fn = getattr(stream, "tell", None)
-            if not callable(seek_fn) or not callable(tell_fn):
-                request.mark_non_rewindable_streams()
-                self._log_non_rewindable_stream(
-                    request,
-                    "one or more upload streams do not provide seek/tell",
-                )
-                return
-            try:
-                position_value = tell_fn()
-            except (OSError, ValueError):
-                request.mark_non_rewindable_streams()
-                self._log_non_rewindable_stream(
-                    request,
-                    "reading the current position failed for an upload stream",
-                )
-                return
-            position = cast(int, position_value)
-            request.record_stream_snapshot(stream, position)
-            seen_ids.add(stream_id)
-        request.mark_stream_tracking_ready()
-
-    def _rewind_stream_snapshots(self, request: _RequestModel) -> bool:
-        for stream, position in request.stream_snapshots():
-            seek_fn = getattr(stream, "seek", None)
-            if not callable(seek_fn):
-                request.mark_non_rewindable_streams()
-                self._log_non_rewindable_stream(
-                    request,
-                    "one or more upload streams do not support seek",
-                )
-                return False
-            try:
-                seek_fn(position)
-            except (OSError, ValueError) as exc:  # pragma: no cover - defensive
-                request.mark_non_rewindable_streams()
-                self._log_non_rewindable_stream(
-                    request,
-                    "resetting an upload stream failed",
-                )
-                if self._logger.isEnabledFor(logging.DEBUG):
-                    self._logger.debug(
-                        "Failed to reset upload stream for %s: %s",
-                        self._describe_request(request),
-                        exc,
-                    )
-                return False
-        return True
-
-    def _prepare_request_files_for_attempt(
-        self,
-        request: _RequestModel,
-        *,
-        is_retry: bool,
-    ) -> bool:
-        if request.files is None or self._max_retries == 0:
-            return True
-        if not request.stream_tracking_ready():
-            self._capture_file_stream_positions(request)
-        if not is_retry:
-            return True
-        if request.has_non_rewindable_streams():
             return False
-        snapshots = request.stream_snapshots()
-        if not snapshots:
+        if isinstance(value, (bytes, bytearray, str)):
+            return False
+        if hasattr(value, "read"):
             return True
-        return self._rewind_stream_snapshots(request)
+        if isinstance(value, Mapping):
+            return any(
+                _BaseApiClient._contains_open_stream(item) for item in value.values()
+            )
+        if isinstance(value, Sequence) and not isinstance(
+            value, (str, bytes, bytearray)
+        ):
+            return any(_BaseApiClient._contains_open_stream(item) for item in value)
+        return False
+
+    def _build_stream_retry_checker(
+        self, request: _RequestModel
+    ) -> Callable[[PdfRestError], bool] | None:
+        if not request.has_stream_uploads():
+            return None
+
+        def checker(exc: PdfRestError) -> bool:
+            return bool(
+                isinstance(exc, (PdfRestConnectTimeoutError, PdfRestPoolTimeoutError))
+            )
+
+        return checker
 
     def _handle_response(self, response: httpx.Response) -> Any:
         request = response.request
@@ -946,24 +853,13 @@ class _SyncApiClient(_BaseApiClient[httpx.Client]):
         func: Callable[[], ReturnType],
         *,
         operation: str,
-        before_attempt: Callable[[bool], bool] | None = None,
         should_continue: Callable[[PdfRestError], bool] | None = None,
     ) -> ReturnType:
         total_attempts = self._max_retries + 1
-        last_exception: PdfRestError | None = None
         for attempt in range(total_attempts):
-            is_retry = attempt > 0
-            if before_attempt is not None:
-                can_continue = before_attempt(is_retry)
-                if not can_continue:
-                    if last_exception is not None:
-                        raise last_exception
-                    msg = "Retry aborted before the initial attempt."
-                    raise RuntimeError(msg)
             try:
                 return func()
             except PdfRestError as exc:
-                last_exception = exc
                 self._logger.debug(
                     "Exception during %s attempt %d/%d: %s",
                     operation,
@@ -992,13 +888,12 @@ class _SyncApiClient(_BaseApiClient[httpx.Client]):
     def _send_request(self, request: _RequestModel) -> Any:
         http_client = self._client
 
-        def before_attempt(is_retry: bool) -> bool:
-            return self._prepare_request_files_for_attempt(request, is_retry=is_retry)
+        stream_retry_checker = self._build_stream_retry_checker(request)
 
         return self._execute_with_retry(
             lambda: self._perform_request(http_client, request),
             operation=self._describe_request(request),
-            before_attempt=before_attempt,
+            should_continue=stream_retry_checker,
         )
 
     def _perform_request(
@@ -1205,24 +1100,13 @@ class _AsyncApiClient(_BaseApiClient[httpx.AsyncClient]):
         func: Callable[[], Awaitable[ReturnType]],
         *,
         operation: str,
-        before_attempt: Callable[[bool], bool] | None = None,
         should_continue: Callable[[PdfRestError], bool] | None = None,
     ) -> ReturnType:
         total_attempts = self._max_retries + 1
-        last_exception: PdfRestError | None = None
         for attempt in range(total_attempts):
-            is_retry = attempt > 0
-            if before_attempt is not None:
-                can_continue = before_attempt(is_retry)
-                if not can_continue:
-                    if last_exception is not None:
-                        raise last_exception
-                    msg = "Retry aborted before the initial attempt."
-                    raise RuntimeError(msg)
             try:
                 return await func()
             except PdfRestError as exc:
-                last_exception = exc
                 self._logger.debug(
                     "Exception during %s attempt %d/%d: %s",
                     operation,
@@ -1251,13 +1135,12 @@ class _AsyncApiClient(_BaseApiClient[httpx.AsyncClient]):
     async def _send_request(self, request: _RequestModel) -> Any:
         http_client = self._client
 
-        def before_attempt(is_retry: bool) -> bool:
-            return self._prepare_request_files_for_attempt(request, is_retry=is_retry)
+        stream_retry_checker = self._build_stream_retry_checker(request)
 
         return await self._execute_with_retry(
             lambda: self._perform_request(http_client, request),
             operation=self._describe_request(request),
-            before_attempt=before_attempt,
+            should_continue=stream_retry_checker,
         )
 
     async def _perform_request(
