@@ -1,5 +1,5 @@
 {
-  "include": ["src", "tests"],
+  "include": ["src", "tests", "noxfile.py"],
   "exclude": [
     "**/.venv",
     "build",
@@ -16,6 +16,9 @@
   "reportExplicitAny": "none",
   "reportUnannotatedClassAttribute": "none",
   "executionEnvironments": [
+    {
+      "root": "noxfile.py"
+    },
     {
       "root": "src"
     },
