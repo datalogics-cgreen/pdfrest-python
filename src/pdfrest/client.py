@@ -43,6 +43,7 @@ from pydantic import (
     ValidationError,
     field_validator,
 )
+from typing_extensions import override
 
 from .exceptions import (
     PdfRestApiError,
@@ -258,9 +259,6 @@ def _normalize_file_type(file_value: FileTypes) -> NormalizedFileTypes:
         normalized_content_type = (
             str(content_type) if content_type is not None else None
         )
-        if not isinstance(headers, Mapping):
-            msg = "Headers must be provided as a mapping of str keys to str values."
-            raise TypeError(msg)
         normalized_headers = _normalize_headers(headers)
         return (
             normalized_filename,
@@ -303,9 +301,6 @@ def _parse_path_spec(spec: FilePathTypes) -> tuple[Path, str | None, Mapping[str
             headers: Mapping[str, str] = {}
         elif length == 3:
             raw_path, content_type, headers = cast(FilePathTuple3, spec)
-            if not isinstance(headers, Mapping):
-                msg = "Headers must be provided as a mapping of str keys to str values."
-                raise TypeError(msg)
         else:
             msg = "File path tuples must contain a path plus optional content type and headers."
             raise TypeError(msg)
@@ -441,8 +436,6 @@ class _BaseApiClient(Generic[ClientType]):
     """Shared logic between sync and async client variants."""
 
     _config: _ClientConfig
-    _client: ClientType
-    _owns_http_client: bool
 
     def __init__(
         self,
@@ -454,7 +447,7 @@ class _BaseApiClient(Generic[ClientType]):
         max_retries: int = DEFAULT_MAX_RETRIES,
     ) -> None:
         self._logger = LOGGER
-        if not isinstance(max_retries, int) or max_retries < 0:
+        if max_retries < 0:
             msg = "max_retries must be a non-negative integer."
             raise PdfRestConfigurationError(msg)
         self._max_retries = max_retries
@@ -585,7 +578,7 @@ class _BaseApiClient(Generic[ClientType]):
             msg = "pdfRest API keys must be 36 characters (UUID format)."
             raise PdfRestConfigurationError(msg)
         try:
-            uuid.UUID(api_key)
+            _ = uuid.UUID(api_key)
         except ValueError:
             msg = "pdfRest API keys must be valid UUID strings."
             raise PdfRestConfigurationError(msg) from None
@@ -740,8 +733,6 @@ class _BaseApiClient(Generic[ClientType]):
         request = response.request
         request_label = (
             f"{getattr(request, 'method', 'UNKNOWN')} {getattr(request, 'url', '')}"
-            if request is not None
-            else "UNKNOWN"
         )
         if response.is_success:
             if self._logger.isEnabledFor(logging.DEBUG):
@@ -811,6 +802,7 @@ class _SyncApiClient(_BaseApiClient[httpx.Client]):
     """Internal synchronous client implementation."""
 
     _client: httpx.Client
+    _owns_http_client: bool
 
     def __init__(
         self,
@@ -1072,6 +1064,7 @@ class _AsyncApiClient(_BaseApiClient[httpx.AsyncClient]):
     """Internal asynchronous client implementation."""
 
     _client: httpx.AsyncClient
+    _owns_http_client: bool
 
     def __init__(
         self,
@@ -1523,7 +1516,7 @@ class _FilesClient:
     ) -> list[PdfRestFile]:
         """Upload one or more files by providing remote URLs."""
 
-        normalized_urls = UploadURLs.model_validate({"url": urls})  # pyright: ignore[reportPrivateUsage]
+        normalized_urls = UploadURLs.model_validate({"url": urls})
         request = self._client.prepare_request(
             "POST",
             "/upload",
@@ -1627,7 +1620,7 @@ class _FilesClient:
         try:
             with path.open("wb") as file_handle:
                 for chunk in response.iter_bytes():
-                    file_handle.write(chunk)
+                    _ = file_handle.write(chunk)
         finally:
             response.close()
         return path
@@ -1901,7 +1894,7 @@ class _AsyncFilesClient:
         try:
             with path.open("wb") as file_handle:
                 async for chunk in response.aiter_bytes():
-                    file_handle.write(chunk)
+                    _ = file_handle.write(chunk)
         finally:
             await response.aclose()
         return path
@@ -1950,10 +1943,12 @@ class PdfRestClient(_SyncApiClient):
         )
         self._files_client = _FilesClient(self)
 
+    @override
     def __enter__(self) -> PdfRestClient:
-        super().__enter__()
+        _ = super().__enter__()
         return self
 
+    @override
     def __exit__(self, exc_type: Any, exc: Any, traceback: Any) -> None:
         super().__exit__(exc_type, exc, traceback)
 
@@ -2379,10 +2374,12 @@ class AsyncPdfRestClient(_AsyncApiClient):
         )
         self._files_client = _AsyncFilesClient(self)
 
+    @override
     async def __aenter__(self) -> AsyncPdfRestClient:
-        await super().__aenter__()
+        _ = await super().__aenter__()
         return self
 
+    @override
     async def __aexit__(self, exc_type: Any, exc: Any, traceback: Any) -> None:
         await super().__aexit__(exc_type, exc, traceback)
 

@@ -15,7 +15,9 @@ from pydantic import (
     Field,
     HttpUrl,
 )
+from pydantic.json_schema import JsonSchemaValue
 from pydantic_core import CoreSchema
+from typing_extensions import override
 
 __all__ = ("PdfRestErrorResponse", "PdfRestFile", "PdfRestFileID", "UpResponse")
 
@@ -47,9 +49,6 @@ class PdfRestFileID(str):
     )
 
     def __new__(cls, value: str) -> PdfRestFileID:
-        if not isinstance(value, str):
-            msg = "PdfRestPrefixedUUID4 requires a str"
-            raise TypeError(msg)
         if not cls._PY_PATTERN.fullmatch(value):
             msg = (
                 "Invalid PdfRestPrefixedUUID4. Expected: "
@@ -58,9 +57,11 @@ class PdfRestFileID(str):
             raise ValueError(msg)
         return str.__new__(cls, value.lower())
 
+    @override
     def __str__(self) -> str:
         return str.__str__(self)
 
+    @override
     def __repr__(self) -> str:
         return f"{self.__class__.__name__}({super().__repr__()})"
 
@@ -88,7 +89,7 @@ class PdfRestFileID(str):
     @classmethod
     def is_valid(cls, value: str) -> bool:
         """Quick validity check without constructing the object."""
-        return isinstance(value, str) and bool(cls._PY_PATTERN.fullmatch(value))
+        return bool(cls._PY_PATTERN.fullmatch(value))
 
     @classmethod
     def from_parts(
@@ -160,7 +161,9 @@ class PdfRestFileID(str):
         )
 
     @classmethod
-    def __get_pydantic_json_schema__(cls, core_schema: Any, handler: Any) -> dict:
+    def __get_pydantic_json_schema__(
+        cls, core_schema: Any, handler: Any
+    ) -> JsonSchemaValue:
         """
         Provide a clean JSON Schema for OpenAPI/JSON Schema generators.
         """

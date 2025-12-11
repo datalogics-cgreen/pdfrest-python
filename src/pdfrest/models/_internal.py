@@ -30,7 +30,7 @@ def _ensure_list(value: Any) -> Any:
     if value is None:
         return None
     if isinstance(value, list):
-        return value
+        return value  # pyright: ignore[reportUnknownVariableType]
     if isinstance(value, Sequence) and not isinstance(value, (str, bytes, bytearray)):
         return list(value)
     return [value]
@@ -80,7 +80,7 @@ def _split_comma_list(value: Any) -> Any:
     if isinstance(value, str):
         return value.split(",")
     if isinstance(value, list):
-        return value
+        return value  # pyright: ignore[reportUnknownVariableType]
     if isinstance(value, Sequence) and not isinstance(value, (str, bytes, bytearray)):
         return list(value)
     msg = "Must be a comma separated string or a list of strings."
@@ -96,12 +96,6 @@ def _split_comma_string(value: Any) -> list[Any] | None:
         return list(value)
     msg = "Must be a list, or a comma separated string."
     raise ValueError(msg)
-
-
-def _pdfrest_file_to_id(value: Any) -> Any:
-    if isinstance(value, PdfRestFile):
-        return value.id
-    return value
 
 
 def _serialize_as_first_file_id(value: list[PdfRestFile]) -> str:
@@ -144,7 +138,7 @@ def _allowed_mime_types(
     ) -> PdfRestFile | list[PdfRestFile]:
         if isinstance(value, list):
             for item in value:
-                allowed_mime_types_validator(item)
+                _ = allowed_mime_types_validator(item)
             return value
         if value.type not in combined_allowed_mime_types:
             msg = error_msg or f"The file type must be one of: {allowed_mime_types}"
@@ -158,7 +152,7 @@ def _int_to_string(value: Any) -> Any:
     if isinstance(value, int):
         return str(value)
     if isinstance(value, list):
-        return [_int_to_string(item) for item in value]
+        return [_int_to_string(item) for item in value]  # pyright: ignore[reportUnknownVariableType]
     return value
 
 
@@ -435,13 +429,13 @@ class _PdfMergeItem(BaseModel):
     @classmethod
     def _transform_input(cls, data: Any) -> Any:
         if isinstance(data, tuple):
-            if len(data) != 2:
+            if len(data) != 2:  # pyright: ignore[reportUnknownArgumentType]
                 msg = (
                     "Tuple merge entries must contain exactly two items: (file, pages)."
                 )
                 raise ValueError(msg)
-            file_candidate, pages = data
-            return {"file": file_candidate, "pages": pages}
+            file_candidate, pages = data  # pyright: ignore[reportUnknownVariableType]
+            return {"file": file_candidate, "pages": pages}  # pyright: ignore[reportUnknownVariableType]
         if isinstance(data, PdfRestFile):
             return {"file": data}
         return data

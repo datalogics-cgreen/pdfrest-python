@@ -1,0 +1,37 @@
+{
+  "include": ["src", "tests", "noxfile.py"],
+  "exclude": [
+    "**/.venv",
+    "build",
+    "dist",
+    "scripts",
+    "examples",
+    "docs",
+    "**/node_modules",
+    "**/__pycache__"
+  ],
+  "pythonVersion": "3.10",
+  "reportImplicitStringConcatenation": "none",
+  "reportAny": "none",
+  "reportExplicitAny": "none",
+  "reportUnannotatedClassAttribute": "none",
+  "executionEnvironments": [
+    {
+      "root": "noxfile.py"
+    },
+    {
+      "root": "src"
+    },
+    {
+      "root": "tests",
+      "reportUnknownLambdaType": "none",
+      "reportUnknownMemberType": "none",
+      "reportArgumentType": "none",
+      "reportUnknownArgumentType": "none",
+      "reportUnknownVariableType": "none",
+      "reportPrivateUsage": "none",
+      "reportUnusedCallResult": "none",
+      "reportPrivateLocalImportUsage": "none"
+    }
+  ]
+}

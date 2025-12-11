@@ -11,8 +11,8 @@ python_versions = ["3.10", "3.11", "3.12", "3.13", "3.14"]
 def tests(session: nox.Session) -> None:
     # Define only custom flags
     parser = argparse.ArgumentParser(add_help=False)
-    parser.add_argument("--no-parallel", action="store_true")
-    parser.add_argument(
+    _ = parser.add_argument("--no-parallel", action="store_true")
+    _ = parser.add_argument(
         "-n", "--workers", "--numprocesses"
     )  # e.g., -n 4 to set workers
     custom, remaining = parser.parse_known_args(session.posargs)
@@ -27,7 +27,7 @@ def tests(session: nox.Session) -> None:
     else:
         pytest_args[:0] = ["-n", "8", "--maxschedchunk", "2"]
 
-    session.run_install(
+    _ = session.run_install(
         "uv",
         "sync",
         "--no-default-groups",
@@ -36,7 +36,7 @@ def tests(session: nox.Session) -> None:
         f"--python={session.virtualenv.location}",
         env={"UV_PROJECT_ENVIRONMENT": session.virtualenv.location},
     )
-    session.run(
+    _ = session.run(
         "pytest",
         "--cov=pdfrest",
         "--cov-report=term-missing",
