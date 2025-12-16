@@ -79,6 +79,7 @@ from .models._internal import (
     PdfRedactionPreviewPayload,
     PdfRestRawFileResponse,
     PdfSplitPayload,
+    PdfFlattenFormsPayload,
     PdfToPdfxPayload,
     PdfToWordPayload,
     PngPdfRestPayload,
@@ -2170,6 +2171,32 @@ class PdfRestClient(_SyncApiClient):
             timeout=timeout,
         )
 
+    def flatten_pdf_forms(
+        self,
+        file: PdfRestFile | Sequence[PdfRestFile],
+        *,
+        output: str | None = None,
+        extra_query: Query | None = None,
+        extra_headers: AnyMapping | None = None,
+        extra_body: Body | None = None,
+        timeout: TimeoutTypes | None = None,
+    ) -> PdfRestFileBasedResponse:
+        """Flatten form fields in a PDF so they are no longer editable."""
+
+        payload: dict[str, Any] = {"files": file}
+        if output is not None:
+            payload["output"] = output
+
+        return self._post_file_operation(
+            endpoint="/flattened-forms-pdf",
+            payload=payload,
+            payload_model=PdfFlattenFormsPayload,
+            extra_query=extra_query,
+            extra_headers=extra_headers,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
+
     def convert_to_pdfx(
         self,
         file: PdfRestFile | Sequence[PdfRestFile],
@@ -2648,6 +2675,32 @@ class AsyncPdfRestClient(_AsyncApiClient):
             endpoint="/word",
             payload=payload,
             payload_model=PdfToWordPayload,
+            extra_query=extra_query,
+            extra_headers=extra_headers,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
+
+    async def flatten_pdf_forms(
+        self,
+        file: PdfRestFile | Sequence[PdfRestFile],
+        *,
+        output: str | None = None,
+        extra_query: Query | None = None,
+        extra_headers: AnyMapping | None = None,
+        extra_body: Body | None = None,
+        timeout: TimeoutTypes | None = None,
+    ) -> PdfRestFileBasedResponse:
+        """Asynchronously flatten form fields in a PDF."""
+
+        payload: dict[str, Any] = {"files": file}
+        if output is not None:
+            payload["output"] = output
+
+        return await self._post_file_operation(
+            endpoint="/flattened-forms-pdf",
+            payload=payload,
+            payload_model=PdfFlattenFormsPayload,
             extra_query=extra_query,
             extra_headers=extra_headers,
             extra_body=extra_body,
