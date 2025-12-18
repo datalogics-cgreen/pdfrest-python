@@ -58,6 +58,7 @@ from .exceptions import (
     translate_httpx_error,
 )
 from .models import (
+    PdfRestDeletionResponse,
     PdfRestErrorResponse,
     PdfRestFile,
     PdfRestFileBasedResponse,
@@ -71,6 +72,7 @@ __all__ = ("AsyncPdfRestClient", "PdfRestClient")
 from .models._internal import (
     BasePdfRestGraphicPayload,
     BmpPdfRestPayload,
+    DeletePayload,
     GifPdfRestPayload,
     JpegPdfRestPayload,
     PdfCompressPayload,
@@ -1543,6 +1545,32 @@ class _FilesClient:
             for file_id in file_ids
         ]
 
+    def delete(
+        self,
+        files: PdfRestFile | Sequence[PdfRestFile],
+        *,
+        extra_query: Query | None = None,
+        extra_headers: AnyMapping | None = None,
+        extra_body: Body | None = None,
+        timeout: TimeoutTypes | None = None,
+    ) -> PdfRestDeletionResponse:
+        """Delete one or more uploaded files by reference."""
+
+        payload = DeletePayload.model_validate({"files": files})
+        request = self._client.prepare_request(
+            "POST",
+            "/delete",
+            json_body=payload.model_dump(
+                mode="json", by_alias=True, exclude_none=True, exclude_unset=True
+            ),
+            extra_query=extra_query,
+            extra_headers=extra_headers,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
+        raw_payload = self._client.send_request(request)
+        return PdfRestDeletionResponse.model_validate(raw_payload)
+
     def read_bytes(
         self,
         file_ref: PdfRestFile | str,
@@ -1816,6 +1844,32 @@ class _AsyncFilesClient:
                 )
 
         return await asyncio.gather(*(fetch(file_id) for file_id in file_ids))
+
+    async def delete(
+        self,
+        files: PdfRestFile | Sequence[PdfRestFile],
+        *,
+        extra_query: Query | None = None,
+        extra_headers: AnyMapping | None = None,
+        extra_body: Body | None = None,
+        timeout: TimeoutTypes | None = None,
+    ) -> PdfRestDeletionResponse:
+        """Delete one or more uploaded files by reference."""
+
+        payload = DeletePayload.model_validate({"files": files})
+        request = self._client.prepare_request(
+            "POST",
+            "/delete",
+            json_body=payload.model_dump(
+                mode="json", by_alias=True, exclude_none=True, exclude_unset=True
+            ),
+            extra_query=extra_query,
+            extra_headers=extra_headers,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
+        raw_payload = await self._client.send_request(request)
+        return PdfRestDeletionResponse.model_validate(raw_payload)
 
     async def read_bytes(
         self,

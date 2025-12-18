@@ -108,6 +108,10 @@ def _serialize_as_comma_separated_string(value: list[Any] | None) -> str | None:
     return ",".join(str(element) for element in value)
 
 
+def _serialize_file_ids(value: list[PdfRestFile]) -> str:
+    return ",".join(str(file.id) for file in value)
+
+
 def _serialize_page_ranges(value: list[str | int | tuple[str | int, ...]]) -> str:
     def join_tuple(value: str | int | tuple[str | int, ...]) -> str:
         if isinstance(value, tuple):
@@ -162,6 +166,21 @@ class UploadURLs(BaseModel):
         Field(min_length=1),
         BeforeValidator(_list_of_strings),
         BeforeValidator(_ensure_list),
+    ]
+
+
+class DeletePayload(BaseModel):
+    """Adapt caller options into a pdfRest-ready delete request payload."""
+
+    files: Annotated[
+        list[PdfRestFile],
+        Field(
+            min_length=1,
+            validation_alias=AliasChoices("file", "files"),
+            serialization_alias="ids",
+        ),
+        BeforeValidator(_ensure_list),
+        PlainSerializer(_serialize_file_ids),
     ]
 
 
