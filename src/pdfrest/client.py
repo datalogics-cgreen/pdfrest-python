@@ -64,6 +64,7 @@ from .models import (
     ConvertToMarkdownResponse,
     ExtractImagesResponse,
     ExtractTextResponse,
+    OcrPdfResponse,
     PdfRestErrorResponse,
     PdfRestFile,
     PdfRestFileBasedResponse,
@@ -86,6 +87,7 @@ from .models._internal import (
     GifPdfRestPayload,
     JpegPdfRestPayload,
     PdfCompressPayload,
+    OcrPdfPayload,
     PdfFlattenFormsPayload,
     PdfLinearizePayload,
     PdfInfoPayload,
@@ -2205,6 +2207,52 @@ class PdfRestClient(_SyncApiClient):
         raw_payload = self._send_request(request)
         return ConvertToMarkdownResponse.model_validate(raw_payload)
 
+    def ocr_pdf(
+        self,
+        file: PdfRestFile | Sequence[PdfRestFile],
+        *,
+        pages: PdfPageSelection | None = None,
+        output: str | None = None,
+        extra_query: Query | None = None,
+        extra_headers: AnyMapping | None = None,
+        extra_body: Body | None = None,
+        timeout: TimeoutTypes | None = None,
+    ) -> OcrPdfResponse:
+        """Perform OCR on a PDF to extract searchable text."""
+
+        payload: dict[str, Any] = {"files": file}
+        if pages is not None:
+            payload["pages"] = pages
+        if output is not None:
+            payload["output"] = output
+
+        validated_payload = OcrPdfPayload.model_validate(payload)
+        request = self.prepare_request(
+            "POST",
+            "/pdf-with-ocr-text",
+            json_body=validated_payload.model_dump(
+                mode="json", by_alias=True, exclude_none=True, exclude_unset=True
+            ),
+            extra_query=extra_query,
+            extra_headers=extra_headers,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
+        raw_payload = self._send_request(request)
+        raw_response = PdfRestRawFileResponse.model_validate(raw_payload)
+        output_ids = raw_response.ids or []
+        input_id = raw_response.input_id[0] if raw_response.input_id else ""
+        return OcrPdfResponse.model_validate(
+            {
+                "input_id": input_id,
+                "output_id": output_ids[0] if output_ids else None,
+                "output_url": raw_response.output_urls[0]
+                if raw_response.output_urls
+                else None,
+                "warning": raw_response.warning,
+            }
+        )
+
     def translate_pdf_text(
         self,
         file: PdfRestFile | Sequence[PdfRestFile],
@@ -2948,6 +2996,52 @@ class AsyncPdfRestClient(_AsyncApiClient):
         )
         raw_payload = await self._send_request(request)
         return ConvertToMarkdownResponse.model_validate(raw_payload)
+
+    async def ocr_pdf(
+        self,
+        file: PdfRestFile | Sequence[PdfRestFile],
+        *,
+        pages: PdfPageSelection | None = None,
+        output: str | None = None,
+        extra_query: Query | None = None,
+        extra_headers: AnyMapping | None = None,
+        extra_body: Body | None = None,
+        timeout: TimeoutTypes | None = None,
+    ) -> OcrPdfResponse:
+        """Perform OCR on a PDF to extract searchable text."""
+
+        payload: dict[str, Any] = {"files": file}
+        if pages is not None:
+            payload["pages"] = pages
+        if output is not None:
+            payload["output"] = output
+
+        validated_payload = OcrPdfPayload.model_validate(payload)
+        request = self.prepare_request(
+            "POST",
+            "/pdf-with-ocr-text",
+            json_body=validated_payload.model_dump(
+                mode="json", by_alias=True, exclude_none=True, exclude_unset=True
+            ),
+            extra_query=extra_query,
+            extra_headers=extra_headers,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
+        raw_payload = await self._send_request(request)
+        raw_response = PdfRestRawFileResponse.model_validate(raw_payload)
+        output_ids = raw_response.ids or []
+        input_id = raw_response.input_id[0] if raw_response.input_id else ""
+        return OcrPdfResponse.model_validate(
+            {
+                "input_id": input_id,
+                "output_id": output_ids[0] if output_ids else None,
+                "output_url": raw_response.output_urls[0]
+                if raw_response.output_urls
+                else None,
+                "warning": raw_response.warning,
+            }
+        )
 
     async def translate_pdf_text(
         self,

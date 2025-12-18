@@ -24,6 +24,7 @@ __all__ = (
     "ConvertToMarkdownResponse",
     "ExtractImagesResponse",
     "ExtractTextResponse",
+    "OcrPdfResponse",
     "PdfRestErrorResponse",
     "PdfRestFile",
     "PdfRestFileBasedResponse",
@@ -501,6 +502,42 @@ class ConvertToMarkdownResponse(BaseModel):
     warning: Annotated[
         str | None,
         Field(description="A warning that was generated during markdown conversion."),
+    ] = None
+
+
+class OcrPdfResponse(BaseModel):
+    """Response returned by the pdf-with-ocr-text tool."""
+
+    model_config = ConfigDict(extra="allow")
+
+    input_id: Annotated[
+        PdfRestFileID,
+        Field(
+            validation_alias=AliasChoices("input_id", "inputId"),
+            description="The id of the input file.",
+        ),
+    ]
+    output_url: Annotated[
+        HttpUrl | None,
+        Field(
+            alias="outputUrl",
+            validation_alias=AliasChoices("output_url", "outputUrl"),
+            description="Download URL for file output.",
+            default=None,
+        ),
+    ] = None
+    output_id: Annotated[
+        PdfRestFileID | None,
+        Field(
+            alias="outputId",
+            validation_alias=AliasChoices("output_id", "outputId"),
+            description="The id of the generated output file.",
+            default=None,
+        ),
+    ] = None
+    warning: Annotated[
+        str | None,
+        Field(description="A warning that was generated during OCR."),
     ] = None
 
 
