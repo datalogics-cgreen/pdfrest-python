@@ -21,6 +21,7 @@ from typing_extensions import override
 
 __all__ = (
     "PdfRestDeletionResponse",
+    "ExtractImagesResponse",
     "PdfRestErrorResponse",
     "PdfRestFile",
     "PdfRestFileBasedResponse",
@@ -387,6 +388,31 @@ class TranslatePdfTextResponse(BaseModel):
             description="The id of the generated output when output_type is file.",
             default=None,
         ),
+    ] = None
+
+
+class ExtractImagesResponse(BaseModel):
+    """Response returned by the extracted-images tool."""
+
+    model_config = ConfigDict(extra="allow")
+
+    input_id: Annotated[
+        PdfRestFileID,
+        Field(
+            validation_alias=AliasChoices("input_id", "inputId"),
+            description="The id of the input file.",
+        ),
+    ]
+    output_files: Annotated[
+        list[PdfRestFile],
+        Field(
+            description="The list of extracted image files.",
+            validation_alias=AliasChoices("output_files", "outputFiles"),
+        ),
+    ]
+    warning: Annotated[
+        str | None,
+        Field(description="A warning that was generated during extraction."),
     ] = None
 
 

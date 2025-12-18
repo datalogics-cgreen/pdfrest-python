@@ -61,6 +61,7 @@ from .exceptions import (
 )
 from .models import (
     PdfRestDeletionResponse,
+    ExtractImagesResponse,
     PdfRestErrorResponse,
     PdfRestFile,
     PdfRestFileBasedResponse,
@@ -77,6 +78,7 @@ from .models._internal import (
     BasePdfRestGraphicPayload,
     BmpPdfRestPayload,
     DeletePayload,
+    ExtractImagesPayload,
     GifPdfRestPayload,
     JpegPdfRestPayload,
     PdfCompressPayload,
@@ -2204,6 +2206,60 @@ class PdfRestClient(_SyncApiClient):
         raw_payload = self._send_request(request)
         return TranslatePdfTextResponse.model_validate(raw_payload)
 
+    def extract_images(
+        self,
+        file: PdfRestFile | Sequence[PdfRestFile],
+        *,
+        pages: PdfPageSelection | None = None,
+        output: str | None = None,
+        extra_query: Query | None = None,
+        extra_headers: AnyMapping | None = None,
+        extra_body: Body | None = None,
+        timeout: TimeoutTypes | None = None,
+    ) -> ExtractImagesResponse:
+        """Extract embedded images from a PDF."""
+
+        payload: dict[str, Any] = {"files": file}
+        if pages is not None:
+            payload["pages"] = pages
+        if output is not None:
+            payload["output"] = output
+
+        validated_payload = ExtractImagesPayload.model_validate(payload)
+        request = self.prepare_request(
+            "POST",
+            "/extracted-images",
+            json_body=validated_payload.model_dump(
+                mode="json", by_alias=True, exclude_none=True, exclude_unset=True
+            ),
+            extra_query=extra_query,
+            extra_headers=extra_headers,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
+        raw_payload = self._send_request(request)
+        raw_response = PdfRestRawFileResponse.model_validate(raw_payload)
+        output_ids = raw_response.ids or []
+        output_files = [
+            self.fetch_file_info(
+                str(file_id),
+                extra_query=extra_query,
+                extra_headers=extra_headers,
+                timeout=timeout,
+            )
+            for file_id in output_ids
+        ]
+        input_id = raw_response.input_id[0] if raw_response.input_id else ""
+        return ExtractImagesResponse.model_validate(
+            {
+                "input_id": input_id,
+                "output_files": [
+                    file.model_dump(mode="json", by_alias=True) for file in output_files
+                ],
+                "warning": raw_response.warning,
+            }
+        )
+
     def preview_redactions(
         self,
         file: PdfRestFile | Sequence[PdfRestFile],
@@ -2819,6 +2875,67 @@ class AsyncPdfRestClient(_AsyncApiClient):
         )
         raw_payload = await self._send_request(request)
         return TranslatePdfTextResponse.model_validate(raw_payload)
+
+    async def extract_images(
+        self,
+        file: PdfRestFile | Sequence[PdfRestFile],
+        *,
+        pages: PdfPageSelection | None = None,
+        output: str | None = None,
+        extra_query: Query | None = None,
+        extra_headers: AnyMapping | None = None,
+        extra_body: Body | None = None,
+        timeout: TimeoutTypes | None = None,
+    ) -> ExtractImagesResponse:
+        """Extract embedded images from a PDF."""
+
+        payload: dict[str, Any] = {"files": file}
+        if pages is not None:
+            payload["pages"] = pages
+        if output is not None:
+            payload["output"] = output
+
+        validated_payload = ExtractImagesPayload.model_validate(payload)
+        request = self.prepare_request(
+            "POST",
+            "/extracted-images",
+            json_body=validated_payload.model_dump(
+                mode="json", by_alias=True, exclude_none=True, exclude_unset=True
+            ),
+            extra_query=extra_query,
+            extra_headers=extra_headers,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
+        raw_payload = await self._send_request(request)
+        raw_response = PdfRestRawFileResponse.model_validate(raw_payload)
+        output_ids = raw_response.ids or []
+        semaphore = asyncio.Semaphore(DEFAULT_FILE_INFO_CONCURRENCY)
+
+        async def fetch(file_id: str) -> PdfRestFile:
+            async with semaphore:
+                return await self.fetch_file_info(
+                    file_id,
+                    extra_query=extra_query,
+                    extra_headers=extra_headers,
+                    timeout=timeout,
+                )
+
+        output_files: list[PdfRestFile] = []
+        if output_ids:
+            output_files = list(
+                await asyncio.gather(*(fetch(fid) for fid in output_ids))
+            )
+        input_id = raw_response.input_id[0] if raw_response.input_id else ""
+        return ExtractImagesResponse.model_validate(
+            {
+                "input_id": input_id,
+                "output_files": [
+                    file.model_dump(mode="json", by_alias=True) for file in output_files
+                ],
+                "warning": raw_response.warning,
+            }
+        )
 
     async def preview_redactions(
         self,
