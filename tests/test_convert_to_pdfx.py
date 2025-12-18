@@ -134,7 +134,10 @@ def test_convert_to_pdfx_validation(monkeypatch: pytest.MonkeyPatch) -> None:
 
     with (
         PdfRestClient(api_key=VALID_API_KEY, transport=transport) as client,
-        pytest.raises(ValidationError, match="Field required"),
+        pytest.raises(
+            ValidationError,
+            match="Input should be 'PDF/X-1a', 'PDF/X-3', 'PDF/X-4' or 'PDF/X-6'",
+        ),
     ):
         client.convert_to_pdfx(pdf_file, output_type=None)  # type: ignore[arg-type]
 
