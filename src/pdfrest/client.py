@@ -66,6 +66,7 @@ from .models import (
     PdfRestFileBasedResponse,
     PdfRestFileID,
     PdfRestInfoResponse,
+    SummarizePdfTextResponse,
     UpResponse,
 )
 
@@ -89,6 +90,7 @@ from .models._internal import (
     PdfToPdfxPayload,
     PdfToWordPayload,
     PngPdfRestPayload,
+    SummarizePdfTextPayload,
     TiffPdfRestPayload,
     UploadURLs,
 )
@@ -100,6 +102,9 @@ from .types import (
     PdfRedactionInstruction,
     PdfRGBColor,
     PdfXType,
+    SummaryFormat,
+    SummaryOutputFormat,
+    SummaryOutputType,
 )
 
 DEFAULT_BASE_URL = "https://api.pdfrest.com"
@@ -2106,6 +2111,50 @@ class PdfRestClient(_SyncApiClient):
         raw_payload = self._send_request(request)
         return PdfRestInfoResponse.model_validate(raw_payload)
 
+    def summarize_pdf_text(
+        self,
+        file: PdfRestFile | Sequence[PdfRestFile],
+        *,
+        target_word_count: int | None = 400,
+        summary_format: SummaryFormat = "overview",
+        pages: PdfPageSelection | None = None,
+        output_format: SummaryOutputFormat = "markdown",
+        output_type: SummaryOutputType = "json",
+        output: str | None = None,
+        extra_query: Query | None = None,
+        extra_headers: AnyMapping | None = None,
+        extra_body: Body | None = None,
+        timeout: TimeoutTypes | None = None,
+    ) -> SummarizePdfTextResponse:
+        """Summarize the textual content of a PDF, Markdown, or text document."""
+
+        payload: dict[str, Any] = {
+            "files": file,
+            "target_word_count": target_word_count,
+            "summary_format": summary_format,
+            "output_format": output_format,
+            "output_type": output_type,
+        }
+        if pages is not None:
+            payload["pages"] = pages
+        if output is not None:
+            payload["output"] = output
+
+        validated_payload = SummarizePdfTextPayload.model_validate(payload)
+        request = self.prepare_request(
+            "POST",
+            "/summarized-pdf-text",
+            json_body=validated_payload.model_dump(
+                mode="json", by_alias=True, exclude_none=True, exclude_unset=True
+            ),
+            extra_query=extra_query,
+            extra_headers=extra_headers,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
+        raw_payload = self._send_request(request)
+        return SummarizePdfTextResponse.model_validate(raw_payload)
+
     def preview_redactions(
         self,
         file: PdfRestFile | Sequence[PdfRestFile],
@@ -2632,6 +2681,50 @@ class AsyncPdfRestClient(_AsyncApiClient):
         )
         raw_payload = await self._send_request(request)
         return PdfRestInfoResponse.model_validate(raw_payload)
+
+    async def summarize_pdf_text(
+        self,
+        file: PdfRestFile | Sequence[PdfRestFile],
+        *,
+        target_word_count: int | None = 400,
+        summary_format: SummaryFormat = "overview",
+        pages: PdfPageSelection | None = None,
+        output_format: SummaryOutputFormat = "markdown",
+        output_type: SummaryOutputType = "json",
+        output: str | None = None,
+        extra_query: Query | None = None,
+        extra_headers: AnyMapping | None = None,
+        extra_body: Body | None = None,
+        timeout: TimeoutTypes | None = None,
+    ) -> SummarizePdfTextResponse:
+        """Summarize the textual content of a PDF, Markdown, or text document."""
+
+        payload: dict[str, Any] = {
+            "files": file,
+            "target_word_count": target_word_count,
+            "summary_format": summary_format,
+            "output_format": output_format,
+            "output_type": output_type,
+        }
+        if pages is not None:
+            payload["pages"] = pages
+        if output is not None:
+            payload["output"] = output
+
+        validated_payload = SummarizePdfTextPayload.model_validate(payload)
+        request = self.prepare_request(
+            "POST",
+            "/summarized-pdf-text",
+            json_body=validated_payload.model_dump(
+                mode="json", by_alias=True, exclude_none=True, exclude_unset=True
+            ),
+            extra_query=extra_query,
+            extra_headers=extra_headers,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
+        raw_payload = await self._send_request(request)
+        return SummarizePdfTextResponse.model_validate(raw_payload)
 
     async def preview_redactions(
         self,

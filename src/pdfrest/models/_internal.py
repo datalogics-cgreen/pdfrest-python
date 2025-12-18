@@ -21,7 +21,13 @@ from pydantic import (
 
 from pdfrest.types.public import PdfRedactionPreset
 
-from ..types import PdfInfoQuery, PdfXType
+from ..types import (
+    PdfInfoQuery,
+    PdfXType,
+    SummaryFormat,
+    SummaryOutputFormat,
+    SummaryOutputType,
+)
 from . import PdfRestFile
 from .public import PdfRestFileID
 
@@ -246,6 +252,56 @@ class PdfInfoPayload(BaseModel):
         BeforeValidator(_split_comma_list),
         PlainSerializer(_serialize_as_comma_separated_string),
     ]
+
+
+class SummarizePdfTextPayload(BaseModel):
+    """Adapt caller options into a pdfRest-ready summarize request payload."""
+
+    files: Annotated[
+        list[PdfRestFile],
+        Field(
+            min_length=1,
+            max_length=1,
+            validation_alias=AliasChoices("file", "files"),
+            serialization_alias="id",
+        ),
+        BeforeValidator(_ensure_list),
+        AfterValidator(
+            _allowed_mime_types(
+                "application/pdf",
+                "text/markdown",
+                "text/plain",
+                error_msg="Must be a PDF, Markdown, or plain text file",
+            )
+        ),
+        PlainSerializer(_serialize_as_first_file_id),
+    ]
+    target_word_count: Annotated[
+        int | None, Field(serialization_alias="target_word_count", ge=1, default=400)
+    ] = 400
+    summary_format: Annotated[
+        SummaryFormat, Field(serialization_alias="summary_format", default="overview")
+    ] = "overview"
+    pages: Annotated[
+        list[AscendingPageRange] | None,
+        Field(serialization_alias="pages", min_length=1, default=None),
+        BeforeValidator(_ensure_list),
+        BeforeValidator(_split_comma_list),
+        BeforeValidator(_int_to_string),
+        PlainSerializer(_serialize_page_ranges),
+    ] = None
+    output_format: Annotated[
+        SummaryOutputFormat,
+        Field(serialization_alias="output_format", default="markdown"),
+    ] = "markdown"
+    output_type: Annotated[
+        SummaryOutputType, Field(serialization_alias="output_type", default="json")
+    ] = "json"
+    output: Annotated[
+        str | None,
+        Field(serialization_alias="output", min_length=1, default=None),
+        AfterValidator(_validate_output_prefix),
+    ] = None
 
 
 RgbChannel = Annotated[int, Field(ge=0, le=255)]

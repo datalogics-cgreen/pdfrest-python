@@ -23,6 +23,9 @@ __all__ = (
     "PdfRedactionPreset",
     "PdfRedactionType",
     "PdfXType",
+    "SummaryFormat",
+    "SummaryOutputFormat",
+    "SummaryOutputType",
 )
 
 PdfInfoQuery = Literal[
@@ -99,3 +102,18 @@ class PdfMergeSource(TypedDict, total=False):
 PdfMergeInput = PdfRestFile | PdfMergeSource | tuple[PdfRestFile, PdfPageSelection]
 
 PdfXType = Literal["PDF/X-1a", "PDF/X-3", "PDF/X-4", "PDF/X-6"]
+
+SummaryFormat = Literal[
+    "overview",
+    "highlight",
+    "abstract",
+    "bullet_points",
+    "numbered_list",
+    "table_of_contents",
+    "outline",
+    "question_answer",
+    "action_items",
+]
+
+SummaryOutputFormat = Literal["plaintext", "markdown"]
+SummaryOutputType = Literal["json", "file"]

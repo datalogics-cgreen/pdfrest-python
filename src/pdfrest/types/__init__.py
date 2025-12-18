@@ -11,6 +11,9 @@ from .public import (
     PdfRedactionType,
     PdfRGBColor,
     PdfXType,
+    SummaryFormat,
+    SummaryOutputFormat,
+    SummaryOutputType,
 )
 
 __all__ = [
@@ -24,4 +27,7 @@ __all__ = [
     "PdfRedactionPreset",
     "PdfRedactionType",
     "PdfXType",
+    "SummaryFormat",
+    "SummaryOutputFormat",
+    "SummaryOutputType",
 ]
