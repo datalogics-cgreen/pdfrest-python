@@ -39,11 +39,25 @@
 - When calling pdfRest, supply the API key via the `Api-Key` header (not
   `Authorization: Bearer`); keep tests and client defaults in sync with this
   convention.
+- Avoid `@field_validator` on payload models. Prefer existing `BeforeValidator`
+  helpers (e.g., `_allowed_mime_types`) so validation remains declarative and
+  consistent across schemas.
 - Treat `PdfRestClient` and `AsyncPdfRestClient` as context managers in both
   production code and tests so transports are disposed deterministically.
 - When uploading content, always send the multipart field name `file`; when
   uploading by URL, send a JSON payload using the `url` key with a list of
   http/https addresses (single values are promoted to lists internally).
+- Always upload local assets before invoking an endpoint helper. Public client
+  APIs must accept `PdfRestFile` objects (or sequences) rather than raw paths or
+  ids, including optional resources such as compression profiles. Never expose
+  `PdfRestFileID` in the interface—callers should upload the profile JSON, get
+  the resulting `PdfRestFile`, then pass that object into helpers like
+  `compress_pdf`.
+- When an endpoint supports both an inline upload parameter and an `*_id`
+  variant, ignore the upload form and expose only the base parameter (without
+  `_id`) typed as `PdfRestFile`. Serialize via `_serialize_as_first_file_id`
+  with `serialization_alias` pointing to the server’s `*_id` field so requests
+  always reference already-uploaded resources.
 - `prepare_request` rejects mixed multipart (`files`) and JSON payloads; only
   URL uploads (`create_from_urls`) should combine JSON bodies with the request.
 - Replicate server-side safeguards when porting validation logic: the output
