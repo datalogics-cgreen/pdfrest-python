@@ -27,6 +27,8 @@ from ..types import (
     SummaryFormat,
     SummaryOutputFormat,
     SummaryOutputType,
+    TranslateOutputFormat,
+    TranslateOutputType,
 )
 from . import PdfRestFile
 from .public import PdfRestFileID
@@ -296,6 +298,57 @@ class SummarizePdfTextPayload(BaseModel):
     ] = "markdown"
     output_type: Annotated[
         SummaryOutputType, Field(serialization_alias="output_type", default="json")
+    ] = "json"
+    output: Annotated[
+        str | None,
+        Field(serialization_alias="output", min_length=1, default=None),
+        AfterValidator(_validate_output_prefix),
+    ] = None
+
+
+class TranslatePdfTextPayload(BaseModel):
+    """Adapt caller options into a pdfRest-ready translate request payload."""
+
+    files: Annotated[
+        list[PdfRestFile],
+        Field(
+            min_length=1,
+            max_length=1,
+            validation_alias=AliasChoices("file", "files"),
+            serialization_alias="id",
+        ),
+        BeforeValidator(_ensure_list),
+        AfterValidator(
+            _allowed_mime_types(
+                "application/pdf",
+                "text/markdown",
+                "text/plain",
+                error_msg="Must be a PDF, Markdown, or plain text file",
+            )
+        ),
+        PlainSerializer(_serialize_as_first_file_id),
+    ]
+    target_language: Annotated[
+        str, Field(serialization_alias="target_language", min_length=1)
+    ]
+    source_language: Annotated[
+        str | None,
+        Field(serialization_alias="source_language", min_length=1, default=None),
+    ] = None
+    pages: Annotated[
+        list[AscendingPageRange] | None,
+        Field(serialization_alias="pages", min_length=1, default=None),
+        BeforeValidator(_ensure_list),
+        BeforeValidator(_split_comma_list),
+        BeforeValidator(_int_to_string),
+        PlainSerializer(_serialize_page_ranges),
+    ] = None
+    output_format: Annotated[
+        TranslateOutputFormat,
+        Field(serialization_alias="output_format", default="markdown"),
+    ] = "markdown"
+    output_type: Annotated[
+        TranslateOutputType, Field(serialization_alias="output_type", default="json")
     ] = "json"
     output: Annotated[
         str | None,

@@ -26,6 +26,8 @@ __all__ = (
     "SummaryFormat",
     "SummaryOutputFormat",
     "SummaryOutputType",
+    "TranslateOutputFormat",
+    "TranslateOutputType",
 )
 
 PdfInfoQuery = Literal[
@@ -117,3 +119,6 @@ SummaryFormat = Literal[
 
 SummaryOutputFormat = Literal["plaintext", "markdown"]
 SummaryOutputType = Literal["json", "file"]
+
+TranslateOutputFormat = Literal["plaintext", "markdown"]
+TranslateOutputType = Literal["json", "file"]

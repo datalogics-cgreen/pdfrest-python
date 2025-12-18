@@ -27,6 +27,7 @@ __all__ = (
     "PdfRestFileID",
     "PdfRestInfoResponse",
     "SummarizePdfTextResponse",
+    "TranslatePdfTextResponse",
     "UpResponse",
 )
 
@@ -320,6 +321,45 @@ class SummarizePdfTextResponse(BaseModel):
         str | None,
         Field(
             description="Inline summary content when output_type is json.",
+            default=None,
+        ),
+    ] = None
+    input_id: Annotated[
+        PdfRestFileID,
+        Field(
+            validation_alias=AliasChoices("input_id", "inputId"),
+            description="The id of the input file.",
+        ),
+    ]
+    output_url: Annotated[
+        HttpUrl | None,
+        Field(
+            alias="outputUrl",
+            validation_alias=AliasChoices("output_url", "outputUrl"),
+            description="Download URL for file output.",
+            default=None,
+        ),
+    ] = None
+    output_id: Annotated[
+        PdfRestFileID | None,
+        Field(
+            alias="outputId",
+            validation_alias=AliasChoices("output_id", "outputId"),
+            description="The id of the generated output when output_type is file.",
+            default=None,
+        ),
+    ] = None
+
+
+class TranslatePdfTextResponse(BaseModel):
+    """Response returned by the translated-pdf-text tool."""
+
+    model_config = ConfigDict(extra="allow")
+
+    translation: Annotated[
+        str | None,
+        Field(
+            description="Inline translation content when output_type is json.",
             default=None,
         ),
     ] = None
