@@ -22,6 +22,7 @@ from typing_extensions import override
 __all__ = (
     "PdfRestDeletionResponse",
     "ExtractImagesResponse",
+    "ExtractTextResponse",
     "PdfRestErrorResponse",
     "PdfRestFile",
     "PdfRestFileBasedResponse",
@@ -413,6 +414,49 @@ class ExtractImagesResponse(BaseModel):
     warning: Annotated[
         str | None,
         Field(description="A warning that was generated during extraction."),
+    ] = None
+
+
+class ExtractTextResponse(BaseModel):
+    """Response returned by the extracted-text tool."""
+
+    model_config = ConfigDict(extra="allow")
+
+    text: Annotated[
+        str | None,
+        Field(
+            description="Inline extracted text when output_type is json.",
+            default=None,
+        ),
+    ] = None
+    input_id: Annotated[
+        PdfRestFileID,
+        Field(
+            validation_alias=AliasChoices("input_id", "inputId"),
+            description="The id of the input file.",
+        ),
+    ]
+    output_url: Annotated[
+        HttpUrl | None,
+        Field(
+            alias="outputUrl",
+            validation_alias=AliasChoices("output_url", "outputUrl"),
+            description="Download URL for file output.",
+            default=None,
+        ),
+    ] = None
+    output_id: Annotated[
+        PdfRestFileID | None,
+        Field(
+            alias="outputId",
+            validation_alias=AliasChoices("output_id", "outputId"),
+            description="The id of the generated output when output_type is file.",
+            default=None,
+        ),
+    ] = None
+    warning: Annotated[
+        str | None,
+        Field(description="A warning that was generated during text extraction."),
     ] = None
 
 

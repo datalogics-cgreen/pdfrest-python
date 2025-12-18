@@ -62,6 +62,7 @@ from .exceptions import (
 from .models import (
     PdfRestDeletionResponse,
     ExtractImagesResponse,
+    ExtractTextResponse,
     PdfRestErrorResponse,
     PdfRestFile,
     PdfRestFileBasedResponse,
@@ -79,6 +80,7 @@ from .models._internal import (
     BmpPdfRestPayload,
     DeletePayload,
     ExtractImagesPayload,
+    ExtractTextPayload,
     GifPdfRestPayload,
     JpegPdfRestPayload,
     PdfCompressPayload,
@@ -2260,6 +2262,40 @@ class PdfRestClient(_SyncApiClient):
             }
         )
 
+    def extract_text(
+        self,
+        file: PdfRestFile | Sequence[PdfRestFile],
+        *,
+        pages: PdfPageSelection | None = None,
+        output: str | None = None,
+        extra_query: Query | None = None,
+        extra_headers: AnyMapping | None = None,
+        extra_body: Body | None = None,
+        timeout: TimeoutTypes | None = None,
+    ) -> ExtractTextResponse:
+        """Extract text content from a PDF."""
+
+        payload: dict[str, Any] = {"files": file}
+        if pages is not None:
+            payload["pages"] = pages
+        if output is not None:
+            payload["output"] = output
+
+        validated_payload = ExtractTextPayload.model_validate(payload)
+        request = self.prepare_request(
+            "POST",
+            "/extracted-text",
+            json_body=validated_payload.model_dump(
+                mode="json", by_alias=True, exclude_none=True, exclude_unset=True
+            ),
+            extra_query=extra_query,
+            extra_headers=extra_headers,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
+        raw_payload = self._send_request(request)
+        return ExtractTextResponse.model_validate(raw_payload)
+
     def preview_redactions(
         self,
         file: PdfRestFile | Sequence[PdfRestFile],
@@ -2936,6 +2972,40 @@ class AsyncPdfRestClient(_AsyncApiClient):
                 "warning": raw_response.warning,
             }
         )
+
+    async def extract_text(
+        self,
+        file: PdfRestFile | Sequence[PdfRestFile],
+        *,
+        pages: PdfPageSelection | None = None,
+        output: str | None = None,
+        extra_query: Query | None = None,
+        extra_headers: AnyMapping | None = None,
+        extra_body: Body | None = None,
+        timeout: TimeoutTypes | None = None,
+    ) -> ExtractTextResponse:
+        """Extract text content from a PDF."""
+
+        payload: dict[str, Any] = {"files": file}
+        if pages is not None:
+            payload["pages"] = pages
+        if output is not None:
+            payload["output"] = output
+
+        validated_payload = ExtractTextPayload.model_validate(payload)
+        request = self.prepare_request(
+            "POST",
+            "/extracted-text",
+            json_body=validated_payload.model_dump(
+                mode="json", by_alias=True, exclude_none=True, exclude_unset=True
+            ),
+            extra_query=extra_query,
+            extra_headers=extra_headers,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
+        raw_payload = await self._send_request(request)
+        return ExtractTextResponse.model_validate(raw_payload)
 
     async def preview_redactions(
         self,
