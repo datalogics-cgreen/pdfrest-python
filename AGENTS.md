@@ -111,23 +111,40 @@
 
 ## Testing Guidelines
 
+- **Live Test Requirement (Do Not Skip):** Every new endpoint or service must
+  ship with a matching live pytest module under `tests/live/` before the work is
+  considered complete. Mirror the naming/structure used by the graphic
+  conversion suites: one module per endpoint, parameterized success cases that
+  enumerate all accepted literals, at least one invalid input that hits the
+  server, and coverage for any request options surfaced on the client. If an
+  endpoint cannot be exercised live, call that out explicitly in the PR
+  description with the reason and the follow-up plan; otherwise reviewers should
+  block the change. Treat this as a release gate on par with unit tests.
+
 - Write pytest tests: files named `test_*.py`, test functions `test_*`, fixtures
   in `conftest.py` where shared.
+
 - Ensure high-value coverage of public functions and edge cases; document intent
   in test docstrings when non-obvious.
+
 - Use `uvx nox -s tests` to exercise the full interpreter matrix locally when
   validating compatibility.
+
 - When writing live tests for URL uploads, first create the remote resources via
   `create_from_paths`, then reuse the returned URLs in `create_from_urls` to
   avoid relying on third-party availability.
+
 - For parameterized tests prefer `pytest.param(..., id="short-label")` so test
   IDs stay readable; make assertions for every relevant response attribute (name
   prefix, MIME type, size, URLs, warnings).
+
 - Avoid manual loops over test parameters; prefer `@pytest.mark.parametrize`
   with explicit `id=` values so each combination is visible and reproducible.
+
 - Always couple `pytest.raises` with an explicit `match=` regex that reflects
   the intended validation error wording—mirror the human-readable text rather
   than relying on default exception formatting.
+
 - Mirror PNG’s request/response scenarios for each graphic conversion endpoint:
   maintain per-endpoint test modules (`test_convert_to_png.py`,
   `test_convert_to_bmp.py`, etc.) covering success, parameter customization,
@@ -135,6 +152,7 @@
   validation (output prefix and page-range cases) in a dedicated suite (e.g.,
   `tests/test_graphic_payload_validation.py`) that exercises every payload
   model.
+
 - When introducing additional pdfRest endpoints, follow the same pattern used
   for graphic conversions: encapsulate shared request validation in a typed
   payload model, expose fully named client methods, and create a dedicated test
@@ -143,15 +161,20 @@
   checks (e.g., common field requirements, payload serialization) in shared
   helper tests so new services inherit consistent coverage with minimal
   duplication.
+
 - Prefer `pytest.mark.parametrize` (with `pytest.param(..., id="...")`) over
-  explicit loops inside tests; nest parametrization for multi-dimensional
-  coverage so each case appears as an individual test item.
+  explicit loops or copy/paste blocks—if only the input value or expected error
+  changes, parameterize it so failures point to the exact case and reviewers
+  don’t have to diff almost-identical code. Nest parametrization for
+  multi-dimensional coverage so each combination appears as its own test item.
+
 - Live tests should verify that literal enumerations match pdfRest’s accepted
   values. Exercise format-specific options (e.g., each image format’s
   `color_model`) individually, and run smoothing enumerations through every
   enabled endpoint to confirm consistent server behaviour. Include “wildly”
   invalid values (e.g., bogus literals or mixed lists) alongside boundary
   failures so the server-side error messaging is exercised.
+
 - Provide live integration tests under `tests/live/` (with an `__init__.py` so
   pytest discovers the package) that introspect payload models to enumerate
   valid/invalid literal values and numeric boundaries. These tests should vary a
@@ -162,11 +185,13 @@
   exception surfaced by the client). When test fixtures produce deterministic
   results (e.g., `tests/resources/report.pdf`), assert the concrete values
   returned by pdfRest rather than only checking for presence or type.
+
 - Use `tests/resources/20-pages.pdf` for high-page-count scenarios such as split
   and merge endpoints so boundary coverage (multi-output splits, staggered page
   selections) remains reproducible. Parameterize live split/merge tests to cover
   multiple page-group patterns, and pair each success case with an invalid input
   that reaches the server by overriding the JSON body via `extra_body`.
+
 - Developers can load a pdfRest API key from `.env` during ad-hoc exploration.
   The repo includes `python-dotenv`; call `load_dotenv()` (optionally pointing
   to `.env`) in temporary scripts to drive the in-flight client against live
