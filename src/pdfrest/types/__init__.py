@@ -10,6 +10,7 @@ from .public import (
     PdfRedactionPreset,
     PdfRedactionType,
     PdfRGBColor,
+    PdfXType,
 )
 
 __all__ = [
@@ -22,4 +23,5 @@ __all__ = [
     "PdfRedactionInstruction",
     "PdfRedactionPreset",
     "PdfRedactionType",
+    "PdfXType",
 ]

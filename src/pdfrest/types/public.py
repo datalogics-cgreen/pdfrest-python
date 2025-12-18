@@ -22,6 +22,7 @@ __all__ = (
     "PdfRedactionInstruction",
     "PdfRedactionPreset",
     "PdfRedactionType",
+    "PdfXType",
 )
 
 PdfInfoQuery = Literal[
@@ -96,3 +97,5 @@ class PdfMergeSource(TypedDict, total=False):
 
 
 PdfMergeInput = PdfRestFile | PdfMergeSource | tuple[PdfRestFile, PdfPageSelection]
+
+PdfXType = Literal["PDF/X-1a", "PDF/X-3", "PDF/X-4", "PDF/X-6"]
