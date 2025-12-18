@@ -71,6 +71,68 @@ def test_convert_to_word_success(monkeypatch: pytest.MonkeyPatch) -> None:
     assert str(response.input_id) == str(input_file.id)
 
 
+def test_convert_to_word_request_customization(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.delenv("PDFREST_API_KEY", raising=False)
+    input_file = make_pdf_file(PdfRestFileID.generate(1))
+    output_id = str(PdfRestFileID.generate())
+    captured_timeout: dict[str, float | dict[str, float] | None] = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.method == "POST" and request.url.path == "/word":
+            assert request.url.params["trace"] == "true"
+            assert request.headers["X-Debug"] == "sync"
+            captured_timeout["value"] = request.extensions.get("timeout")
+            payload = json.loads(request.content.decode("utf-8"))
+            assert payload["debug"] is True
+            assert payload["id"] == str(input_file.id)
+            assert payload["output"] == "custom"
+            return httpx.Response(
+                200,
+                json={
+                    "inputId": [input_file.id],
+                    "outputId": [output_id],
+                },
+            )
+        if request.method == "GET" and request.url.path == f"/resource/{output_id}":
+            assert request.url.params["format"] == "info"
+            assert request.url.params["trace"] == "true"
+            assert request.headers["X-Debug"] == "sync"
+            return httpx.Response(
+                200,
+                json=build_file_info_payload(
+                    output_id,
+                    "custom.docx",
+                    "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                ),
+            )
+        msg = f"Unexpected request {request.method} {request.url}"
+        raise AssertionError(msg)
+
+    transport = httpx.MockTransport(handler)
+    with PdfRestClient(api_key=VALID_API_KEY, transport=transport) as client:
+        response = client.convert_to_word(
+            input_file,
+            output="custom",
+            extra_query={"trace": "true"},
+            extra_headers={"X-Debug": "sync"},
+            extra_body={"debug": True},
+            timeout=0.4,
+        )
+
+    assert isinstance(response, PdfRestFileBasedResponse)
+    assert response.output_file.name == "custom.docx"
+    timeout_value = captured_timeout["value"]
+    assert timeout_value is not None
+    if isinstance(timeout_value, dict):
+        assert all(
+            component == pytest.approx(0.4) for component in timeout_value.values()
+        )
+    else:
+        assert timeout_value == pytest.approx(0.4)
+
+
 @pytest.mark.asyncio
 async def test_async_convert_to_word_success(
     monkeypatch: pytest.MonkeyPatch,
@@ -123,6 +185,67 @@ async def test_async_convert_to_word_success(
         == "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
     )
     assert str(response.input_id) == str(input_file.id)
+
+
+@pytest.mark.asyncio
+async def test_async_convert_to_word_request_customization(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.delenv("PDFREST_API_KEY", raising=False)
+    input_file = make_pdf_file(PdfRestFileID.generate(2))
+    output_id = str(PdfRestFileID.generate())
+    captured_timeout: dict[str, float | dict[str, float] | None] = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.method == "POST" and request.url.path == "/word":
+            assert request.url.params["trace"] == "async"
+            assert request.headers["X-Debug"] == "async"
+            captured_timeout["value"] = request.extensions.get("timeout")
+            payload = json.loads(request.content.decode("utf-8"))
+            assert payload["debug"] == "yes"
+            assert payload["id"] == str(input_file.id)
+            return httpx.Response(
+                200,
+                json={
+                    "inputId": [input_file.id],
+                    "outputId": [output_id],
+                },
+            )
+        if request.method == "GET" and request.url.path == f"/resource/{output_id}":
+            assert request.url.params["format"] == "info"
+            assert request.url.params["trace"] == "async"
+            assert request.headers["X-Debug"] == "async"
+            return httpx.Response(
+                200,
+                json=build_file_info_payload(
+                    output_id,
+                    "async-custom.docx",
+                    "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                ),
+            )
+        msg = f"Unexpected request {request.method} {request.url}"
+        raise AssertionError(msg)
+
+    transport = httpx.MockTransport(handler)
+    async with AsyncPdfRestClient(api_key=ASYNC_API_KEY, transport=transport) as client:
+        response = await client.convert_to_word(
+            input_file,
+            extra_query={"trace": "async"},
+            extra_headers={"X-Debug": "async"},
+            extra_body={"debug": "yes"},
+            timeout=0.55,
+        )
+
+    assert isinstance(response, PdfRestFileBasedResponse)
+    assert response.output_file.name == "async-custom.docx"
+    timeout_value = captured_timeout["value"]
+    assert timeout_value is not None
+    if isinstance(timeout_value, dict):
+        assert all(
+            component == pytest.approx(0.55) for component in timeout_value.values()
+        )
+    else:
+        assert timeout_value == pytest.approx(0.55)
 
 
 def test_convert_to_word_validation(monkeypatch: pytest.MonkeyPatch) -> None:
