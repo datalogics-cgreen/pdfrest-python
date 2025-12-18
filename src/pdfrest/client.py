@@ -61,6 +61,7 @@ from .exceptions import (
 )
 from .models import (
     PdfRestDeletionResponse,
+    ConvertToMarkdownResponse,
     ExtractImagesResponse,
     ExtractTextResponse,
     PdfRestErrorResponse,
@@ -79,6 +80,7 @@ from .models._internal import (
     BasePdfRestGraphicPayload,
     BmpPdfRestPayload,
     DeletePayload,
+    ConvertToMarkdownPayload,
     ExtractImagesPayload,
     ExtractTextPayload,
     GifPdfRestPayload,
@@ -2163,6 +2165,46 @@ class PdfRestClient(_SyncApiClient):
         raw_payload = self._send_request(request)
         return SummarizePdfTextResponse.model_validate(raw_payload)
 
+    def convert_to_markdown(
+        self,
+        file: PdfRestFile | Sequence[PdfRestFile],
+        *,
+        pages: PdfPageSelection | None = None,
+        output_type: SummaryOutputType = "json",
+        output_format: SummaryOutputFormat = "markdown",
+        output: str | None = None,
+        extra_query: Query | None = None,
+        extra_headers: AnyMapping | None = None,
+        extra_body: Body | None = None,
+        timeout: TimeoutTypes | None = None,
+    ) -> ConvertToMarkdownResponse:
+        """Convert a PDF to Markdown."""
+
+        payload: dict[str, Any] = {
+            "files": file,
+            "output_type": output_type,
+            "output_format": output_format,
+        }
+        if pages is not None:
+            payload["pages"] = pages
+        if output is not None:
+            payload["output"] = output
+
+        validated_payload = ConvertToMarkdownPayload.model_validate(payload)
+        request = self.prepare_request(
+            "POST",
+            "/markdown",
+            json_body=validated_payload.model_dump(
+                mode="json", by_alias=True, exclude_none=True, exclude_unset=True
+            ),
+            extra_query=extra_query,
+            extra_headers=extra_headers,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
+        raw_payload = self._send_request(request)
+        return ConvertToMarkdownResponse.model_validate(raw_payload)
+
     def translate_pdf_text(
         self,
         file: PdfRestFile | Sequence[PdfRestFile],
@@ -2866,6 +2908,46 @@ class AsyncPdfRestClient(_AsyncApiClient):
         )
         raw_payload = await self._send_request(request)
         return SummarizePdfTextResponse.model_validate(raw_payload)
+
+    async def convert_to_markdown(
+        self,
+        file: PdfRestFile | Sequence[PdfRestFile],
+        *,
+        pages: PdfPageSelection | None = None,
+        output_type: SummaryOutputType = "json",
+        output_format: SummaryOutputFormat = "markdown",
+        output: str | None = None,
+        extra_query: Query | None = None,
+        extra_headers: AnyMapping | None = None,
+        extra_body: Body | None = None,
+        timeout: TimeoutTypes | None = None,
+    ) -> ConvertToMarkdownResponse:
+        """Convert a PDF to Markdown."""
+
+        payload: dict[str, Any] = {
+            "files": file,
+            "output_type": output_type,
+            "output_format": output_format,
+        }
+        if pages is not None:
+            payload["pages"] = pages
+        if output is not None:
+            payload["output"] = output
+
+        validated_payload = ConvertToMarkdownPayload.model_validate(payload)
+        request = self.prepare_request(
+            "POST",
+            "/markdown",
+            json_body=validated_payload.model_dump(
+                mode="json", by_alias=True, exclude_none=True, exclude_unset=True
+            ),
+            extra_query=extra_query,
+            extra_headers=extra_headers,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
+        raw_payload = await self._send_request(request)
+        return ConvertToMarkdownResponse.model_validate(raw_payload)
 
     async def translate_pdf_text(
         self,
