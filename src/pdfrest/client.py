@@ -79,6 +79,7 @@ from .models._internal import (
     JpegPdfRestPayload,
     PdfCompressPayload,
     PdfFlattenFormsPayload,
+    PdfLinearizePayload,
     PdfInfoPayload,
     PdfMergePayload,
     PdfRedactionApplyPayload,
@@ -2305,6 +2306,32 @@ class PdfRestClient(_SyncApiClient):
             extra_body=extra_body,
             timeout=timeout,
         )
+        
+    def linearize_pdf(
+        self,
+        file: PdfRestFile | Sequence[PdfRestFile],
+        *,
+        output: str | None = None,
+        extra_query: Query | None = None,
+        extra_headers: AnyMapping | None = None,
+        extra_body: Body | None = None,
+        timeout: TimeoutTypes | None = None,
+    ) -> PdfRestFileBasedResponse:
+        """Linearize a PDF for optimized fast web view."""
+
+        payload: dict[str, Any] = {"files": file}
+        if output is not None:
+            payload["output"] = output
+
+        return self._post_file_operation(
+            endpoint="/linearized-pdf",
+            payload=payload,
+            payload_model=PdfLinearizePayload,
+            extra_query=extra_query,
+            extra_headers=extra_headers,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
 
     def convert_to_pdfx(
         self,
@@ -2843,6 +2870,32 @@ class AsyncPdfRestClient(_AsyncApiClient):
             endpoint="/compressed-pdf",
             payload=payload,
             payload_model=PdfCompressPayload,
+            extra_query=extra_query,
+            extra_headers=extra_headers,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
+        
+    async def linearize_pdf(
+        self,
+        file: PdfRestFile | Sequence[PdfRestFile],
+        *,
+        output: str | None = None,
+        extra_query: Query | None = None,
+        extra_headers: AnyMapping | None = None,
+        extra_body: Body | None = None,
+        timeout: TimeoutTypes | None = None,
+    ) -> PdfRestFileBasedResponse:
+        """Asynchronously linearize a PDF for optimized fast web view."""
+
+        payload: dict[str, Any] = {"files": file}
+        if output is not None:
+            payload["output"] = output
+
+        return await self._post_file_operation(
+            endpoint="/linearized-pdf",
+            payload=payload,
+            payload_model=PdfLinearizePayload,
             extra_query=extra_query,
             extra_headers=extra_headers,
             extra_body=extra_body,

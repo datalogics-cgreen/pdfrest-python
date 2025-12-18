@@ -1,0 +1,72 @@
+from __future__ import annotations
+
+import pytest
+
+from pdfrest import PdfRestApiError, PdfRestClient
+from pdfrest.models import PdfRestFile
+
+from ..resources import get_test_resource_path
+
+
+@pytest.fixture(scope="module")
+def uploaded_pdf_for_linearize(
+    pdfrest_api_key: str,
+    pdfrest_live_base_url: str,
+) -> PdfRestFile:
+    resource = get_test_resource_path("report.pdf")
+    with PdfRestClient(
+        api_key=pdfrest_api_key,
+        base_url=pdfrest_live_base_url,
+    ) as client:
+        return client.files.create_from_paths([resource])[0]
+
+
+@pytest.mark.parametrize(
+    "output_name",
+    [
+        pytest.param(None, id="default-output"),
+        pytest.param("linearized-live", id="custom-output"),
+    ],
+)
+def test_live_linearize_pdf(
+    pdfrest_api_key: str,
+    pdfrest_live_base_url: str,
+    uploaded_pdf_for_linearize: PdfRestFile,
+    output_name: str | None,
+) -> None:
+    kwargs: dict[str, str] = {}
+    if output_name is not None:
+        kwargs["output"] = output_name
+
+    with PdfRestClient(
+        api_key=pdfrest_api_key,
+        base_url=pdfrest_live_base_url,
+    ) as client:
+        response = client.linearize_pdf(uploaded_pdf_for_linearize, **kwargs)
+
+    assert response.output_files
+    output_file = response.output_file
+    assert output_file.type == "application/pdf"
+    assert str(response.input_id) == str(uploaded_pdf_for_linearize.id)
+    if output_name is not None:
+        assert output_file.name.startswith(output_name)
+    else:
+        assert output_file.name.endswith(".pdf")
+
+
+def test_live_linearize_pdf_invalid_file_id(
+    pdfrest_api_key: str,
+    pdfrest_live_base_url: str,
+    uploaded_pdf_for_linearize: PdfRestFile,
+) -> None:
+    with (
+        PdfRestClient(
+            api_key=pdfrest_api_key,
+            base_url=pdfrest_live_base_url,
+        ) as client,
+        pytest.raises(PdfRestApiError),
+    ):
+        client.linearize_pdf(
+            uploaded_pdf_for_linearize,
+            extra_body={"id": "ffffffff-ffff-ffff-ffff-ffffffffffff"},
+        )
