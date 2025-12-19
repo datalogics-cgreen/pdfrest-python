@@ -683,13 +683,6 @@ class PdfRestRawFileResponse(BaseModel):
         ),
     ] = None
 
-    @model_validator(mode="after")
-    def _check_output_id_or_files(self) -> Any:
-        if self.output_ids is None and self.files is None:
-            msg = "output_id or files must be specified"
-            raise ValueError(msg)
-        return self
-
     @property
     def ids(self) -> list[PdfRestFileID] | None:
         if self.output_ids is not None:

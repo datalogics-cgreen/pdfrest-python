@@ -256,7 +256,6 @@ class PdfRestFileBasedResponse(BaseModel):
         list[PdfRestFile],
         Field(
             description="The list of files returned by the pdfRest operation",
-            min_length=1,
             validation_alias=AliasChoices("output_file", "outputFile"),
         ),
     ]
