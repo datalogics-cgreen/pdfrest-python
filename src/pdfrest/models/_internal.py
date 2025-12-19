@@ -28,7 +28,6 @@ from ..types import (
     SummaryOutputFormat,
     SummaryOutputType,
     TranslateOutputFormat,
-    TranslateOutputType,
 )
 from . import PdfRestFile
 from .public import PdfRestFileID
@@ -451,7 +450,8 @@ class TranslatePdfTextPayload(BaseModel):
         Field(serialization_alias="output_format", default="markdown"),
     ] = "markdown"
     output_type: Annotated[
-        TranslateOutputType, Field(serialization_alias="output_type", default="json")
+        Literal["json", "file"],
+        Field(serialization_alias="output_type", default="json"),
     ] = "json"
     output: Annotated[
         str | None,

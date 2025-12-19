@@ -114,7 +114,6 @@ from .types import (
     SummaryOutputFormat,
     SummaryOutputType,
     TranslateOutputFormat,
-    TranslateOutputType,
 )
 
 DEFAULT_BASE_URL = "https://api.pdfrest.com"
@@ -2242,20 +2241,19 @@ class PdfRestClient(_SyncApiClient):
         source_language: str | None = None,
         pages: PdfPageSelection | None = None,
         output_format: TranslateOutputFormat = "markdown",
-        output_type: TranslateOutputType = "json",
         output: str | None = None,
         extra_query: Query | None = None,
         extra_headers: AnyMapping | None = None,
         extra_body: Body | None = None,
         timeout: TimeoutTypes | None = None,
     ) -> TranslatePdfTextResponse:
-        """Translate the textual content of a PDF, Markdown, or text document."""
+        """Translate the textual content of a PDF, Markdown, or text document (JSON)."""
 
         payload: dict[str, Any] = {
             "files": file,
             "target_language": target_language,
             "output_format": output_format,
-            "output_type": output_type,
+            "output_type": "json",
         }
         if source_language is not None:
             payload["source_language"] = source_language
@@ -2278,6 +2276,45 @@ class PdfRestClient(_SyncApiClient):
         )
         raw_payload = self._send_request(request)
         return TranslatePdfTextResponse.model_validate(raw_payload)
+
+    def translate_pdf_text_to_file(
+        self,
+        file: PdfRestFile | Sequence[PdfRestFile],
+        *,
+        target_language: str,
+        source_language: str | None = None,
+        pages: PdfPageSelection | None = None,
+        output_format: TranslateOutputFormat = "markdown",
+        output: str | None = None,
+        extra_query: Query | None = None,
+        extra_headers: AnyMapping | None = None,
+        extra_body: Body | None = None,
+        timeout: TimeoutTypes | None = None,
+    ) -> PdfRestFileBasedResponse:
+        """Translate textual content and receive a file-based response."""
+
+        payload: dict[str, Any] = {
+            "files": file,
+            "target_language": target_language,
+            "output_format": output_format,
+            "output_type": "file",
+        }
+        if source_language is not None:
+            payload["source_language"] = source_language
+        if pages is not None:
+            payload["pages"] = pages
+        if output is not None:
+            payload["output"] = output
+
+        return self._post_file_operation(
+            endpoint="/translated-pdf-text",
+            payload=payload,
+            payload_model=TranslatePdfTextPayload,
+            extra_query=extra_query,
+            extra_headers=extra_headers,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
 
     def extract_images(
         self,
@@ -2990,20 +3027,19 @@ class AsyncPdfRestClient(_AsyncApiClient):
         source_language: str | None = None,
         pages: PdfPageSelection | None = None,
         output_format: TranslateOutputFormat = "markdown",
-        output_type: TranslateOutputType = "json",
         output: str | None = None,
         extra_query: Query | None = None,
         extra_headers: AnyMapping | None = None,
         extra_body: Body | None = None,
         timeout: TimeoutTypes | None = None,
     ) -> TranslatePdfTextResponse:
-        """Translate the textual content of a PDF, Markdown, or text document."""
+        """Translate the textual content of a PDF, Markdown, or text document (JSON)."""
 
         payload: dict[str, Any] = {
             "files": file,
             "target_language": target_language,
             "output_format": output_format,
-            "output_type": output_type,
+            "output_type": "json",
         }
         if source_language is not None:
             payload["source_language"] = source_language
@@ -3026,6 +3062,45 @@ class AsyncPdfRestClient(_AsyncApiClient):
         )
         raw_payload = await self._send_request(request)
         return TranslatePdfTextResponse.model_validate(raw_payload)
+
+    async def translate_pdf_text_to_file(
+        self,
+        file: PdfRestFile | Sequence[PdfRestFile],
+        *,
+        target_language: str,
+        source_language: str | None = None,
+        pages: PdfPageSelection | None = None,
+        output_format: TranslateOutputFormat = "markdown",
+        output: str | None = None,
+        extra_query: Query | None = None,
+        extra_headers: AnyMapping | None = None,
+        extra_body: Body | None = None,
+        timeout: TimeoutTypes | None = None,
+    ) -> PdfRestFileBasedResponse:
+        """Translate textual content and receive a file-based response."""
+
+        payload: dict[str, Any] = {
+            "files": file,
+            "target_language": target_language,
+            "output_format": output_format,
+            "output_type": "file",
+        }
+        if source_language is not None:
+            payload["source_language"] = source_language
+        if pages is not None:
+            payload["pages"] = pages
+        if output is not None:
+            payload["output"] = output
+
+        return await self._post_file_operation(
+            endpoint="/translated-pdf-text",
+            payload=payload,
+            payload_model=TranslatePdfTextPayload,
+            extra_query=extra_query,
+            extra_headers=extra_headers,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
 
     async def extract_images(
         self,

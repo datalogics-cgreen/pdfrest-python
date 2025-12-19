@@ -7,7 +7,12 @@ import pytest
 from pydantic import ValidationError
 
 from pdfrest import AsyncPdfRestClient, PdfRestClient
-from pdfrest.models import PdfRestFile, PdfRestFileID, TranslatePdfTextResponse
+from pdfrest.models import (
+    PdfRestFile,
+    PdfRestFileBasedResponse,
+    PdfRestFileID,
+    TranslatePdfTextResponse,
+)
 from pdfrest.models._internal import TranslatePdfTextPayload
 
 from .graphics_test_helpers import ASYNC_API_KEY, VALID_API_KEY, make_pdf_file
@@ -95,7 +100,6 @@ def test_translate_pdf_text_json_success(monkeypatch: pytest.MonkeyPatch) -> Non
             source_language="en",
             pages=["1-2"],
             output_format="plaintext",
-            output_type="json",
             output="translation",
         )
 
@@ -145,19 +149,17 @@ def test_translate_pdf_text_request_customization(
 
     transport = httpx.MockTransport(handler)
     with PdfRestClient(api_key=VALID_API_KEY, transport=transport) as client:
-        response = client.translate_pdf_text(
+        response = client.translate_pdf_text_to_file(
             input_file,
             target_language="es",
-            output_type="file",
             extra_query={"trace": "true"},
             extra_headers={"X-Debug": "sync"},
             extra_body={"debug": True},
             timeout=0.3,
         )
 
-    assert isinstance(response, TranslatePdfTextResponse)
-    assert response.output_id == output_id
-    assert response.output_url
+    assert isinstance(response, PdfRestFileBasedResponse)
+    assert response.output_file.id == output_id
     timeout_value = captured_timeout["value"]
     assert timeout_value is not None
     if isinstance(timeout_value, dict):
@@ -199,7 +201,8 @@ async def test_async_translate_pdf_text_success(
     transport = httpx.MockTransport(handler)
     async with AsyncPdfRestClient(api_key=ASYNC_API_KEY, transport=transport) as client:
         response = await client.translate_pdf_text(
-            input_file, target_language="de", output_type="json"
+            input_file,
+            target_language="de",
         )
 
     assert seen == {"post": 1}

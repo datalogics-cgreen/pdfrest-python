@@ -15,7 +15,6 @@ from .public import (
     SummaryOutputFormat,
     SummaryOutputType,
     TranslateOutputFormat,
-    TranslateOutputType,
 )
 
 __all__ = [
@@ -33,5 +32,4 @@ __all__ = [
     "SummaryOutputFormat",
     "SummaryOutputType",
     "TranslateOutputFormat",
-    "TranslateOutputType",
 ]
