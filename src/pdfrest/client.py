@@ -2359,6 +2359,11 @@ class PdfRestClient(_SyncApiClient):
         file: PdfRestFile | Sequence[PdfRestFile],
         *,
         pages: PdfPageSelection | None = None,
+        full_text: Literal["off", "by_page", "document"] = "document",
+        preserve_line_breaks: Literal["off", "on"] = "off",
+        word_style: Literal["off", "on"] = "off",
+        word_coordinates: Literal["off", "on"] = "off",
+        output_type: Literal["json", "file"] = "json",
         output: str | None = None,
         extra_query: Query | None = None,
         extra_headers: AnyMapping | None = None,
@@ -2370,6 +2375,11 @@ class PdfRestClient(_SyncApiClient):
         payload: dict[str, Any] = {"files": file}
         if pages is not None:
             payload["pages"] = pages
+        payload["full_text"] = full_text
+        payload["preserve_line_breaks"] = preserve_line_breaks
+        payload["word_style"] = word_style
+        payload["word_coordinates"] = word_coordinates
+        payload["output_type"] = output_type
         if output is not None:
             payload["output"] = output
 
@@ -3306,6 +3316,11 @@ class AsyncPdfRestClient(_AsyncApiClient):
         file: PdfRestFile | Sequence[PdfRestFile],
         *,
         pages: PdfPageSelection | None = None,
+        full_text: Literal["off", "by_page", "document"] = "document",
+        preserve_line_breaks: Literal["off", "on"] = "off",
+        word_style: Literal["off", "on"] = "off",
+        word_coordinates: Literal["off", "on"] = "off",
+        output_type: Literal["json", "file"] = "json",
         output: str | None = None,
         extra_query: Query | None = None,
         extra_headers: AnyMapping | None = None,
@@ -3317,6 +3332,11 @@ class AsyncPdfRestClient(_AsyncApiClient):
         payload: dict[str, Any] = {"files": file}
         if pages is not None:
             payload["pages"] = pages
+        payload["full_text"] = full_text
+        payload["preserve_line_breaks"] = preserve_line_breaks
+        payload["word_style"] = word_style
+        payload["word_coordinates"] = word_coordinates
+        payload["output_type"] = output_type
         if output is not None:
             payload["output"] = output
 

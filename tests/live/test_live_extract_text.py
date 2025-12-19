@@ -18,7 +18,14 @@ def test_live_extract_text_success(
         base_url=pdfrest_live_base_url,
     ) as client:
         uploaded = client.files.create_from_paths([resource])[0]
-        response = client.extract_text(uploaded, output=None)
+        response = client.extract_text(
+            uploaded,
+            output_type="json",
+            full_text="document",
+            preserve_line_breaks="on",
+            word_style="off",
+            word_coordinates="off",
+        )
 
     assert isinstance(response, ExtractTextResponse)
     assert response.text
@@ -39,4 +46,5 @@ def test_live_extract_text_invalid_pages(
             client.extract_text(
                 uploaded,
                 extra_body={"pages": "last-1"},
+                output_type="json",
             )

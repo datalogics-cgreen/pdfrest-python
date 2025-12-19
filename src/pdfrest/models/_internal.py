@@ -362,6 +362,11 @@ class ExtractTextPayload(BaseModel):
         BeforeValidator(_int_to_string),
         PlainSerializer(_serialize_page_ranges),
     ] = None
+    full_text: Literal["off", "by_page", "document"] = "document"
+    preserve_line_breaks: Literal["off", "on"] = "off"
+    word_style: Literal["off", "on"] = "off"
+    word_coordinates: Literal["off", "on"] = "off"
+    output_type: Literal["json", "file"] = "json"
     output: Annotated[
         str | None,
         Field(serialization_alias="output", min_length=1, default=None),
