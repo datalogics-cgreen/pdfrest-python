@@ -73,6 +73,7 @@ from .models._internal import (
     BmpPdfRestPayload,
     GifPdfRestPayload,
     JpegPdfRestPayload,
+    PdfCompressPayload,
     PdfFlattenFormsPayload,
     PdfInfoPayload,
     PdfMergePayload,
@@ -2197,6 +2198,39 @@ class PdfRestClient(_SyncApiClient):
             timeout=timeout,
         )
 
+    def compress_pdf(
+        self,
+        file: PdfRestFile | Sequence[PdfRestFile],
+        *,
+        compression_level: Literal["low", "medium", "high", "custom"],
+        profile: PdfRestFile | Sequence[PdfRestFile] | None = None,
+        output: str | None = None,
+        extra_query: Query | None = None,
+        extra_headers: AnyMapping | None = None,
+        extra_body: Body | None = None,
+        timeout: TimeoutTypes | None = None,
+    ) -> PdfRestFileBasedResponse:
+        """Compress a PDF using preset or custom compression profiles."""
+
+        payload: dict[str, Any] = {
+            "files": file,
+            "compression_level": compression_level,
+        }
+        if profile is not None:
+            payload["profile"] = profile
+        if output is not None:
+            payload["output"] = output
+
+        return self._post_file_operation(
+            endpoint="/compressed-pdf",
+            payload=payload,
+            payload_model=PdfCompressPayload,
+            extra_query=extra_query,
+            extra_headers=extra_headers,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
+
     def convert_to_pdfx(
         self,
         file: PdfRestFile | Sequence[PdfRestFile],
@@ -2701,6 +2735,39 @@ class AsyncPdfRestClient(_AsyncApiClient):
             endpoint="/flattened-forms-pdf",
             payload=payload,
             payload_model=PdfFlattenFormsPayload,
+            extra_query=extra_query,
+            extra_headers=extra_headers,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
+
+    async def compress_pdf(
+        self,
+        file: PdfRestFile | Sequence[PdfRestFile],
+        *,
+        compression_level: Literal["low", "medium", "high", "custom"],
+        profile: PdfRestFile | Sequence[PdfRestFile] | None = None,
+        output: str | None = None,
+        extra_query: Query | None = None,
+        extra_headers: AnyMapping | None = None,
+        extra_body: Body | None = None,
+        timeout: TimeoutTypes | None = None,
+    ) -> PdfRestFileBasedResponse:
+        """Asynchronously compress a PDF."""
+
+        payload: dict[str, Any] = {
+            "files": file,
+            "compression_level": compression_level,
+        }
+        if profile is not None:
+            payload["profile"] = profile
+        if output is not None:
+            payload["output"] = output
+
+        return await self._post_file_operation(
+            endpoint="/compressed-pdf",
+            payload=payload,
+            payload_model=PdfCompressPayload,
             extra_query=extra_query,
             extra_headers=extra_headers,
             extra_body=extra_body,
