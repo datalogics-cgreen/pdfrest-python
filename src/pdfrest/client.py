@@ -94,6 +94,7 @@ from .models._internal import (
     PdfRedactionPreviewPayload,
     PdfRestRawFileResponse,
     PdfFlattenTransparenciesPayload,
+    PdfRasterizePayload,
     PdfSplitPayload,
     PdfToExcelPayload,
     PdfToPdfxPayload,
@@ -2716,6 +2717,32 @@ class PdfRestClient(_SyncApiClient):
             timeout=timeout,
         )
 
+    def rasterize_pdf(
+        self,
+        file: PdfRestFile | Sequence[PdfRestFile],
+        *,
+        output: str | None = None,
+        extra_query: Query | None = None,
+        extra_headers: AnyMapping | None = None,
+        extra_body: Body | None = None,
+        timeout: TimeoutTypes | None = None,
+    ) -> PdfRestFileBasedResponse:
+        """Rasterize a PDF into a flattened bitmap-based PDF."""
+
+        payload: dict[str, Any] = {"files": file}
+        if output is not None:
+            payload["output"] = output
+
+        return self._post_file_operation(
+            endpoint="/rasterized-pdf",
+            payload=payload,
+            payload_model=PdfRasterizePayload,
+            extra_query=extra_query,
+            extra_headers=extra_headers,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
+
     def convert_to_pdfx(
         self,
         file: PdfRestFile | Sequence[PdfRestFile],
@@ -3644,6 +3671,32 @@ class AsyncPdfRestClient(_AsyncApiClient):
             endpoint="/linearized-pdf",
             payload=payload,
             payload_model=PdfLinearizePayload,
+            extra_query=extra_query,
+            extra_headers=extra_headers,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
+
+    async def rasterize_pdf(
+        self,
+        file: PdfRestFile | Sequence[PdfRestFile],
+        *,
+        output: str | None = None,
+        extra_query: Query | None = None,
+        extra_headers: AnyMapping | None = None,
+        extra_body: Body | None = None,
+        timeout: TimeoutTypes | None = None,
+    ) -> PdfRestFileBasedResponse:
+        """Asynchronously rasterize a PDF into a flattened bitmap-based PDF."""
+
+        payload: dict[str, Any] = {"files": file}
+        if output is not None:
+            payload["output"] = output
+
+        return await self._post_file_operation(
+            endpoint="/rasterized-pdf",
+            payload=payload,
+            payload_model=PdfRasterizePayload,
             extra_query=extra_query,
             extra_headers=extra_headers,
             extra_body=extra_body,

@@ -966,6 +966,30 @@ class PdfLinearizePayload(BaseModel):
     ] = None
 
 
+class PdfRasterizePayload(BaseModel):
+    """Adapt caller options into a pdfRest-ready rasterize PDF request payload."""
+
+    files: Annotated[
+        list[PdfRestFile],
+        Field(
+            min_length=1,
+            max_length=1,
+            validation_alias=AliasChoices("file", "files"),
+            serialization_alias="id",
+        ),
+        BeforeValidator(_ensure_list),
+        AfterValidator(
+            _allowed_mime_types("application/pdf", error_msg="Must be a PDF file")
+        ),
+        PlainSerializer(_serialize_as_first_file_id),
+    ]
+    output: Annotated[
+        str | None,
+        Field(serialization_alias="output", min_length=1, default=None),
+        AfterValidator(_validate_output_prefix),
+    ] = None
+
+
 class PdfFlattenTransparenciesPayload(BaseModel):
     """Adapt caller options into a pdfRest-ready flatten-transparencies request payload."""
 
