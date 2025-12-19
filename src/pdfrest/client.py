@@ -62,7 +62,6 @@ from .exceptions import (
 from .models import (
     PdfRestDeletionResponse,
     ConvertToMarkdownResponse,
-    ExtractImagesResponse,
     ExtractTextResponse,
     PdfRestErrorResponse,
     PdfRestFile,
@@ -2290,7 +2289,7 @@ class PdfRestClient(_SyncApiClient):
         extra_headers: AnyMapping | None = None,
         extra_body: Body | None = None,
         timeout: TimeoutTypes | None = None,
-    ) -> ExtractImagesResponse:
+    ) -> PdfRestFileBasedResponse:
         """Extract embedded images from a PDF."""
 
         payload: dict[str, Any] = {"files": file}
@@ -2299,39 +2298,14 @@ class PdfRestClient(_SyncApiClient):
         if output is not None:
             payload["output"] = output
 
-        validated_payload = ExtractImagesPayload.model_validate(payload)
-        request = self.prepare_request(
-            "POST",
-            "/extracted-images",
-            json_body=validated_payload.model_dump(
-                mode="json", by_alias=True, exclude_none=True, exclude_unset=True
-            ),
+        return self._post_file_operation(
+            endpoint="/extracted-images",
+            payload=payload,
+            payload_model=ExtractImagesPayload,
             extra_query=extra_query,
             extra_headers=extra_headers,
             extra_body=extra_body,
             timeout=timeout,
-        )
-        raw_payload = self._send_request(request)
-        raw_response = PdfRestRawFileResponse.model_validate(raw_payload)
-        output_ids = raw_response.ids or []
-        output_files = [
-            self.fetch_file_info(
-                str(file_id),
-                extra_query=extra_query,
-                extra_headers=extra_headers,
-                timeout=timeout,
-            )
-            for file_id in output_ids
-        ]
-        input_id = raw_response.input_id[0] if raw_response.input_id else ""
-        return ExtractImagesResponse.model_validate(
-            {
-                "input_id": input_id,
-                "output_files": [
-                    file.model_dump(mode="json", by_alias=True) for file in output_files
-                ],
-                "warning": raw_response.warning,
-            }
         )
 
     def extract_text(
@@ -3063,7 +3037,7 @@ class AsyncPdfRestClient(_AsyncApiClient):
         extra_headers: AnyMapping | None = None,
         extra_body: Body | None = None,
         timeout: TimeoutTypes | None = None,
-    ) -> ExtractImagesResponse:
+    ) -> PdfRestFileBasedResponse:
         """Extract embedded images from a PDF."""
 
         payload: dict[str, Any] = {"files": file}
@@ -3072,46 +3046,14 @@ class AsyncPdfRestClient(_AsyncApiClient):
         if output is not None:
             payload["output"] = output
 
-        validated_payload = ExtractImagesPayload.model_validate(payload)
-        request = self.prepare_request(
-            "POST",
-            "/extracted-images",
-            json_body=validated_payload.model_dump(
-                mode="json", by_alias=True, exclude_none=True, exclude_unset=True
-            ),
+        return await self._post_file_operation(
+            endpoint="/extracted-images",
+            payload=payload,
+            payload_model=ExtractImagesPayload,
             extra_query=extra_query,
             extra_headers=extra_headers,
             extra_body=extra_body,
             timeout=timeout,
-        )
-        raw_payload = await self._send_request(request)
-        raw_response = PdfRestRawFileResponse.model_validate(raw_payload)
-        output_ids = raw_response.ids or []
-        semaphore = asyncio.Semaphore(DEFAULT_FILE_INFO_CONCURRENCY)
-
-        async def fetch(file_id: str) -> PdfRestFile:
-            async with semaphore:
-                return await self.fetch_file_info(
-                    file_id,
-                    extra_query=extra_query,
-                    extra_headers=extra_headers,
-                    timeout=timeout,
-                )
-
-        output_files: list[PdfRestFile] = []
-        if output_ids:
-            output_files = list(
-                await asyncio.gather(*(fetch(fid) for fid in output_ids))
-            )
-        input_id = raw_response.input_id[0] if raw_response.input_id else ""
-        return ExtractImagesResponse.model_validate(
-            {
-                "input_id": input_id,
-                "output_files": [
-                    file.model_dump(mode="json", by_alias=True) for file in output_files
-                ],
-                "warning": raw_response.warning,
-            }
         )
 
     async def extract_text(

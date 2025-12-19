@@ -7,7 +7,7 @@ import pytest
 from pydantic import ValidationError
 
 from pdfrest import AsyncPdfRestClient, PdfRestClient
-from pdfrest.models import ExtractImagesResponse, PdfRestFile, PdfRestFileID
+from pdfrest.models import PdfRestFile, PdfRestFileBasedResponse, PdfRestFileID
 from pdfrest.models._internal import ExtractImagesPayload
 
 from .graphics_test_helpers import ASYNC_API_KEY, VALID_API_KEY, make_pdf_file
@@ -98,7 +98,7 @@ def test_extract_images_success(monkeypatch: pytest.MonkeyPatch) -> None:
         response = client.extract_images(input_file, pages=["1-3"], output="images")
 
     assert seen == {"post": 1, "get": 2}
-    assert isinstance(response, ExtractImagesResponse)
+    assert isinstance(response, PdfRestFileBasedResponse)
     assert len(response.output_files) == 2
     assert response.input_id == input_file.id
 
@@ -152,7 +152,7 @@ def test_extract_images_request_customization(
             timeout=0.3,
         )
 
-    assert isinstance(response, ExtractImagesResponse)
+    assert isinstance(response, PdfRestFileBasedResponse)
     assert len(response.output_files) == 1
     timeout_value = captured_timeout["value"]
     assert timeout_value is not None
@@ -206,6 +206,6 @@ async def test_async_extract_images_success(
         response = await client.extract_images(input_file)
 
     assert seen == {"post": 1, "get": 1}
-    assert isinstance(response, ExtractImagesResponse)
+    assert isinstance(response, PdfRestFileBasedResponse)
     assert len(response.output_files) == 1
     assert response.input_id == input_file.id
