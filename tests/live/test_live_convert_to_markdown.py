@@ -21,7 +21,6 @@ def test_live_convert_to_markdown_success(
         response = client.convert_to_markdown(
             uploaded,
             output_type="json",
-            output_format="markdown",
         )
 
     assert isinstance(response, ConvertToMarkdownResponse)
