@@ -86,6 +86,7 @@ from .models._internal import (
     JpegPdfRestPayload,
     PdfCompressPayload,
     OcrPdfPayload,
+    PdfFlattenAnnotationsPayload,
     PdfFlattenFormsPayload,
     PdfFlattenTransparenciesPayload,
     PdfInfoPayload,
@@ -2717,6 +2718,32 @@ class PdfRestClient(_SyncApiClient):
             timeout=timeout,
         )
 
+    def flatten_annotations(
+        self,
+        file: PdfRestFile | Sequence[PdfRestFile],
+        *,
+        output: str | None = None,
+        extra_query: Query | None = None,
+        extra_headers: AnyMapping | None = None,
+        extra_body: Body | None = None,
+        timeout: TimeoutTypes | None = None,
+    ) -> PdfRestFileBasedResponse:
+        """Flatten annotations into the PDF content."""
+
+        payload: dict[str, Any] = {"files": file}
+        if output is not None:
+            payload["output"] = output
+
+        return self._post_file_operation(
+            endpoint="/flattened-annotations-pdf",
+            payload=payload,
+            payload_model=PdfFlattenAnnotationsPayload,
+            extra_query=extra_query,
+            extra_headers=extra_headers,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
+
     def rasterize_pdf(
         self,
         file: PdfRestFile | Sequence[PdfRestFile],
@@ -3671,6 +3698,32 @@ class AsyncPdfRestClient(_AsyncApiClient):
             endpoint="/linearized-pdf",
             payload=payload,
             payload_model=PdfLinearizePayload,
+            extra_query=extra_query,
+            extra_headers=extra_headers,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
+
+    async def flatten_annotations(
+        self,
+        file: PdfRestFile | Sequence[PdfRestFile],
+        *,
+        output: str | None = None,
+        extra_query: Query | None = None,
+        extra_headers: AnyMapping | None = None,
+        extra_body: Body | None = None,
+        timeout: TimeoutTypes | None = None,
+    ) -> PdfRestFileBasedResponse:
+        """Asynchronously flatten annotations into the PDF content."""
+
+        payload: dict[str, Any] = {"files": file}
+        if output is not None:
+            payload["output"] = output
+
+        return await self._post_file_operation(
+            endpoint="/flattened-annotations-pdf",
+            payload=payload,
+            payload_model=PdfFlattenAnnotationsPayload,
             extra_query=extra_query,
             extra_headers=extra_headers,
             extra_body=extra_body,
