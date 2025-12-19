@@ -397,9 +397,11 @@ class ExtractTextResponse(BaseModel):
 
     model_config = ConfigDict(extra="allow")
 
-    text: Annotated[
+    full_text: Annotated[
         str | None,
         Field(
+            alias="fullText",
+            validation_alias=AliasChoices("full_text", "fullText"),
             description="Inline extracted text when output_type is json.",
             default=None,
         ),

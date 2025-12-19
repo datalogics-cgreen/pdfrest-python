@@ -28,7 +28,7 @@ def test_live_extract_text_success(
         )
 
     assert isinstance(response, ExtractTextResponse)
-    assert response.text
+    assert response.full_text
     assert response.input_id == uploaded.id
 
 
