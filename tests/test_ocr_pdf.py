@@ -7,7 +7,7 @@ import pytest
 from pydantic import ValidationError
 
 from pdfrest import AsyncPdfRestClient, PdfRestClient
-from pdfrest.models import OcrPdfResponse, PdfRestFile, PdfRestFileID
+from pdfrest.models import PdfRestFile, PdfRestFileBasedResponse, PdfRestFileID
 from pdfrest.models._internal import OcrPdfPayload
 
 from .graphics_test_helpers import ASYNC_API_KEY, VALID_API_KEY, make_pdf_file
@@ -80,9 +80,9 @@ def test_ocr_pdf_success(monkeypatch: pytest.MonkeyPatch) -> None:
         )
 
     assert seen == {"post": 1, "get": 1}
-    assert isinstance(response, OcrPdfResponse)
-    assert response.output_id == output_id
-    assert response.output_url is None  # not provided in mocked response
+    assert isinstance(response, PdfRestFileBasedResponse)
+    assert response.output_file.id == output_id
+    assert response.output_file.name == "ocr.pdf"
     assert response.input_id == input_file.id
 
 
@@ -134,8 +134,8 @@ def test_ocr_pdf_request_customization(
             timeout=0.4,
         )
 
-    assert isinstance(response, OcrPdfResponse)
-    assert response.output_id == output_id
+    assert isinstance(response, PdfRestFileBasedResponse)
+    assert response.output_file.id == output_id
     timeout_value = captured_timeout["value"]
     assert timeout_value is not None
     if isinstance(timeout_value, dict):
@@ -187,6 +187,6 @@ async def test_async_ocr_pdf_success(
         response = await client.ocr_pdf(input_file)
 
     assert seen == {"post": 1, "get": 1}
-    assert isinstance(response, OcrPdfResponse)
-    assert response.output_id == output_id
+    assert isinstance(response, PdfRestFileBasedResponse)
+    assert response.output_file.id == output_id
     assert response.input_id == input_file.id

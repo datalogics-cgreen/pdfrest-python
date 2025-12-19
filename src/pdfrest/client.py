@@ -64,7 +64,6 @@ from .models import (
     ConvertToMarkdownResponse,
     ExtractImagesResponse,
     ExtractTextResponse,
-    OcrPdfResponse,
     PdfRestErrorResponse,
     PdfRestFile,
     PdfRestFileBasedResponse,
@@ -2217,7 +2216,7 @@ class PdfRestClient(_SyncApiClient):
         extra_headers: AnyMapping | None = None,
         extra_body: Body | None = None,
         timeout: TimeoutTypes | None = None,
-    ) -> OcrPdfResponse:
+    ) -> PdfRestFileBasedResponse:
         """Perform OCR on a PDF to extract searchable text."""
 
         payload: dict[str, Any] = {"files": file}
@@ -2226,31 +2225,14 @@ class PdfRestClient(_SyncApiClient):
         if output is not None:
             payload["output"] = output
 
-        validated_payload = OcrPdfPayload.model_validate(payload)
-        request = self.prepare_request(
-            "POST",
-            "/pdf-with-ocr-text",
-            json_body=validated_payload.model_dump(
-                mode="json", by_alias=True, exclude_none=True, exclude_unset=True
-            ),
+        return self._post_file_operation(
+            endpoint="/pdf-with-ocr-text",
+            payload=payload,
+            payload_model=OcrPdfPayload,
             extra_query=extra_query,
             extra_headers=extra_headers,
             extra_body=extra_body,
             timeout=timeout,
-        )
-        raw_payload = self._send_request(request)
-        raw_response = PdfRestRawFileResponse.model_validate(raw_payload)
-        output_ids = raw_response.ids or []
-        input_id = raw_response.input_id[0] if raw_response.input_id else ""
-        return OcrPdfResponse.model_validate(
-            {
-                "input_id": input_id,
-                "output_id": output_ids[0] if output_ids else None,
-                "output_url": raw_response.output_urls[0]
-                if raw_response.output_urls
-                else None,
-                "warning": raw_response.warning,
-            }
         )
 
     def translate_pdf_text(
@@ -3007,7 +2989,7 @@ class AsyncPdfRestClient(_AsyncApiClient):
         extra_headers: AnyMapping | None = None,
         extra_body: Body | None = None,
         timeout: TimeoutTypes | None = None,
-    ) -> OcrPdfResponse:
+    ) -> PdfRestFileBasedResponse:
         """Perform OCR on a PDF to extract searchable text."""
 
         payload: dict[str, Any] = {"files": file}
@@ -3016,31 +2998,14 @@ class AsyncPdfRestClient(_AsyncApiClient):
         if output is not None:
             payload["output"] = output
 
-        validated_payload = OcrPdfPayload.model_validate(payload)
-        request = self.prepare_request(
-            "POST",
-            "/pdf-with-ocr-text",
-            json_body=validated_payload.model_dump(
-                mode="json", by_alias=True, exclude_none=True, exclude_unset=True
-            ),
+        return await self._post_file_operation(
+            endpoint="/pdf-with-ocr-text",
+            payload=payload,
+            payload_model=OcrPdfPayload,
             extra_query=extra_query,
             extra_headers=extra_headers,
             extra_body=extra_body,
             timeout=timeout,
-        )
-        raw_payload = await self._send_request(request)
-        raw_response = PdfRestRawFileResponse.model_validate(raw_payload)
-        output_ids = raw_response.ids or []
-        input_id = raw_response.input_id[0] if raw_response.input_id else ""
-        return OcrPdfResponse.model_validate(
-            {
-                "input_id": input_id,
-                "output_id": output_ids[0] if output_ids else None,
-                "output_url": raw_response.output_urls[0]
-                if raw_response.output_urls
-                else None,
-                "warning": raw_response.warning,
-            }
         )
 
     async def translate_pdf_text(
