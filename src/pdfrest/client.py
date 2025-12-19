@@ -2246,8 +2246,7 @@ class PdfRestClient(_SyncApiClient):
         self,
         file: PdfRestFile | Sequence[PdfRestFile],
         *,
-        target_language: str,
-        source_language: str | None = None,
+        output_language: str,
         pages: PdfPageSelection | None = None,
         output_format: TranslateOutputFormat = "markdown",
         output: str | None = None,
@@ -2260,12 +2259,10 @@ class PdfRestClient(_SyncApiClient):
 
         payload: dict[str, Any] = {
             "files": file,
-            "target_language": target_language,
+            "output_language": output_language,
             "output_format": output_format,
             "output_type": "json",
         }
-        if source_language is not None:
-            payload["source_language"] = source_language
         if pages is not None:
             payload["pages"] = pages
         if output is not None:
@@ -2290,8 +2287,7 @@ class PdfRestClient(_SyncApiClient):
         self,
         file: PdfRestFile | Sequence[PdfRestFile],
         *,
-        target_language: str,
-        source_language: str | None = None,
+        output_language: str,
         pages: PdfPageSelection | None = None,
         output_format: TranslateOutputFormat = "markdown",
         output: str | None = None,
@@ -2304,12 +2300,10 @@ class PdfRestClient(_SyncApiClient):
 
         payload: dict[str, Any] = {
             "files": file,
-            "target_language": target_language,
+            "output_language": output_language,
             "output_format": output_format,
             "output_type": "file",
         }
-        if source_language is not None:
-            payload["source_language"] = source_language
         if pages is not None:
             payload["pages"] = pages
         if output is not None:
@@ -3203,8 +3197,7 @@ class AsyncPdfRestClient(_AsyncApiClient):
         self,
         file: PdfRestFile | Sequence[PdfRestFile],
         *,
-        target_language: str,
-        source_language: str | None = None,
+        output_language: str,
         pages: PdfPageSelection | None = None,
         output_format: TranslateOutputFormat = "markdown",
         output: str | None = None,
@@ -3217,12 +3210,10 @@ class AsyncPdfRestClient(_AsyncApiClient):
 
         payload: dict[str, Any] = {
             "files": file,
-            "target_language": target_language,
+            "output_language": output_language,
             "output_format": output_format,
             "output_type": "json",
         }
-        if source_language is not None:
-            payload["source_language"] = source_language
         if pages is not None:
             payload["pages"] = pages
         if output is not None:
@@ -3247,8 +3238,7 @@ class AsyncPdfRestClient(_AsyncApiClient):
         self,
         file: PdfRestFile | Sequence[PdfRestFile],
         *,
-        target_language: str,
-        source_language: str | None = None,
+        output_language: str,
         pages: PdfPageSelection | None = None,
         output_format: TranslateOutputFormat = "markdown",
         output: str | None = None,
@@ -3261,12 +3251,10 @@ class AsyncPdfRestClient(_AsyncApiClient):
 
         payload: dict[str, Any] = {
             "files": file,
-            "target_language": target_language,
+            "output_language": output_language,
             "output_format": output_format,
             "output_type": "file",
         }
-        if source_language is not None:
-            payload["source_language"] = source_language
         if pages is not None:
             payload["pages"] = pages
         if output is not None:

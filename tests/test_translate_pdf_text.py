@@ -50,7 +50,7 @@ def test_translate_payload_rejects_invalid_mime() -> None:
         ValidationError, match="Must be a PDF, Markdown, or plain text file"
     ):
         TranslatePdfTextPayload.model_validate(
-            {"files": [image_file], "target_language": "fr"}
+            {"files": [image_file], "output_language": "fr"}
         )
 
 
@@ -66,8 +66,7 @@ def test_translate_pdf_text_json_success(monkeypatch: pytest.MonkeyPatch) -> Non
     payload_dump = TranslatePdfTextPayload.model_validate(
         {
             "files": [input_file],
-            "target_language": "fr",
-            "source_language": "en",
+            "output_language": "fr",
             "pages": ["1-2"],
             "output_format": "plaintext",
             "output_type": "json",
@@ -96,8 +95,7 @@ def test_translate_pdf_text_json_success(monkeypatch: pytest.MonkeyPatch) -> Non
     with PdfRestClient(api_key=VALID_API_KEY, transport=transport) as client:
         response = client.translate_pdf_text(
             input_file,
-            target_language="fr",
-            source_language="en",
+            output_language="fr",
             pages=["1-2"],
             output_format="plaintext",
             output="translation",
@@ -119,7 +117,7 @@ def test_translate_pdf_text_request_customization(
     payload_dump = TranslatePdfTextPayload.model_validate(
         {
             "files": [input_file],
-            "target_language": "es",
+            "output_language": "es",
             "output_type": "file",
         }
     ).model_dump(mode="json", by_alias=True, exclude_none=True, exclude_unset=True)
@@ -151,7 +149,7 @@ def test_translate_pdf_text_request_customization(
     with PdfRestClient(api_key=VALID_API_KEY, transport=transport) as client:
         response = client.translate_pdf_text_to_file(
             input_file,
-            target_language="es",
+            output_language="es",
             extra_query={"trace": "true"},
             extra_headers={"X-Debug": "sync"},
             extra_body={"debug": True},
@@ -177,7 +175,7 @@ async def test_async_translate_pdf_text_success(
     monkeypatch.delenv("PDFREST_API_KEY", raising=False)
     input_file = make_pdf_file(PdfRestFileID.generate(2))
     payload_dump = TranslatePdfTextPayload.model_validate(
-        {"files": [input_file], "target_language": "de", "output_type": "json"}
+        {"files": [input_file], "output_language": "de", "output_type": "json"}
     ).model_dump(mode="json", by_alias=True, exclude_none=True, exclude_unset=True)
 
     seen: dict[str, int] = {"post": 0}
@@ -202,7 +200,7 @@ async def test_async_translate_pdf_text_success(
     async with AsyncPdfRestClient(api_key=ASYNC_API_KEY, transport=transport) as client:
         response = await client.translate_pdf_text(
             input_file,
-            target_language="de",
+            output_language="de",
         )
 
     assert seen == {"post": 1}

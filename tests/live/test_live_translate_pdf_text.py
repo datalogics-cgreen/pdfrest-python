@@ -20,7 +20,7 @@ def test_live_translate_pdf_text_success(
         uploaded = client.files.create_from_paths([resource])[0]
         response = client.translate_pdf_text(
             uploaded,
-            target_language="fr",
+            output_language="fr",
             output_format="plaintext",
         )
 
@@ -42,7 +42,7 @@ def test_live_translate_pdf_text_invalid_output_format(
         with pytest.raises(PdfRestApiError, match="error"):
             client.translate_pdf_text(
                 uploaded,
-                target_language="es",
+                output_language="es",
                 extra_body={"output_format": "invalid-format"},
             )
 
@@ -59,7 +59,7 @@ def test_live_translate_pdf_text_file_success(
         uploaded = client.files.create_from_paths([resource])[0]
         response = client.translate_pdf_text_to_file(
             uploaded,
-            target_language="fr",
+            output_language="fr",
             output_format="plaintext",
         )
 

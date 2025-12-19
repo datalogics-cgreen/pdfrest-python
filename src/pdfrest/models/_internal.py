@@ -439,13 +439,10 @@ class TranslatePdfTextPayload(BaseModel):
         ),
         PlainSerializer(_serialize_as_first_file_id),
     ]
-    target_language: Annotated[
-        str, Field(serialization_alias="target_language", min_length=1)
+    output_language: Annotated[
+        str,
+        Field(serialization_alias="output_language", min_length=1),
     ]
-    source_language: Annotated[
-        str | None,
-        Field(serialization_alias="source_language", min_length=1, default=None),
-    ] = None
     pages: Annotated[
         list[AscendingPageRange] | None,
         Field(serialization_alias="pages", min_length=1, default=None),
