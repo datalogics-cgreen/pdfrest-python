@@ -40,6 +40,14 @@ def test_convert_to_markdown_payload_invalid_page_range() -> None:
         )
 
 
+def test_convert_to_markdown_payload_invalid_page_break_comments() -> None:
+    file_repr = make_pdf_file(PdfRestFileID.generate(1))
+    with pytest.raises(ValidationError, match="Input should be 'on' or 'off'"):
+        ConvertToMarkdownPayload.model_validate(
+            {"files": [file_repr], "page_break_comments": "maybe"}
+        )
+
+
 def test_convert_to_markdown_json_success(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.delenv("PDFREST_API_KEY", raising=False)
     input_file = make_pdf_file(PdfRestFileID.generate(1))
@@ -50,6 +58,7 @@ def test_convert_to_markdown_json_success(monkeypatch: pytest.MonkeyPatch) -> No
             "output": "md",
             "output_type": "json",
             "output_format": "markdown",
+            "page_break_comments": "on",
         }
     ).model_dump(mode="json", by_alias=True, exclude_none=True, exclude_unset=True)
 
@@ -79,6 +88,7 @@ def test_convert_to_markdown_json_success(monkeypatch: pytest.MonkeyPatch) -> No
             output="md",
             output_type="json",
             output_format="markdown",
+            page_break_comments="on",
         )
 
     assert seen == {"post": 1}
@@ -95,7 +105,12 @@ def test_convert_to_markdown_request_customization(
     monkeypatch.delenv("PDFREST_API_KEY", raising=False)
     input_file = make_pdf_file(PdfRestFileID.generate(1))
     payload_dump = ConvertToMarkdownPayload.model_validate(
-        {"files": [input_file], "output_type": "file", "output_format": "markdown"}
+        {
+            "files": [input_file],
+            "output_type": "file",
+            "output_format": "markdown",
+            "page_break_comments": "off",
+        }
     ).model_dump(mode="json", by_alias=True, exclude_none=True, exclude_unset=True)
     output_id = str(PdfRestFileID.generate())
     captured_timeout: dict[str, float | dict[str, float] | None] = {}
@@ -129,6 +144,7 @@ def test_convert_to_markdown_request_customization(
             extra_headers={"X-Debug": "sync"},
             extra_body={"debug": True},
             timeout=0.4,
+            page_break_comments="off",
         )
 
     assert isinstance(response, ConvertToMarkdownResponse)
@@ -151,7 +167,7 @@ async def test_async_convert_to_markdown_success(
     monkeypatch.delenv("PDFREST_API_KEY", raising=False)
     input_file = make_pdf_file(PdfRestFileID.generate(2))
     payload_dump = ConvertToMarkdownPayload.model_validate(
-        {"files": [input_file], "output_type": "json"}
+        {"files": [input_file], "output_type": "json", "page_break_comments": "off"}
     ).model_dump(mode="json", by_alias=True, exclude_none=True, exclude_unset=True)
 
     seen: dict[str, int] = {"post": 0}
@@ -174,7 +190,9 @@ async def test_async_convert_to_markdown_success(
 
     transport = httpx.MockTransport(handler)
     async with AsyncPdfRestClient(api_key=ASYNC_API_KEY, transport=transport) as client:
-        response = await client.convert_to_markdown(input_file, output_type="json")
+        response = await client.convert_to_markdown(
+            input_file, output_type="json", page_break_comments="off"
+        )
 
     assert seen == {"post": 1}
     assert isinstance(response, ConvertToMarkdownResponse)

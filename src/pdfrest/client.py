@@ -2177,6 +2177,7 @@ class PdfRestClient(_SyncApiClient):
         pages: PdfPageSelection | None = None,
         output_type: SummaryOutputType = "json",
         output_format: SummaryOutputFormat = "markdown",
+        page_break_comments: Literal["on", "off"] | None = None,
         output: str | None = None,
         extra_query: Query | None = None,
         extra_headers: AnyMapping | None = None,
@@ -2192,6 +2193,8 @@ class PdfRestClient(_SyncApiClient):
         }
         if pages is not None:
             payload["pages"] = pages
+        if page_break_comments is not None:
+            payload["page_break_comments"] = page_break_comments
         if output is not None:
             payload["output"] = output
 
@@ -3121,6 +3124,7 @@ class AsyncPdfRestClient(_AsyncApiClient):
         pages: PdfPageSelection | None = None,
         output_type: SummaryOutputType = "json",
         output_format: SummaryOutputFormat = "markdown",
+        page_break_comments: Literal["on", "off"] | None = None,
         output: str | None = None,
         extra_query: Query | None = None,
         extra_headers: AnyMapping | None = None,
@@ -3136,6 +3140,8 @@ class AsyncPdfRestClient(_AsyncApiClient):
         }
         if pages is not None:
             payload["pages"] = pages
+        if page_break_comments is not None:
+            payload["page_break_comments"] = page_break_comments
         if output is not None:
             payload["output"] = output
 

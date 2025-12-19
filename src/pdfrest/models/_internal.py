@@ -401,6 +401,10 @@ class ConvertToMarkdownPayload(BaseModel):
         SummaryOutputFormat,
         Field(serialization_alias="output_format", default="markdown"),
     ] = "markdown"
+    page_break_comments: Annotated[
+        Literal["on", "off"] | None,
+        Field(serialization_alias="page_break_comments", default=None),
+    ] = None
     output: Annotated[
         str | None,
         Field(serialization_alias="output", min_length=1, default=None),
