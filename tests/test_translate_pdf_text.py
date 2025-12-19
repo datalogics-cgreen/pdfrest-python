@@ -103,7 +103,7 @@ def test_translate_pdf_text_json_success(monkeypatch: pytest.MonkeyPatch) -> Non
 
     assert seen == {"post": 1}
     assert isinstance(response, TranslatePdfTextResponse)
-    assert response.translation == "Bonjour"
+    assert response.translated_text == "Bonjour"
     assert response.input_id == input_file.id
     assert response.output_id is None
     assert response.output_url is None
@@ -205,5 +205,5 @@ async def test_async_translate_pdf_text_success(
 
     assert seen == {"post": 1}
     assert isinstance(response, TranslatePdfTextResponse)
-    assert response.translation == "Hallo"
+    assert response.translated_text == "Hallo"
     assert response.input_id == input_file.id

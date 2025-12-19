@@ -25,7 +25,7 @@ def test_live_translate_pdf_text_success(
         )
 
     assert isinstance(response, TranslatePdfTextResponse)
-    assert response.translation
+    assert response.translated_text
     assert response.input_id == uploaded.id
 
 

@@ -358,7 +358,7 @@ class TranslatePdfTextResponse(BaseModel):
 
     model_config = ConfigDict(extra="allow")
 
-    translation: Annotated[
+    translated_text: Annotated[
         str | None,
         Field(
             description="Inline translation content when output_type is json.",
