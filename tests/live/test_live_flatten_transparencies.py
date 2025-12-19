@@ -22,7 +22,7 @@ def uploaded_pdf_for_transparencies(
 
 
 @pytest.mark.parametrize(
-    "output_name,quality",
+    ("output_name", "quality"),
     [
         pytest.param(None, "medium", id="default-output"),
         pytest.param("flatten-transparency", "high", id="custom-output-high"),
