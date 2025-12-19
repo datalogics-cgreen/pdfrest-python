@@ -93,6 +93,7 @@ from .models._internal import (
     PdfRedactionApplyPayload,
     PdfRedactionPreviewPayload,
     PdfRestRawFileResponse,
+    PdfFlattenTransparenciesPayload,
     PdfSplitPayload,
     PdfToExcelPayload,
     PdfToPdfxPayload,
@@ -2661,6 +2662,34 @@ class PdfRestClient(_SyncApiClient):
             timeout=timeout,
         )
         
+
+    def flatten_transparencies(
+        self,
+        file: PdfRestFile | Sequence[PdfRestFile],
+        *,
+        output: str | None = None,
+        quality: Literal["low", "medium", "high"] = "medium",
+        extra_query: Query | None = None,
+        extra_headers: AnyMapping | None = None,
+        extra_body: Body | None = None,
+        timeout: TimeoutTypes | None = None,
+    ) -> PdfRestFileBasedResponse:
+        """Flatten transparent objects in a PDF."""
+
+        payload: dict[str, Any] = {"files": file, "quality": quality}
+        if output is not None:
+            payload["output"] = output
+
+        return self._post_file_operation(
+            endpoint="/flattened-transparencies-pdf",
+            payload=payload,
+            payload_model=PdfFlattenTransparenciesPayload,
+            extra_query=extra_query,
+            extra_headers=extra_headers,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
+
     def linearize_pdf(
         self,
         file: PdfRestFile | Sequence[PdfRestFile],
@@ -3561,6 +3590,34 @@ class AsyncPdfRestClient(_AsyncApiClient):
             endpoint="/compressed-pdf",
             payload=payload,
             payload_model=PdfCompressPayload,
+            extra_query=extra_query,
+            extra_headers=extra_headers,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
+        
+
+    async def flatten_transparencies(
+        self,
+        file: PdfRestFile | Sequence[PdfRestFile],
+        *,
+        output: str | None = None,
+        quality: Literal["low", "medium", "high"] = "medium",
+        extra_query: Query | None = None,
+        extra_headers: AnyMapping | None = None,
+        extra_body: Body | None = None,
+        timeout: TimeoutTypes | None = None,
+    ) -> PdfRestFileBasedResponse:
+        """Asynchronously flatten transparent objects in a PDF."""
+
+        payload: dict[str, Any] = {"files": file, "quality": quality}
+        if output is not None:
+            payload["output"] = output
+
+        return await self._post_file_operation(
+            endpoint="/flattened-transparencies-pdf",
+            payload=payload,
+            payload_model=PdfFlattenTransparenciesPayload,
             extra_query=extra_query,
             extra_headers=extra_headers,
             extra_body=extra_body,
