@@ -94,6 +94,7 @@ from .models._internal import (
     PdfRedactionPreviewPayload,
     PdfRestRawFileResponse,
     PdfSplitPayload,
+    PdfToExcelPayload,
     PdfToPdfxPayload,
     PdfToWordPayload,
     PngPdfRestPayload,
@@ -2495,6 +2496,32 @@ class PdfRestClient(_SyncApiClient):
             timeout=timeout,
         )
 
+    def convert_to_excel(
+        self,
+        file: PdfRestFile | Sequence[PdfRestFile],
+        *,
+        output: str | None = None,
+        extra_query: Query | None = None,
+        extra_headers: AnyMapping | None = None,
+        extra_body: Body | None = None,
+        timeout: TimeoutTypes | None = None,
+    ) -> PdfRestFileBasedResponse:
+        """Convert a PDF to an Excel spreadsheet."""
+
+        payload: dict[str, Any] = {"files": file}
+        if output is not None:
+            payload["output"] = output
+
+        return self._post_file_operation(
+            endpoint="/excel",
+            payload=payload,
+            payload_model=PdfToExcelPayload,
+            extra_query=extra_query,
+            extra_headers=extra_headers,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
+
     def convert_to_word(
         self,
         file: PdfRestFile | Sequence[PdfRestFile],
@@ -3317,6 +3344,32 @@ class AsyncPdfRestClient(_AsyncApiClient):
             endpoint="/merged-pdf",
             payload=payload,
             payload_model=PdfMergePayload,
+            extra_query=extra_query,
+            extra_headers=extra_headers,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
+
+    async def convert_to_excel(
+        self,
+        file: PdfRestFile | Sequence[PdfRestFile],
+        *,
+        output: str | None = None,
+        extra_query: Query | None = None,
+        extra_headers: AnyMapping | None = None,
+        extra_body: Body | None = None,
+        timeout: TimeoutTypes | None = None,
+    ) -> PdfRestFileBasedResponse:
+        """Asynchronously convert a PDF to an Excel spreadsheet."""
+
+        payload: dict[str, Any] = {"files": file}
+        if output is not None:
+            payload["output"] = output
+
+        return await self._post_file_operation(
+            endpoint="/excel",
+            payload=payload,
+            payload_model=PdfToExcelPayload,
             extra_query=extra_query,
             extra_headers=extra_headers,
             extra_body=extra_body,
