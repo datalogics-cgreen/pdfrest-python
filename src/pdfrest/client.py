@@ -98,6 +98,7 @@ from .models._internal import (
     PdfToPdfxPayload,
     PdfToPowerpointPayload,
     PdfToWordPayload,
+    PdfXfaToAcroformsPayload,
     PngPdfRestPayload,
     SummarizePdfTextPayload,
     TiffPdfRestPayload,
@@ -2549,6 +2550,32 @@ class PdfRestClient(_SyncApiClient):
             timeout=timeout,
         )
 
+    def convert_xfa_to_acroforms(
+        self,
+        file: PdfRestFile | Sequence[PdfRestFile],
+        *,
+        output: str | None = None,
+        extra_query: Query | None = None,
+        extra_headers: AnyMapping | None = None,
+        extra_body: Body | None = None,
+        timeout: TimeoutTypes | None = None,
+    ) -> PdfRestFileBasedResponse:
+        """Convert an XFA PDF to an AcroForm-enabled PDF."""
+
+        payload: dict[str, Any] = {"files": file}
+        if output is not None:
+            payload["output"] = output
+
+        return self._post_file_operation(
+            endpoint="/pdf-with-acroforms",
+            payload=payload,
+            payload_model=PdfXfaToAcroformsPayload,
+            extra_query=extra_query,
+            extra_headers=extra_headers,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
+
     def convert_to_word(
         self,
         file: PdfRestFile | Sequence[PdfRestFile],
@@ -3423,6 +3450,32 @@ class AsyncPdfRestClient(_AsyncApiClient):
             endpoint="/powerpoint",
             payload=payload,
             payload_model=PdfToPowerpointPayload,
+            extra_query=extra_query,
+            extra_headers=extra_headers,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
+
+    async def convert_xfa_to_acroforms(
+        self,
+        file: PdfRestFile | Sequence[PdfRestFile],
+        *,
+        output: str | None = None,
+        extra_query: Query | None = None,
+        extra_headers: AnyMapping | None = None,
+        extra_body: Body | None = None,
+        timeout: TimeoutTypes | None = None,
+    ) -> PdfRestFileBasedResponse:
+        """Asynchronously convert an XFA PDF to an AcroForm-enabled PDF."""
+
+        payload: dict[str, Any] = {"files": file}
+        if output is not None:
+            payload["output"] = output
+
+        return await self._post_file_operation(
+            endpoint="/pdf-with-acroforms",
+            payload=payload,
+            payload_model=PdfXfaToAcroformsPayload,
             extra_query=extra_query,
             extra_headers=extra_headers,
             extra_body=extra_body,
