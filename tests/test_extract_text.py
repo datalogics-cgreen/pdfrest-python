@@ -42,7 +42,16 @@ def test_extract_text_json_success(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.delenv("PDFREST_API_KEY", raising=False)
     input_file = make_pdf_file(PdfRestFileID.generate(1))
     payload_dump = ExtractTextPayload.model_validate(
-        {"files": [input_file], "pages": ["1-3"], "output": "text"}
+        {
+            "files": [input_file],
+            "pages": ["1-3"],
+            "output": "text",
+            "full_text": "document",
+            "preserve_line_breaks": "off",
+            "word_style": "off",
+            "word_coordinates": "off",
+            "output_type": "json",
+        }
     ).model_dump(mode="json", by_alias=True, exclude_none=True, exclude_unset=True)
 
     seen: dict[str, int] = {"post": 0}
@@ -55,7 +64,7 @@ def test_extract_text_json_success(monkeypatch: pytest.MonkeyPatch) -> None:
             return httpx.Response(
                 200,
                 json={
-                    "text": "Example extracted text",
+                    "fullText": "Example extracted text",
                     "inputId": str(input_file.id),
                 },
             )
@@ -84,7 +93,15 @@ def test_extract_text_request_customization(
     monkeypatch.delenv("PDFREST_API_KEY", raising=False)
     input_file = make_pdf_file(PdfRestFileID.generate(1))
     payload_dump = ExtractTextPayload.model_validate(
-        {"files": [input_file], "output": "file-output"}
+        {
+            "files": [input_file],
+            "output": "file-output",
+            "full_text": "document",
+            "preserve_line_breaks": "off",
+            "word_style": "off",
+            "word_coordinates": "off",
+            "output_type": "json",
+        }
     ).model_dump(mode="json", by_alias=True, exclude_none=True, exclude_unset=True)
     output_id = str(PdfRestFileID.generate())
     captured_timeout: dict[str, float | dict[str, float] | None] = {}
@@ -138,7 +155,14 @@ async def test_async_extract_text_success(
     monkeypatch.delenv("PDFREST_API_KEY", raising=False)
     input_file = make_pdf_file(PdfRestFileID.generate(2))
     payload_dump = ExtractTextPayload.model_validate(
-        {"files": [input_file]}
+        {
+            "files": [input_file],
+            "full_text": "document",
+            "preserve_line_breaks": "off",
+            "word_style": "off",
+            "word_coordinates": "off",
+            "output_type": "json",
+        }
     ).model_dump(mode="json", by_alias=True, exclude_none=True, exclude_unset=True)
 
     seen: dict[str, int] = {"post": 0}
@@ -150,10 +174,7 @@ async def test_async_extract_text_success(
             assert payload == payload_dump
             return httpx.Response(
                 200,
-                json={
-                    "text": "Async text",
-                    "inputId": str(input_file.id),
-                },
+                json={"fullText": "Async text", "inputId": str(input_file.id)},
             )
         msg = f"Unexpected request {request.method} {request.url}"
         raise AssertionError(msg)
