@@ -361,6 +361,8 @@ class TranslatePdfTextResponse(BaseModel):
     translated_text: Annotated[
         str | None,
         Field(
+            alias="translated_text",
+            validation_alias=AliasChoices("translated_text", "translatedText"),
             description="Inline translation content when output_type is json.",
             default=None,
         ),

@@ -84,7 +84,7 @@ def test_translate_pdf_text_json_success(monkeypatch: pytest.MonkeyPatch) -> Non
             return httpx.Response(
                 200,
                 json={
-                    "translation": "Bonjour",
+                    "translated_text": "Bonjour",
                     "inputId": str(input_file.id),
                 },
             )
@@ -189,7 +189,7 @@ async def test_async_translate_pdf_text_success(
             return httpx.Response(
                 200,
                 json={
-                    "translation": "Hallo",
+                    "translated_text": "Hallo",
                     "inputId": str(input_file.id),
                 },
             )
