@@ -72,7 +72,7 @@ def test_extract_text_json_success(monkeypatch: pytest.MonkeyPatch) -> None:
 
     assert seen == {"post": 1}
     assert isinstance(response, ExtractTextResponse)
-    assert response.text == "Example extracted text"
+    assert response.full_text == "Example extracted text"
     assert response.input_id == input_file.id
     assert response.output_id is None
     assert response.output_url is None
@@ -164,5 +164,5 @@ async def test_async_extract_text_success(
 
     assert seen == {"post": 1}
     assert isinstance(response, ExtractTextResponse)
-    assert response.text == "Async text"
+    assert response.full_text == "Async text"
     assert response.input_id == input_file.id
