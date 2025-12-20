@@ -142,6 +142,16 @@ def test_translate_pdf_text_request_customization(
                     "inputId": str(input_file.id),
                 },
             )
+        if request.method == "GET" and request.url.path == f"/resource/{output_id}":
+            assert request.url.params["format"] == "info"
+            assert request.url.params["trace"] == "true"
+            assert request.headers["X-Debug"] == "sync"
+            return httpx.Response(
+                200,
+                json=_make_markdown_file(output_id).model_dump(
+                    mode="json", by_alias=True
+                ),
+            )
         msg = f"Unexpected request {request.method} {request.url}"
         raise AssertionError(msg)
 
