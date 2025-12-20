@@ -2176,7 +2176,6 @@ class PdfRestClient(_SyncApiClient):
         *,
         pages: PdfPageSelection | None = None,
         output_type: SummaryOutputType = "json",
-        output_format: SummaryOutputFormat = "markdown",
         page_break_comments: Literal["on", "off"] | None = None,
         output: str | None = None,
         extra_query: Query | None = None,
@@ -2189,7 +2188,6 @@ class PdfRestClient(_SyncApiClient):
         payload: dict[str, Any] = {
             "files": file,
             "output_type": output_type,
-            "output_format": output_format,
         }
         if pages is not None:
             payload["pages"] = pages
@@ -3127,7 +3125,6 @@ class AsyncPdfRestClient(_AsyncApiClient):
         *,
         pages: PdfPageSelection | None = None,
         output_type: SummaryOutputType = "json",
-        output_format: SummaryOutputFormat = "markdown",
         page_break_comments: Literal["on", "off"] | None = None,
         output: str | None = None,
         extra_query: Query | None = None,
@@ -3140,7 +3137,6 @@ class AsyncPdfRestClient(_AsyncApiClient):
         payload: dict[str, Any] = {
             "files": file,
             "output_type": output_type,
-            "output_format": output_format,
         }
         if pages is not None:
             payload["pages"] = pages

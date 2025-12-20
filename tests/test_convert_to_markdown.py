@@ -57,7 +57,6 @@ def test_convert_to_markdown_json_success(monkeypatch: pytest.MonkeyPatch) -> No
             "pages": ["1-3"],
             "output": "md",
             "output_type": "json",
-            "output_format": "markdown",
             "page_break_comments": "on",
         }
     ).model_dump(mode="json", by_alias=True, exclude_none=True, exclude_unset=True)
@@ -87,7 +86,6 @@ def test_convert_to_markdown_json_success(monkeypatch: pytest.MonkeyPatch) -> No
             pages=["1-3"],
             output="md",
             output_type="json",
-            output_format="markdown",
             page_break_comments="on",
         )
 
@@ -108,7 +106,6 @@ def test_convert_to_markdown_request_customization(
         {
             "files": [input_file],
             "output_type": "file",
-            "output_format": "markdown",
             "page_break_comments": "off",
         }
     ).model_dump(mode="json", by_alias=True, exclude_none=True, exclude_unset=True)

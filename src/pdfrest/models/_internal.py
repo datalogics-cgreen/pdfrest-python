@@ -402,10 +402,6 @@ class ConvertToMarkdownPayload(BaseModel):
     output_type: Annotated[
         SummaryOutputType, Field(serialization_alias="output_type", default="json")
     ] = "json"
-    output_format: Annotated[
-        SummaryOutputFormat,
-        Field(serialization_alias="output_format", default="markdown"),
-    ] = "markdown"
     page_break_comments: Annotated[
         Literal["on", "off"] | None,
         Field(serialization_alias="page_break_comments", default=None),
