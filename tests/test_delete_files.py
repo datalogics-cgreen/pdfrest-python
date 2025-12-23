@@ -6,8 +6,9 @@ import httpx
 import pytest
 from pydantic import ValidationError
 
-from pdfrest import AsyncPdfRestClient, PdfRestClient
-from pdfrest.models import PdfRestDeletionResponse, PdfRestFileID
+from pdfrest import AsyncPdfRestClient, PdfRestClient, PdfRestErrorGroup
+from pdfrest.exceptions import PdfRestDeleteError
+from pdfrest.models import PdfRestFileID
 from pdfrest.models._internal import DeletePayload
 
 from .graphics_test_helpers import ASYNC_API_KEY, VALID_API_KEY, make_pdf_file
@@ -57,11 +58,10 @@ def test_delete_files_success(monkeypatch: pytest.MonkeyPatch) -> None:
 
     transport = httpx.MockTransport(handler)
     with PdfRestClient(api_key=VALID_API_KEY, transport=transport) as client:
-        response = client.files.delete(file_repr)
+        result = client.files.delete(file_repr)
 
     assert seen == {"post": 1}
-    assert isinstance(response, PdfRestDeletionResponse)
-    assert response.deletion_responses[str(file_repr.id)] == "Successfully Deleted"
+    assert result is None
 
 
 def test_delete_files_request_customization(
@@ -92,7 +92,7 @@ def test_delete_files_request_customization(
 
     transport = httpx.MockTransport(handler)
     with PdfRestClient(api_key=VALID_API_KEY, transport=transport) as client:
-        response = client.files.delete(
+        result = client.files.delete(
             file_repr,
             extra_query={"trace": "true"},
             extra_headers={"X-Debug": "sync"},
@@ -100,7 +100,7 @@ def test_delete_files_request_customization(
             timeout=0.3,
         )
 
-    assert isinstance(response, PdfRestDeletionResponse)
+    assert result is None
     timeout_value = captured_timeout["value"]
     assert timeout_value is not None
     if isinstance(timeout_value, dict):
@@ -109,6 +109,74 @@ def test_delete_files_request_customization(
         )
     else:
         assert timeout_value == pytest.approx(0.3)
+
+
+def test_delete_files_raises_error_for_failed_status(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.delenv("PDFREST_API_KEY", raising=False)
+    file_repr = make_pdf_file(PdfRestFileID.generate(1))
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.method == "POST" and request.url.path == "/delete":
+            return httpx.Response(
+                200,
+                json={
+                    "deletionResponses": {
+                        str(file_repr.id): "File could not be deleted",
+                    }
+                },
+            )
+        msg = f"Unexpected request {request.method} {request.url}"
+        raise AssertionError(msg)
+
+    transport = httpx.MockTransport(handler)
+    with (
+        PdfRestClient(api_key=VALID_API_KEY, transport=transport) as client,
+        pytest.raises(PdfRestErrorGroup) as exc_info,
+    ):
+        client.files.delete(file_repr)
+
+    assert len(exc_info.value.exceptions) == 1
+    inner = exc_info.value.exceptions[0]
+    assert isinstance(inner, PdfRestDeleteError)
+    assert inner.file_id == str(file_repr.id)
+    assert "File could not be deleted" in str(inner)
+
+
+def test_delete_files_aggregates_multiple_failures(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.delenv("PDFREST_API_KEY", raising=False)
+    first = make_pdf_file(PdfRestFileID.generate(1))
+    second = make_pdf_file(PdfRestFileID.generate(2))
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.method == "POST" and request.url.path == "/delete":
+            return httpx.Response(
+                200,
+                json={
+                    "deletionResponses": {
+                        str(first.id): "Successfully Deleted",
+                        str(second.id): "Permission denied",
+                    }
+                },
+            )
+        msg = f"Unexpected request {request.method} {request.url}"
+        raise AssertionError(msg)
+
+    transport = httpx.MockTransport(handler)
+    with (
+        PdfRestClient(api_key=VALID_API_KEY, transport=transport) as client,
+        pytest.raises(PdfRestErrorGroup) as exc_info,
+    ):
+        client.files.delete([first, second])
+
+    assert len(exc_info.value.exceptions) == 1
+    inner = exc_info.value.exceptions[0]
+    assert isinstance(inner, PdfRestDeleteError)
+    assert inner.file_id == str(second.id)
+    assert "Permission denied" in str(inner)
 
 
 @pytest.mark.asyncio
@@ -144,8 +212,45 @@ async def test_async_delete_files_success(
         api_key=ASYNC_API_KEY,
         transport=transport,
     ) as client:
-        response = await client.files.delete(file_repr)
+        result = await client.files.delete(file_repr)
 
     assert seen == {"post": 1}
-    assert isinstance(response, PdfRestDeletionResponse)
-    assert response.deletion_responses[str(file_repr.id)] == "Successfully Deleted"
+    assert result is None
+
+
+@pytest.mark.asyncio
+async def test_async_delete_files_raises_error_group(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.delenv("PDFREST_API_KEY", raising=False)
+    first = make_pdf_file(PdfRestFileID.generate(1))
+    second = make_pdf_file(PdfRestFileID.generate(2))
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.method == "POST" and request.url.path == "/delete":
+            return httpx.Response(
+                200,
+                json={
+                    "deletionResponses": {
+                        str(first.id): "Failed dependency",
+                        str(second.id): "Successfully Deleted",
+                    }
+                },
+            )
+        msg = f"Unexpected request {request.method} {request.url}"
+        raise AssertionError(msg)
+
+    transport = httpx.MockTransport(handler)
+    async with AsyncPdfRestClient(
+        api_key=ASYNC_API_KEY,
+        transport=transport,
+    ) as client:
+        with pytest.RaisesGroup(
+            pytest.RaisesExc(
+                PdfRestDeleteError,
+                match=f"Failed to delete file {first.id}.*Failed dependency",
+            ),
+            match="Failed to delete one or more files.",
+            check=lambda eg: isinstance(eg, PdfRestErrorGroup),
+        ):
+            await client.files.delete([first, second])
