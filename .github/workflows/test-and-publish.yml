@@ -106,4 +106,4 @@ jobs:
       - name: Build distribution artifacts
         run: uv build --python 3.11
       - name: Publish package to CodeArtifact
-        run: uv publish --index cit-pypi
+        run: uv publish --publish-url=https://datalogics-304774597385.d.codeartifact.us-east-2.amazonaws.com/pypi/cit-pypi/ --username __token__

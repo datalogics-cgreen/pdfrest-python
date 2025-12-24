@@ -107,9 +107,3 @@ trailing_comma_inline_array = true
 keyring-provider = "subprocess"
 no-build = true
 no-binary-package = ["pdfrest"]
-
-[[tool.uv.index]]
-name = "cit-pypi"
-url = "https://aws@datalogics-304774597385.d.codeartifact.us-east-2.amazonaws.com/pypi/cit-pypi/simple/"
-publish-url = "https://aws@datalogics-304774597385.d.codeartifact.us-east-2.amazonaws.com/pypi/cit-pypi/"
-username = "__token__"
