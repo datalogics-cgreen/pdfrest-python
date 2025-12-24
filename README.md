@@ -3,6 +3,13 @@
 Python client library for the PDFRest service. The project is managed with
 [uv](https://docs.astral.sh/uv/) and targets Python 3.9 and newer.
 
+## Running examples
+
+```bash
+uvx nox -s examples
+uv run nox -s run-example -- examples/delete/delete_example.py
+```
+
 ## Getting started
 
 ```bash
