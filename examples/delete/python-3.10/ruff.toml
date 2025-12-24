@@ -1,0 +1,4 @@
+# Extend the `ruff.toml` file in the examples directory...
+
+extend = "../../ruff.toml"
+target-version = "py310"

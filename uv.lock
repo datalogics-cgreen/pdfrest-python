@@ -618,6 +618,7 @@ dev = [
     { name = "pytest-md" },
     { name = "pytest-rerunfailures" },
     { name = "pytest-xdist" },
+    { name = "python-dotenv" },
     { name = "ruff" },
 ]
 
@@ -642,6 +643,7 @@ dev = [
     { name = "pytest-md", specifier = ">=0.2.0" },
     { name = "pytest-rerunfailures", specifier = ">=16.0.1" },
     { name = "pytest-xdist", specifier = ">=3.8.0" },
+    { name = "python-dotenv", specifier = ">=1.0.1" },
     { name = "ruff", specifier = ">=0.6.9" },
 ]
 
