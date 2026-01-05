@@ -23,6 +23,10 @@
       "root": "src"
     },
     {
+      "root": "examples",
+      "pythonVersion": "3.11"
+    },
+    {
       "root": "tests",
       "reportUnknownLambdaType": "none",
       "reportUnknownMemberType": "none",

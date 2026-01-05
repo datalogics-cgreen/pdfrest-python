@@ -138,10 +138,20 @@
 - Write pytest tests: files named `test_*.py`, test functions `test_*`, fixtures
   in `conftest.py` where shared.
 
+- Follow ruff’s SIM117 rule: when combining context managers (e.g., a client and
+  `pytest.RaisesGroup`), use a single `with (...)` statement instead of nesting
+  them to keep tests idiomatic and lint-clean.
+
 - Cover both client transports in every new test module (unit and live suites):
   add distinct test cases (not parameterized branches) that exercise each
   assertion through `PdfRestClient` and `AsyncPdfRestClient` so sync/async
   behaviour stays independently verifiable.
+
+- When endpoints may raise `PdfRestErrorGroup` (or any future pdfRest-specific
+  exception groups), assert them with `pytest.RaisesGroup`/`pytest.RaisesExc`,
+  and use the `check=` hook to confirm the outer group is the expected class so
+  each inner error is validated individually rather than matching the group
+  message alone.
 
 - Ensure high-value coverage of public functions and edge cases; document intent
   in test docstrings when non-obvious.

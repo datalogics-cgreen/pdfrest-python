@@ -8,6 +8,7 @@ authors = [
 ]
 requires-python = ">=3.10"
 dependencies = [
+    "exceptiongroup>=1.3.0",
     "httpx>=0.28.1",
     "pydantic>=2.12.0",
 ]
@@ -31,6 +32,7 @@ dev = [
     "pytest-xdist>=3.8.0",
     "nox>=2025.5.1",
     "basedpyright>=1.34.0",
+    "python-dotenv>=1.0.1",
 ]
 
 [tool.pytest.ini_options]
@@ -105,9 +107,3 @@ trailing_comma_inline_array = true
 keyring-provider = "subprocess"
 no-build = true
 no-binary-package = ["pdfrest"]
-
-[[tool.uv.index]]
-name = "cit-pypi"
-url = "https://aws@datalogics-304774597385.d.codeartifact.us-east-2.amazonaws.com/pypi/cit-pypi/simple/"
-publish-url = "https://aws@datalogics-304774597385.d.codeartifact.us-east-2.amazonaws.com/pypi/cit-pypi/"
-username = "__token__"

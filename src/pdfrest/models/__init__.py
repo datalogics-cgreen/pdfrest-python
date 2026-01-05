@@ -1,4 +1,5 @@
 from .public import (
+    PdfRestDeletionResponse,
     PdfRestErrorResponse,
     PdfRestFile,
     PdfRestFileBasedResponse,
@@ -8,6 +9,7 @@ from .public import (
 )
 
 __all__ = [
+    "PdfRestDeletionResponse",
     "PdfRestErrorResponse",
     "PdfRestFile",
     "PdfRestFileBasedResponse",

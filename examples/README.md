@@ -1,0 +1,20 @@
+# Examples
+
+Each example script includes [PEP 723](https://peps.python.org/pep-0723/)
+metadata so `uv` can create a disposable environment and install the script's
+dependencies without touching the project-wide virtualenv. Run them directly
+with `uv run` instead of relying on `--project` mode:
+
+```bash
+# Default (Python 3.11+)
+uv run examples/delete/delete_example.py
+
+# Version-specific overrides
+uv run --python 3.10 examples/delete/python-3.10/delete_example.py
+```
+
+The commands above read `PDFREST_API_KEY` from your environment (you can manage
+that via `.env` if desired), upload the checked-in sample assets under
+`examples/resources/`, and exercise the async client end-to-end. Use
+`uvx nox -s examples` when you want to execute every example across the
+supported interpreter matrix.

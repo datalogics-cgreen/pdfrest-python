@@ -2,23 +2,31 @@
 
 from __future__ import annotations
 
-from typing import Any
+from collections.abc import Sequence
+from typing import TYPE_CHECKING, Any
 
 import httpx
 from typing_extensions import override
+
+if TYPE_CHECKING:  # pragma: no cover
+    from .models import PdfRestFileID
 
 __all__ = (
     "PdfRestApiError",
     "PdfRestAuthenticationError",
     "PdfRestConfigurationError",
     "PdfRestConnectTimeoutError",
+    "PdfRestDeleteError",
     "PdfRestError",
+    "PdfRestErrorGroup",
     "PdfRestPoolTimeoutError",
     "PdfRestRequestError",
     "PdfRestTimeoutError",
     "PdfRestTransportError",
     "translate_httpx_error",
 )
+
+from exceptiongroup import ExceptionGroup
 
 
 class PdfRestError(Exception):
@@ -76,6 +84,27 @@ class PdfRestApiError(PdfRestError):
 
 class PdfRestAuthenticationError(PdfRestApiError):
     """Raised when authentication with the pdfRest API fails."""
+
+
+class PdfRestDeleteError(PdfRestError):
+    """Raised when an individual file cannot be deleted."""
+
+    def __init__(self, file_id: PdfRestFileID | str, message: str) -> None:
+        self.file_id = str(file_id)
+        self.detail = message
+        super().__init__(f"Failed to delete file {self.file_id}: {message}")
+
+
+class PdfRestErrorGroup(ExceptionGroup):
+    """Group of PdfRestError exceptions produced by the PDF REST library."""
+
+    def __init__(self, message: str, exceptions: Sequence[Exception], /) -> None:
+        # enforce that everything inside is from your library
+        for e in exceptions:
+            if not isinstance(e, PdfRestError):
+                msg = f"PdfRestErrorGroup may only contain PdfRestError instances, got {type(e)}"
+                raise TypeError(msg)
+        super().__init__(message, list(exceptions))
 
 
 def translate_httpx_error(exc: httpx.HTTPError) -> PdfRestError:

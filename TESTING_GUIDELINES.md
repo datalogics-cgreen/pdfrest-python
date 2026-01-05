@@ -222,10 +222,16 @@ iteration required.
   - Local validation failures (`ValidationError`, `ValueError`) that should
     prevent HTTP calls.
   - Server/transport failures (`PdfRestApiError`, `PdfRestAuthenticationError`,
-    `PdfRestTimeoutError`, `PdfRestTransportError`).
+    `PdfRestTimeoutError`, `PdfRestTransportError`, `PdfRestErrorGroup`, etc.).
 - When behaviour should short-circuit locally (bad UUIDs, empty query lists,
   missing profiles), configure the transport to raise if invoked so the test
   proves no HTTP request occurs.
+- When endpoints intentionally raise pdfRest-specific `ExceptionGroup`
+  subclasses (such as `PdfRestErrorGroup` produced by delete failures), capture
+  them with `pytest.RaisesGroup`/`pytest.RaisesExc`, and use the `check=` hook
+  to assert the aggregate is the expected group class. This verifies both the
+  group message and each individual member (`PdfRestDeleteError`, future custom
+  errors) instead of relying on the aggregate text alone.
 
 ## Additional Expectations
 

@@ -19,7 +19,15 @@ from pydantic.json_schema import JsonSchemaValue
 from pydantic_core import CoreSchema
 from typing_extensions import override
 
-__all__ = ("PdfRestErrorResponse", "PdfRestFile", "PdfRestFileID", "UpResponse")
+__all__ = (
+    "PdfRestDeletionResponse",
+    "PdfRestErrorResponse",
+    "PdfRestFile",
+    "PdfRestFileBasedResponse",
+    "PdfRestFileID",
+    "PdfRestInfoResponse",
+    "UpResponse",
+)
 
 
 class PdfRestFileID(str):
@@ -286,6 +294,22 @@ class PdfRestFileBasedResponse(BaseModel):
         else:
             msg = "multiple output files were returned by the pdfRest operation"
         raise ValueError(msg)
+
+
+class PdfRestDeletionResponse(BaseModel):
+    """Response returned by the delete tool."""
+
+    model_config = ConfigDict(extra="allow")
+
+    deletion_responses: Annotated[
+        dict[PdfRestFileID, str],
+        Field(
+            alias="deletionResponses",
+            validation_alias=AliasChoices("deletion_responses", "deletionResponses"),
+            description="Mapping of file ids to deletion results.",
+            min_length=1,
+        ),
+    ]
 
 
 class PdfRestInfoResponse(BaseModel):

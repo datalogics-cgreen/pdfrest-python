@@ -29,7 +29,7 @@ jobs:
       - name: Install uv
         uses: astral-sh/setup-uv@v6
         with:
-          version: 0.8.22
+          version: 0.9.18
           python-version: ${{ matrix.python-version }}
           enable-cache: true
           cache-suffix: test-and-publish
@@ -39,9 +39,38 @@ jobs:
         env:
           PDFREST_API_KEY: ${{ secrets.PDFREST_API_KEY }}
 
+  examples:
+    name: Examples (Python ${{ matrix.python-version }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.10", "3.11", "3.12", "3.13", "3.14"]
+    permissions:
+      id-token: write
+      contents: read
+      packages: write
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6
+        with:
+          version: 0.9.18
+          python-version: ${{ matrix.python-version }}
+          enable-cache: true
+          cache-suffix: test-and-publish
+          cache-dependency-glob: uv.lock
+      - name: Run examples with nox
+        run: uvx nox --python ${{ matrix.python-version }} --session examples
+        env:
+          PDFREST_API_KEY: ${{ secrets.PDFREST_API_KEY }}
+
   publish:
     name: Publish to CodeArtifact
-    needs: tests
+    needs:
+      - tests
+      - examples
     if: github.event_name == 'release'
     runs-on: ubuntu-latest
     permissions:
@@ -60,7 +89,7 @@ jobs:
       - name: Install uv
         uses: astral-sh/setup-uv@v6
         with:
-          version: 0.8.22
+          version: 0.9.18
           enable-cache: true
           cache-suffix: pre-commit
           cache-dependency-glob: uv.lock
@@ -77,4 +106,4 @@ jobs:
       - name: Build distribution artifacts
         run: uv build --python 3.11
       - name: Publish package to CodeArtifact
-        run: uv publish --index cit-pypi
+        run: uv publish --publish-url=https://datalogics-304774597385.d.codeartifact.us-east-2.amazonaws.com/pypi/cit-pypi/ --username __token__

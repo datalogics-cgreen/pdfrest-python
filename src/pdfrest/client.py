@@ -50,7 +50,9 @@ from .exceptions import (
     PdfRestAuthenticationError,
     PdfRestConfigurationError,
     PdfRestConnectTimeoutError,
+    PdfRestDeleteError,
     PdfRestError,
+    PdfRestErrorGroup,
     PdfRestPoolTimeoutError,
     PdfRestRequestError,
     PdfRestTimeoutError,
@@ -58,6 +60,7 @@ from .exceptions import (
     translate_httpx_error,
 )
 from .models import (
+    PdfRestDeletionResponse,
     PdfRestErrorResponse,
     PdfRestFile,
     PdfRestFileBasedResponse,
@@ -71,6 +74,7 @@ __all__ = ("AsyncPdfRestClient", "PdfRestClient")
 from .models._internal import (
     BasePdfRestGraphicPayload,
     BmpPdfRestPayload,
+    DeletePayload,
     GifPdfRestPayload,
     JpegPdfRestPayload,
     PdfCompressPayload,
@@ -109,6 +113,7 @@ INITIAL_BACKOFF_SECONDS = 0.5
 MAX_BACKOFF_SECONDS = 8.0
 BACKOFF_JITTER_SECONDS = 0.1
 RETRYABLE_STATUS_CODES = {408, 425, 429, 499}
+_SUCCESSFUL_DELETION_MESSAGE = "successfully deleted"
 
 
 HttpMethod = Literal["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS", "HEAD"]
@@ -223,6 +228,20 @@ def _extract_uploaded_file_ids(payload: Any) -> list[str]:
             )
         file_ids.append(str(entry["id"]))
     return file_ids
+
+
+def _handle_deletion_failures(response: PdfRestDeletionResponse) -> None:
+    failures: list[PdfRestDeleteError] = []
+    for file_id, result in response.deletion_responses.items():
+        normalized_result = result.strip().lower()
+        if normalized_result != _SUCCESSFUL_DELETION_MESSAGE:
+            failures.append(PdfRestDeleteError(file_id, result))
+    if failures:
+        msg = "Failed to delete one or more files."
+        raise PdfRestErrorGroup(
+            msg,
+            failures,
+        )
 
 
 def _normalize_headers(headers: Mapping[str, str]) -> Mapping[str, str]:
@@ -1543,6 +1562,34 @@ class _FilesClient:
             for file_id in file_ids
         ]
 
+    def delete(
+        self,
+        files: PdfRestFile | Sequence[PdfRestFile],
+        *,
+        extra_query: Query | None = None,
+        extra_headers: AnyMapping | None = None,
+        extra_body: Body | None = None,
+        timeout: TimeoutTypes | None = None,
+    ) -> None:
+        """Delete one or more uploaded files by reference."""
+
+        payload = DeletePayload.model_validate({"files": files})
+        request = self._client.prepare_request(
+            "POST",
+            "/delete",
+            json_body=payload.model_dump(
+                mode="json", by_alias=True, exclude_none=True, exclude_unset=True
+            ),
+            extra_query=extra_query,
+            extra_headers=extra_headers,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
+        raw_payload = self._client.send_request(request)
+        deletion_response = PdfRestDeletionResponse.model_validate(raw_payload)
+        _handle_deletion_failures(deletion_response)
+        return
+
     def read_bytes(
         self,
         file_ref: PdfRestFile | str,
@@ -1816,6 +1863,34 @@ class _AsyncFilesClient:
                 )
 
         return await asyncio.gather(*(fetch(file_id) for file_id in file_ids))
+
+    async def delete(
+        self,
+        files: PdfRestFile | Sequence[PdfRestFile],
+        *,
+        extra_query: Query | None = None,
+        extra_headers: AnyMapping | None = None,
+        extra_body: Body | None = None,
+        timeout: TimeoutTypes | None = None,
+    ) -> None:
+        """Delete one or more uploaded files by reference."""
+
+        payload = DeletePayload.model_validate({"files": files})
+        request = self._client.prepare_request(
+            "POST",
+            "/delete",
+            json_body=payload.model_dump(
+                mode="json", by_alias=True, exclude_none=True, exclude_unset=True
+            ),
+            extra_query=extra_query,
+            extra_headers=extra_headers,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
+        raw_payload = await self._client.send_request(request)
+        deletion_response = PdfRestDeletionResponse.model_validate(raw_payload)
+        _handle_deletion_failures(deletion_response)
+        return
 
     async def read_bytes(
         self,
