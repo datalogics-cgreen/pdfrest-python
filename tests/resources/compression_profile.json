@@ -1,0 +1,83 @@
+{
+  "images": {
+    "color": {
+      "downsample": {
+        "trigger-dpi": 225,
+        "target-dpi": 150
+      },
+      "recompress": {
+        "type": "jpeg",
+        "quality": "medium"
+      }
+    },
+    "grayscale": {
+      "downsample": {
+        "trigger-dpi": 220,
+        "target-dpi": 150
+      },
+      "recompress": {
+        "type": "jpeg",
+        "quality": "medium"
+      }
+    },
+    "monochrome": {
+      "downsample": {
+        "trigger-dpi": 400,
+        "target-dpi": 300
+      },
+      "recompress": {
+        "type": "jbig2",
+        "quality": "lossy"
+      }
+    },
+    "optimize-images-only-if-reduction-in-size": "on",
+    "consolidate-duplicate-image-and-forms": "on",
+    "down-convert-16-to-8-bpc-images": "on"
+  },
+  "fonts": {
+    "subset-embedded-fonts": "on",
+    "consolidate-duplicate-fonts": "on",
+    "unembed-standard-14-fonts": "on",
+    "resubset-subset-fonts": "off",
+    "remove-unused-fonts": "on"
+  },
+  "objects": {
+    "discard-javascript-actions": "off",
+    "discard-alternate-images": "on",
+    "discard-thumbnails": "off",
+    "discard-document-tags": "off",
+    "discard-bookmarks": "off",
+    "discard-output-intent": "off"
+  },
+  "userdata": {
+    "discard-comments-forms-multimedia": "off",
+    "discard-xmp-metadata-padding": "off",
+    "discard-document-information-and-metadata": "off",
+    "discard-file-attachments": "off",
+    "discard-private-data": "off",
+    "discard-hidden-layer-content": "off"
+  },
+  "cleanup": {
+    "compression": "compress-entire-file",
+    "flate-encode-uncompressed-streams": "on",
+    "convert-lzw-to-flate": "on",
+    "optimize-page-content": "on",
+    "optimize-for-fast-web-view": "on"
+  },
+  "general": {
+    "write-output-even-if-increase-in-size": "off",
+    "preserve-version": "off"
+  },
+  "color-conversion": {
+    "enabled": "off",
+    "color-convert-action": "convert",
+    "convert-intent": "profile-intent",
+    "convert-profile": "acrobat9-cmyk"
+  },
+  "pdfa-conversion": {
+    "enabled": "off",
+    "type": "1b",
+    "pdfa-target-color-space": "rgb",
+    "rasterize-if-errors-encountered": "off"
+  }
+}

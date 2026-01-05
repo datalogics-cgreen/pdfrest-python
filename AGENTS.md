@@ -138,6 +138,11 @@
 - Write pytest tests: files named `test_*.py`, test functions `test_*`, fixtures
   in `conftest.py` where shared.
 
+- Cover both client transports in every new test module (unit and live suites):
+  add distinct test cases (not parameterized branches) that exercise each
+  assertion through `PdfRestClient` and `AsyncPdfRestClient` so sync/async
+  behaviour stays independently verifiable.
+
 - Ensure high-value coverage of public functions and edge cases; document intent
   in test docstrings when non-obvious.
 

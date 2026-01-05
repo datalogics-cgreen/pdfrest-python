@@ -549,6 +549,64 @@ class PdfFlattenFormsPayload(BaseModel):
     ] = None
 
 
+class PdfCompressPayload(BaseModel):
+    """Adapt caller options into a pdfRest-ready compress request payload."""
+
+    files: Annotated[
+        list[PdfRestFile],
+        Field(
+            min_length=1,
+            max_length=1,
+            validation_alias=AliasChoices("file", "files"),
+            serialization_alias="id",
+        ),
+        BeforeValidator(_ensure_list),
+        AfterValidator(
+            _allowed_mime_types("application/pdf", error_msg="Must be a PDF file")
+        ),
+        PlainSerializer(_serialize_as_first_file_id),
+    ]
+    compression_level: Annotated[
+        Literal["low", "medium", "high", "custom"],
+        Field(serialization_alias="compression_level"),
+    ]
+    profile: Annotated[
+        list[PdfRestFile] | None,
+        Field(
+            default=None,
+            min_length=1,
+            max_length=1,
+            validation_alias=AliasChoices("profile", "profiles"),
+            serialization_alias="profile_id",
+        ),
+        BeforeValidator(_ensure_list),
+        BeforeValidator(
+            _allowed_mime_types(
+                "application/json",
+                "text/json",
+                error_msg="Profile must be a JSON file",
+            )
+        ),
+        PlainSerializer(_serialize_as_first_file_id),
+    ] = None
+    output: Annotated[
+        str | None,
+        Field(serialization_alias="output", min_length=1, default=None),
+        AfterValidator(_validate_output_prefix),
+    ] = None
+
+    @model_validator(mode="after")
+    def _validate_profile_dependency(self) -> PdfCompressPayload:
+        if self.compression_level == "custom":
+            if not self.profile:
+                msg = "compression_level 'custom' requires a profile to be provided."
+                raise ValueError(msg)
+        elif self.profile:
+            msg = "A profile can only be provided when compression_level is 'custom'."
+            raise ValueError(msg)
+        return self
+
+
 class BmpPdfRestPayload(BasePdfRestGraphicPayload[Literal["rgb", "gray"]]):
     """Adapt caller options into a pdfRest-ready BMP request payload."""
 
@@ -624,13 +682,6 @@ class PdfRestRawFileResponse(BaseModel):
             description="A warning that was generated during the pdfRest operation",
         ),
     ] = None
-
-    @model_validator(mode="after")
-    def _check_output_id_or_files(self) -> Any:
-        if self.output_ids is None and self.files is None:
-            msg = "output_id or files must be specified"
-            raise ValueError(msg)
-        return self
 
     @property
     def ids(self) -> list[PdfRestFileID] | None:
