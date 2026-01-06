@@ -60,9 +60,9 @@ from .exceptions import (
     translate_httpx_error,
 )
 from .models import (
-    PdfRestDeletionResponse,
     ConvertToMarkdownResponse,
     ExtractTextResponse,
+    PdfRestDeletionResponse,
     PdfRestErrorResponse,
     PdfRestFile,
     PdfRestFileBasedResponse,
@@ -78,14 +78,14 @@ __all__ = ("AsyncPdfRestClient", "PdfRestClient")
 from .models._internal import (
     BasePdfRestGraphicPayload,
     BmpPdfRestPayload,
-    DeletePayload,
     ConvertToMarkdownPayload,
+    DeletePayload,
     ExtractImagesPayload,
     ExtractTextPayload,
     GifPdfRestPayload,
     JpegPdfRestPayload,
-    PdfCompressPayload,
     OcrPdfPayload,
+    PdfCompressPayload,
     PdfFlattenAnnotationsPayload,
     PdfFlattenFormsPayload,
     PdfFlattenTransparenciesPayload,
@@ -2134,21 +2134,24 @@ class PdfRestClient(_SyncApiClient):
         summary_format: SummaryFormat = "overview",
         pages: PdfPageSelection | None = None,
         output_format: SummaryOutputFormat = "markdown",
-        output_type: SummaryOutputType = "json",
         output: str | None = None,
         extra_query: Query | None = None,
         extra_headers: AnyMapping | None = None,
         extra_body: Body | None = None,
         timeout: TimeoutTypes | None = None,
     ) -> SummarizePdfTextResponse:
-        """Summarize the textual content of a PDF, Markdown, or text document."""
+        """Summarize the textual content of a PDF, Markdown, or text document.
+
+        Always requests JSON output and returns the inline summary response defined in
+        the pdfRest API reference.
+        """
 
         payload: dict[str, Any] = {
             "files": file,
             "target_word_count": target_word_count,
             "summary_format": summary_format,
             "output_format": output_format,
-            "output_type": output_type,
+            "output_type": "json",
         }
         if pages is not None:
             payload["pages"] = pages
@@ -2169,6 +2172,44 @@ class PdfRestClient(_SyncApiClient):
         )
         raw_payload = self._send_request(request)
         return SummarizePdfTextResponse.model_validate(raw_payload)
+
+    def summarize_pdf_text_to_file(
+        self,
+        file: PdfRestFile | Sequence[PdfRestFile],
+        *,
+        target_word_count: int | None = 400,
+        summary_format: SummaryFormat = "overview",
+        pages: PdfPageSelection | None = None,
+        output_format: SummaryOutputFormat = "markdown",
+        output: str | None = None,
+        extra_query: Query | None = None,
+        extra_headers: AnyMapping | None = None,
+        extra_body: Body | None = None,
+        timeout: TimeoutTypes | None = None,
+    ) -> PdfRestFileBasedResponse:
+        """Summarize a document and return the result as a downloadable file."""
+
+        payload: dict[str, Any] = {
+            "files": file,
+            "target_word_count": target_word_count,
+            "summary_format": summary_format,
+            "output_format": output_format,
+            "output_type": "file",
+        }
+        if pages is not None:
+            payload["pages"] = pages
+        if output is not None:
+            payload["output"] = output
+
+        return self._post_file_operation(
+            endpoint="/summarized-pdf-text",
+            payload=payload,
+            payload_model=SummarizePdfTextPayload,
+            extra_query=extra_query,
+            extra_headers=extra_headers,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
 
     def convert_to_markdown(
         self,
@@ -2668,7 +2709,6 @@ class PdfRestClient(_SyncApiClient):
             extra_body=extra_body,
             timeout=timeout,
         )
-        
 
     def flatten_transparencies(
         self,
@@ -3083,21 +3123,24 @@ class AsyncPdfRestClient(_AsyncApiClient):
         summary_format: SummaryFormat = "overview",
         pages: PdfPageSelection | None = None,
         output_format: SummaryOutputFormat = "markdown",
-        output_type: SummaryOutputType = "json",
         output: str | None = None,
         extra_query: Query | None = None,
         extra_headers: AnyMapping | None = None,
         extra_body: Body | None = None,
         timeout: TimeoutTypes | None = None,
     ) -> SummarizePdfTextResponse:
-        """Summarize the textual content of a PDF, Markdown, or text document."""
+        """Summarize the textual content of a PDF, Markdown, or text document.
+
+        Always requests JSON output and returns the inline summary response defined in
+        the pdfRest API reference.
+        """
 
         payload: dict[str, Any] = {
             "files": file,
             "target_word_count": target_word_count,
             "summary_format": summary_format,
             "output_format": output_format,
-            "output_type": output_type,
+            "output_type": "json",
         }
         if pages is not None:
             payload["pages"] = pages
@@ -3118,6 +3161,44 @@ class AsyncPdfRestClient(_AsyncApiClient):
         )
         raw_payload = await self._send_request(request)
         return SummarizePdfTextResponse.model_validate(raw_payload)
+
+    async def summarize_pdf_text_to_file(
+        self,
+        file: PdfRestFile | Sequence[PdfRestFile],
+        *,
+        target_word_count: int | None = 400,
+        summary_format: SummaryFormat = "overview",
+        pages: PdfPageSelection | None = None,
+        output_format: SummaryOutputFormat = "markdown",
+        output: str | None = None,
+        extra_query: Query | None = None,
+        extra_headers: AnyMapping | None = None,
+        extra_body: Body | None = None,
+        timeout: TimeoutTypes | None = None,
+    ) -> PdfRestFileBasedResponse:
+        """Summarize a document and return the result as a downloadable file."""
+
+        payload: dict[str, Any] = {
+            "files": file,
+            "target_word_count": target_word_count,
+            "summary_format": summary_format,
+            "output_format": output_format,
+            "output_type": "file",
+        }
+        if pages is not None:
+            payload["pages"] = pages
+        if output is not None:
+            payload["output"] = output
+
+        return await self._post_file_operation(
+            endpoint="/summarized-pdf-text",
+            payload=payload,
+            payload_model=SummarizePdfTextPayload,
+            extra_query=extra_query,
+            extra_headers=extra_headers,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
 
     async def convert_to_markdown(
         self,
@@ -3659,7 +3740,6 @@ class AsyncPdfRestClient(_AsyncApiClient):
             extra_body=extra_body,
             timeout=timeout,
         )
-        
 
     async def flatten_transparencies(
         self,
@@ -3687,7 +3767,7 @@ class AsyncPdfRestClient(_AsyncApiClient):
             extra_body=extra_body,
             timeout=timeout,
         )
-        
+
     async def linearize_pdf(
         self,
         file: PdfRestFile | Sequence[PdfRestFile],
