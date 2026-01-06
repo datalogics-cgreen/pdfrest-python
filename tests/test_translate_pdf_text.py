@@ -9,8 +9,8 @@ from pydantic import ValidationError
 from pdfrest import AsyncPdfRestClient, PdfRestClient
 from pdfrest.models import (
     PdfRestFile,
-    PdfRestFileBasedResponse,
     PdfRestFileID,
+    TranslatePdfTextFileResponse,
     TranslatePdfTextResponse,
 )
 from pdfrest.models._internal import TranslatePdfTextPayload
@@ -86,6 +86,8 @@ def test_translate_pdf_text_json_success(monkeypatch: pytest.MonkeyPatch) -> Non
                 json={
                     "translated_text": "Bonjour",
                     "inputId": str(input_file.id),
+                    "source_languages": ["en"],
+                    "output_language": "fr",
                 },
             )
         msg = f"Unexpected request {request.method} {request.url}"
@@ -104,6 +106,8 @@ def test_translate_pdf_text_json_success(monkeypatch: pytest.MonkeyPatch) -> Non
     assert seen == {"post": 1}
     assert isinstance(response, TranslatePdfTextResponse)
     assert response.translated_text == "Bonjour"
+    assert response.source_languages == ["en"]
+    assert response.output_language == "fr"
     assert response.input_id == input_file.id
     assert response.output_id is None
     assert response.output_url is None
@@ -140,6 +144,8 @@ def test_translate_pdf_text_request_customization(
                     "outputUrl": f"https://api.pdfrest.com/resource/{output_id}?format=file",
                     "outputId": output_id,
                     "inputId": str(input_file.id),
+                    "source_languages": ["en"],
+                    "output_language": "es",
                 },
             )
         if request.method == "GET" and request.url.path == f"/resource/{output_id}":
@@ -166,8 +172,10 @@ def test_translate_pdf_text_request_customization(
             timeout=0.3,
         )
 
-    assert isinstance(response, PdfRestFileBasedResponse)
+    assert isinstance(response, TranslatePdfTextFileResponse)
     assert response.output_file.id == output_id
+    assert response.output_language == "es"
+    assert response.source_languages == ["en"]
     timeout_value = captured_timeout["value"]
     assert timeout_value is not None
     if isinstance(timeout_value, dict):
@@ -201,6 +209,8 @@ async def test_async_translate_pdf_text_success(
                 json={
                     "translated_text": "Hallo",
                     "inputId": str(input_file.id),
+                    "source_languages": ["en"],
+                    "output_language": "de",
                 },
             )
         msg = f"Unexpected request {request.method} {request.url}"
@@ -216,4 +226,6 @@ async def test_async_translate_pdf_text_success(
     assert seen == {"post": 1}
     assert isinstance(response, TranslatePdfTextResponse)
     assert response.translated_text == "Hallo"
+    assert response.source_languages == ["en"]
+    assert response.output_language == "de"
     assert response.input_id == input_file.id

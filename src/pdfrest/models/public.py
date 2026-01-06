@@ -29,6 +29,7 @@ __all__ = (
     "PdfRestFileID",
     "PdfRestInfoResponse",
     "SummarizePdfTextResponse",
+    "TranslatePdfTextFileResponse",
     "TranslatePdfTextResponse",
     "UpResponse",
 )
@@ -360,6 +361,24 @@ class TranslatePdfTextResponse(BaseModel):
 
     model_config = ConfigDict(extra="allow")
 
+    source_languages: Annotated[
+        list[str] | None,
+        Field(
+            alias="source_languages",
+            validation_alias=AliasChoices("source_languages", "sourceLanguages"),
+            description="Languages detected in the source content.",
+            default=None,
+        ),
+    ] = None
+    output_language: Annotated[
+        str | None,
+        Field(
+            alias="output_language",
+            validation_alias=AliasChoices("output_language", "outputLanguage"),
+            description="Target language used for the translation.",
+            default=None,
+        ),
+    ] = None
     translated_text: Annotated[
         str | None,
         Field(
@@ -391,6 +410,31 @@ class TranslatePdfTextResponse(BaseModel):
             alias="outputId",
             validation_alias=AliasChoices("output_id", "outputId"),
             description="The id of the generated output when output_type is file.",
+            default=None,
+        ),
+    ] = None
+
+
+class TranslatePdfTextFileResponse(PdfRestFileBasedResponse):
+    """File-based response returned by the translated-pdf-text tool."""
+
+    model_config = ConfigDict(extra="allow")
+
+    source_languages: Annotated[
+        list[str] | None,
+        Field(
+            alias="source_languages",
+            validation_alias=AliasChoices("source_languages", "sourceLanguages"),
+            description="Languages detected in the source content.",
+            default=None,
+        ),
+    ] = None
+    output_language: Annotated[
+        str | None,
+        Field(
+            alias="output_language",
+            validation_alias=AliasChoices("output_language", "outputLanguage"),
+            description="Target language used for the translation.",
             default=None,
         ),
     ] = None

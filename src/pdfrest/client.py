@@ -69,12 +69,10 @@ from .models import (
     PdfRestFileID,
     PdfRestInfoResponse,
     SummarizePdfTextResponse,
+    TranslatePdfTextFileResponse,
     TranslatePdfTextResponse,
     UpResponse,
 )
-
-__all__ = ("AsyncPdfRestClient", "PdfRestClient")
-
 from .models._internal import (
     BasePdfRestGraphicPayload,
     BmpPdfRestPayload,
@@ -121,6 +119,9 @@ from .types import (
     SummaryOutputType,
     TranslateOutputFormat,
 )
+
+__all__ = ("AsyncPdfRestClient", "PdfRestClient")
+FileResponseModel = TypeVar("FileResponseModel", bound=PdfRestFileBasedResponse)
 
 DEFAULT_BASE_URL = "https://api.pdfrest.com"
 API_KEY_ENV_VAR = "PDFREST_API_KEY"
@@ -986,11 +987,12 @@ class _SyncApiClient(_BaseApiClient[httpx.Client]):
         endpoint: str,
         payload: dict[str, Any],
         payload_model: type[BaseModel],
+        response_model: type[FileResponseModel] = PdfRestFileBasedResponse,
         extra_query: Query | None = None,
         extra_headers: AnyMapping | None = None,
         extra_body: Body | None = None,
         timeout: TimeoutTypes | None = None,
-    ) -> PdfRestFileBasedResponse:
+    ) -> FileResponseModel:
         job_options = payload_model.model_validate(payload)
         json_body = job_options.model_dump(
             mode="json", by_alias=True, exclude_none=True, exclude_unset=True
@@ -1018,15 +1020,17 @@ class _SyncApiClient(_BaseApiClient[httpx.Client]):
             for file_id in output_ids
         ]
 
-        return PdfRestFileBasedResponse.model_validate(
-            {
-                "input_id": [str(file_id) for file_id in raw_response.input_id],
-                "output_file": [
-                    file.model_dump(mode="json", by_alias=True) for file in output_files
-                ],
-                "warning": raw_response.warning,
-            }
-        )
+        response_payload: dict[str, Any] = {
+            "input_id": [str(file_id) for file_id in raw_response.input_id],
+            "output_file": [
+                file.model_dump(mode="json", by_alias=True) for file in output_files
+            ],
+            "warning": raw_response.warning,
+        }
+        if raw_response.model_extra:
+            response_payload.update(raw_response.model_extra)
+
+        return response_model.model_validate(response_payload)
 
     def send_request(self, request: _RequestModel) -> Any:
         return self._send_request(request)
@@ -1250,11 +1254,12 @@ class _AsyncApiClient(_BaseApiClient[httpx.AsyncClient]):
         endpoint: str,
         payload: dict[str, Any],
         payload_model: type[BaseModel],
+        response_model: type[FileResponseModel] = PdfRestFileBasedResponse,
         extra_query: Query | None = None,
         extra_headers: AnyMapping | None = None,
         extra_body: Body | None = None,
         timeout: TimeoutTypes | None = None,
-    ) -> PdfRestFileBasedResponse:
+    ) -> FileResponseModel:
         job_options = payload_model.model_validate(payload)
         request = self.prepare_request(
             "POST",
@@ -1290,15 +1295,17 @@ class _AsyncApiClient(_BaseApiClient[httpx.AsyncClient]):
                 )
             )
 
-        return PdfRestFileBasedResponse.model_validate(
-            {
-                "input_id": [str(file_id) for file_id in raw_response.input_id],
-                "output_file": [
-                    file.model_dump(mode="json", by_alias=True) for file in output_files
-                ],
-                "warning": raw_response.warning,
-            }
-        )
+        response_payload: dict[str, Any] = {
+            "input_id": [str(file_id) for file_id in raw_response.input_id],
+            "output_file": [
+                file.model_dump(mode="json", by_alias=True) for file in output_files
+            ],
+            "warning": raw_response.warning,
+        }
+        if raw_response.model_extra:
+            response_payload.update(raw_response.model_extra)
+
+        return response_model.model_validate(response_payload)
 
     async def send_request(self, request: _RequestModel) -> Any:
         return await self._send_request(request)
@@ -2334,7 +2341,7 @@ class PdfRestClient(_SyncApiClient):
         extra_headers: AnyMapping | None = None,
         extra_body: Body | None = None,
         timeout: TimeoutTypes | None = None,
-    ) -> PdfRestFileBasedResponse:
+    ) -> TranslatePdfTextFileResponse:
         """Translate textual content and receive a file-based response."""
 
         payload: dict[str, Any] = {
@@ -2356,6 +2363,7 @@ class PdfRestClient(_SyncApiClient):
             extra_headers=extra_headers,
             extra_body=extra_body,
             timeout=timeout,
+            response_model=TranslatePdfTextFileResponse,
         )
 
     def extract_images(
@@ -3323,7 +3331,7 @@ class AsyncPdfRestClient(_AsyncApiClient):
         extra_headers: AnyMapping | None = None,
         extra_body: Body | None = None,
         timeout: TimeoutTypes | None = None,
-    ) -> PdfRestFileBasedResponse:
+    ) -> TranslatePdfTextFileResponse:
         """Translate textual content and receive a file-based response."""
 
         payload: dict[str, Any] = {
@@ -3345,6 +3353,7 @@ class AsyncPdfRestClient(_AsyncApiClient):
             extra_headers=extra_headers,
             extra_body=extra_body,
             timeout=timeout,
+            response_model=TranslatePdfTextFileResponse,
         )
 
     async def extract_images(

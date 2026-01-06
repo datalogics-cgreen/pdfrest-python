@@ -3,7 +3,10 @@ from __future__ import annotations
 import pytest
 
 from pdfrest import PdfRestApiError, PdfRestClient
-from pdfrest.models import PdfRestFileBasedResponse, TranslatePdfTextResponse
+from pdfrest.models import (
+    TranslatePdfTextFileResponse,
+    TranslatePdfTextResponse,
+)
 
 from ..resources import get_test_resource_path
 
@@ -26,6 +29,8 @@ def test_live_translate_pdf_text_success(
 
     assert isinstance(response, TranslatePdfTextResponse)
     assert response.translated_text
+    assert response.output_language == "fr"
+    assert response.source_languages
     assert response.input_id == uploaded.id
 
 
@@ -63,6 +68,8 @@ def test_live_translate_pdf_text_file_success(
             output_format="plaintext",
         )
 
-    assert isinstance(response, PdfRestFileBasedResponse)
+    assert isinstance(response, TranslatePdfTextFileResponse)
     assert response.output_files
+    assert response.output_language == "fr"
+    assert response.source_languages
     assert response.input_id == uploaded.id
