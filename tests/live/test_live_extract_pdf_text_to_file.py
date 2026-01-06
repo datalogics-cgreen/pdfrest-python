@@ -3,12 +3,12 @@ from __future__ import annotations
 import pytest
 
 from pdfrest import PdfRestApiError, PdfRestClient
-from pdfrest.models import ExtractTextResponse
+from pdfrest.models import PdfRestFileBasedResponse
 
 from ..resources import get_test_resource_path
 
 
-def test_live_extract_text_success(
+def test_live_extract_pdf_text_to_file_success(
     pdfrest_api_key: str,
     pdfrest_live_base_url: str,
 ) -> None:
@@ -18,21 +18,20 @@ def test_live_extract_text_success(
         base_url=pdfrest_live_base_url,
     ) as client:
         uploaded = client.files.create_from_paths([resource])[0]
-        response = client.extract_text(
+        response = client.extract_pdf_text_to_file(
             uploaded,
-            output_type="json",
             full_text="document",
             preserve_line_breaks="on",
             word_style="off",
             word_coordinates="off",
         )
 
-    assert isinstance(response, ExtractTextResponse)
-    assert response.full_text
+    assert isinstance(response, PdfRestFileBasedResponse)
+    assert response.output_files
     assert response.input_id == uploaded.id
 
 
-def test_live_extract_text_invalid_pages(
+def test_live_extract_pdf_text_to_file_invalid_pages(
     pdfrest_api_key: str,
     pdfrest_live_base_url: str,
 ) -> None:
@@ -43,8 +42,7 @@ def test_live_extract_text_invalid_pages(
     ) as client:
         uploaded = client.files.create_from_paths([resource])[0]
         with pytest.raises(PdfRestApiError):
-            client.extract_text(
+            client.extract_pdf_text_to_file(
                 uploaded,
                 extra_body={"pages": "last-1"},
-                output_type="json",
             )

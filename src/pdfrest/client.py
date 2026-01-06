@@ -61,7 +61,6 @@ from .exceptions import (
 )
 from .models import (
     ConvertToMarkdownResponse,
-    ExtractTextResponse,
     PdfRestDeletionResponse,
     PdfRestErrorResponse,
     PdfRestFile,
@@ -2395,7 +2394,7 @@ class PdfRestClient(_SyncApiClient):
             timeout=timeout,
         )
 
-    def extract_text(
+    def extract_pdf_text_to_file(
         self,
         file: PdfRestFile | Sequence[PdfRestFile],
         *,
@@ -2404,40 +2403,36 @@ class PdfRestClient(_SyncApiClient):
         preserve_line_breaks: Literal["off", "on"] = "off",
         word_style: Literal["off", "on"] = "off",
         word_coordinates: Literal["off", "on"] = "off",
-        output_type: Literal["json", "file"] = "json",
         output: str | None = None,
         extra_query: Query | None = None,
         extra_headers: AnyMapping | None = None,
         extra_body: Body | None = None,
         timeout: TimeoutTypes | None = None,
-    ) -> ExtractTextResponse:
-        """Extract text content from a PDF."""
+    ) -> PdfRestFileBasedResponse:
+        """Extract text content from a PDF and return a file-based response."""
 
-        payload: dict[str, Any] = {"files": file}
+        payload: dict[str, Any] = {
+            "files": file,
+            "full_text": full_text,
+            "preserve_line_breaks": preserve_line_breaks,
+            "word_style": word_style,
+            "word_coordinates": word_coordinates,
+            "output_type": "file",
+        }
         if pages is not None:
             payload["pages"] = pages
-        payload["full_text"] = full_text
-        payload["preserve_line_breaks"] = preserve_line_breaks
-        payload["word_style"] = word_style
-        payload["word_coordinates"] = word_coordinates
-        payload["output_type"] = output_type
         if output is not None:
             payload["output"] = output
 
-        validated_payload = ExtractTextPayload.model_validate(payload)
-        request = self.prepare_request(
-            "POST",
-            "/extracted-text",
-            json_body=validated_payload.model_dump(
-                mode="json", by_alias=True, exclude_none=True, exclude_unset=True
-            ),
+        return self._post_file_operation(
+            endpoint="/extracted-text",
+            payload=payload,
+            payload_model=ExtractTextPayload,
             extra_query=extra_query,
             extra_headers=extra_headers,
             extra_body=extra_body,
             timeout=timeout,
         )
-        raw_payload = self._send_request(request)
-        return ExtractTextResponse.model_validate(raw_payload)
 
     def preview_redactions(
         self,
@@ -3385,7 +3380,7 @@ class AsyncPdfRestClient(_AsyncApiClient):
             timeout=timeout,
         )
 
-    async def extract_text(
+    async def extract_pdf_text_to_file(
         self,
         file: PdfRestFile | Sequence[PdfRestFile],
         *,
@@ -3394,40 +3389,36 @@ class AsyncPdfRestClient(_AsyncApiClient):
         preserve_line_breaks: Literal["off", "on"] = "off",
         word_style: Literal["off", "on"] = "off",
         word_coordinates: Literal["off", "on"] = "off",
-        output_type: Literal["json", "file"] = "json",
         output: str | None = None,
         extra_query: Query | None = None,
         extra_headers: AnyMapping | None = None,
         extra_body: Body | None = None,
         timeout: TimeoutTypes | None = None,
-    ) -> ExtractTextResponse:
-        """Extract text content from a PDF."""
+    ) -> PdfRestFileBasedResponse:
+        """Extract text content from a PDF and return a file-based response."""
 
-        payload: dict[str, Any] = {"files": file}
+        payload: dict[str, Any] = {
+            "files": file,
+            "full_text": full_text,
+            "preserve_line_breaks": preserve_line_breaks,
+            "word_style": word_style,
+            "word_coordinates": word_coordinates,
+            "output_type": "file",
+        }
         if pages is not None:
             payload["pages"] = pages
-        payload["full_text"] = full_text
-        payload["preserve_line_breaks"] = preserve_line_breaks
-        payload["word_style"] = word_style
-        payload["word_coordinates"] = word_coordinates
-        payload["output_type"] = output_type
         if output is not None:
             payload["output"] = output
 
-        validated_payload = ExtractTextPayload.model_validate(payload)
-        request = self.prepare_request(
-            "POST",
-            "/extracted-text",
-            json_body=validated_payload.model_dump(
-                mode="json", by_alias=True, exclude_none=True, exclude_unset=True
-            ),
+        return await self._post_file_operation(
+            endpoint="/extracted-text",
+            payload=payload,
+            payload_model=ExtractTextPayload,
             extra_query=extra_query,
             extra_headers=extra_headers,
             extra_body=extra_body,
             timeout=timeout,
         )
-        raw_payload = await self._send_request(request)
-        return ExtractTextResponse.model_validate(raw_payload)
 
     async def preview_redactions(
         self,
