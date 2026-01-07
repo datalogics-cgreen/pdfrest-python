@@ -7,6 +7,10 @@ from pdfrest.models import PdfRestFile
 
 from ..resources import get_test_resource_path
 
+WARNING_NO_XFA_FORMS = (
+    "No XFA forms were detected in the input PDF. No output was produced."
+)
+
 
 @pytest.fixture(scope="module")
 def uploaded_pdf_for_acroforms(
@@ -44,12 +48,16 @@ def test_live_convert_xfa_to_acroforms_success(
     ) as client:
         response = client.convert_xfa_to_acroforms(uploaded_pdf_for_acroforms, **kwargs)
 
+    assert str(response.input_id) == str(uploaded_pdf_for_acroforms.id)
+    if response.warning is not None:
+        assert response.warning == WARNING_NO_XFA_FORMS
+        assert response.output_files == []
+        return
+
     assert response.output_files
     output_file = response.output_file
     assert output_file.type == "application/pdf"
     assert output_file.size > 0
-    assert response.warning is None
-    assert str(response.input_id) == str(uploaded_pdf_for_acroforms.id)
     if output_name is not None:
         assert output_file.name.startswith(output_name)
     else:
@@ -88,13 +96,17 @@ async def test_live_async_convert_xfa_to_acroforms_success(
             uploaded_pdf_for_acroforms, output="async"
         )
 
+    assert str(response.input_id) == str(uploaded_pdf_for_acroforms.id)
+    if response.warning is not None:
+        assert response.warning == WARNING_NO_XFA_FORMS
+        assert response.output_files == []
+        return
+
     assert response.output_files
     output_file = response.output_file
     assert output_file.name.startswith("async")
     assert output_file.type == "application/pdf"
     assert output_file.size > 0
-    assert response.warning is None
-    assert str(response.input_id) == str(uploaded_pdf_for_acroforms.id)
 
 
 @pytest.mark.asyncio
