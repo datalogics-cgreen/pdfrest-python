@@ -7,10 +7,28 @@ import pytest
 from pydantic import ValidationError
 
 from pdfrest import AsyncPdfRestClient, PdfRestClient
-from pdfrest.models import ConvertToMarkdownResponse, PdfRestFile, PdfRestFileID
+from pdfrest.models import (
+    PdfRestFile,
+    PdfRestFileBasedResponse,
+    PdfRestFileID,
+)
 from pdfrest.models._internal import ConvertToMarkdownPayload
 
 from .graphics_test_helpers import ASYNC_API_KEY, VALID_API_KEY, make_pdf_file
+
+
+def _make_markdown_file(file_id: str, name: str = "markdown.md") -> PdfRestFile:
+    return PdfRestFile.model_validate(
+        {
+            "id": file_id,
+            "name": name,
+            "url": f"https://api.pdfrest.com/resource/{file_id}",
+            "type": "text/markdown",
+            "size": 64,
+            "modified": "2024-01-01T00:00:00Z",
+            "scheduledDeletionTimeUtc": None,
+        }
+    )
 
 
 def test_convert_to_markdown_payload_rejects_non_pdf() -> None:
@@ -48,20 +66,21 @@ def test_convert_to_markdown_payload_invalid_page_break_comments() -> None:
         )
 
 
-def test_convert_to_markdown_json_success(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_convert_to_markdown_success(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.delenv("PDFREST_API_KEY", raising=False)
     input_file = make_pdf_file(PdfRestFileID.generate(1))
+    output_id = str(PdfRestFileID.generate())
     payload_dump = ConvertToMarkdownPayload.model_validate(
         {
             "files": [input_file],
             "pages": ["1-3"],
             "output": "md",
-            "output_type": "json",
+            "output_type": "file",
             "page_break_comments": "on",
         }
     ).model_dump(mode="json", by_alias=True, exclude_none=True, exclude_unset=True)
 
-    seen: dict[str, int] = {"post": 0}
+    seen: dict[str, int] = {"post": 0, "get": 0}
 
     def handler(request: httpx.Request) -> httpx.Response:
         if request.method == "POST" and request.url.path == "/markdown":
@@ -72,9 +91,18 @@ def test_convert_to_markdown_json_success(monkeypatch: pytest.MonkeyPatch) -> No
             return httpx.Response(
                 200,
                 json={
-                    "markdown": "# Title",
-                    "inputId": str(input_file.id),
+                    "inputId": [str(input_file.id)],
+                    "outputId": [output_id],
                 },
+            )
+        if request.method == "GET" and request.url.path == f"/resource/{output_id}":
+            seen["get"] += 1
+            assert request.url.params["format"] == "info"
+            return httpx.Response(
+                200,
+                json=_make_markdown_file(output_id).model_dump(
+                    mode="json", by_alias=True
+                ),
             )
         msg = f"Unexpected request {request.method} {request.url}"
         raise AssertionError(msg)
@@ -85,16 +113,13 @@ def test_convert_to_markdown_json_success(monkeypatch: pytest.MonkeyPatch) -> No
             input_file,
             pages=["1-3"],
             output="md",
-            output_type="json",
             page_break_comments="on",
         )
 
-    assert seen == {"post": 1}
-    assert isinstance(response, ConvertToMarkdownResponse)
-    assert response.markdown == "# Title"
+    assert seen == {"post": 1, "get": 1}
+    assert isinstance(response, PdfRestFileBasedResponse)
     assert response.input_id == input_file.id
-    assert response.output_id is None
-    assert response.output_url is None
+    assert len(response.output_files) == 1
 
 
 def test_convert_to_markdown_request_customization(
@@ -116,7 +141,7 @@ def test_convert_to_markdown_request_customization(
         if request.method == "POST" and request.url.path == "/markdown":
             assert request.url.params["trace"] == "true"
             assert request.headers["X-Debug"] == "sync"
-            captured_timeout["value"] = request.extensions.get("timeout")
+            captured_timeout["post"] = request.extensions.get("timeout")
             payload = json.loads(request.content.decode("utf-8"))
             for key, value in payload_dump.items():
                 assert payload[key] == value
@@ -124,10 +149,20 @@ def test_convert_to_markdown_request_customization(
             return httpx.Response(
                 200,
                 json={
-                    "outputUrl": f"https://api.pdfrest.com/resource/{output_id}?format=file",
-                    "outputId": output_id,
-                    "inputId": str(input_file.id),
+                    "inputId": [str(input_file.id)],
+                    "outputId": [output_id],
                 },
+            )
+        if request.method == "GET" and request.url.path == f"/resource/{output_id}":
+            assert request.url.params["format"] == "info"
+            assert request.url.params["trace"] == "true"
+            assert request.headers["X-Debug"] == "sync"
+            captured_timeout["get"] = request.extensions.get("timeout")
+            return httpx.Response(
+                200,
+                json=_make_markdown_file(output_id, "debug.md").model_dump(
+                    mode="json", by_alias=True
+                ),
             )
         msg = f"Unexpected request {request.method} {request.url}"
         raise AssertionError(msg)
@@ -136,7 +171,6 @@ def test_convert_to_markdown_request_customization(
     with PdfRestClient(api_key=VALID_API_KEY, transport=transport) as client:
         response = client.convert_to_markdown(
             input_file,
-            output_type="file",
             extra_query={"trace": "true"},
             extra_headers={"X-Debug": "sync"},
             extra_body={"debug": True},
@@ -144,17 +178,24 @@ def test_convert_to_markdown_request_customization(
             page_break_comments="off",
         )
 
-    assert isinstance(response, ConvertToMarkdownResponse)
-    assert response.output_id == output_id
-    assert response.output_url
-    timeout_value = captured_timeout["value"]
-    assert timeout_value is not None
-    if isinstance(timeout_value, dict):
+    assert isinstance(response, PdfRestFileBasedResponse)
+    assert len(response.output_files) == 1
+    post_timeout = captured_timeout["post"]
+    get_timeout = captured_timeout["get"]
+    assert post_timeout is not None
+    assert get_timeout is not None
+    if isinstance(post_timeout, dict):
         assert all(
-            component == pytest.approx(0.4) for component in timeout_value.values()
+            component == pytest.approx(0.4) for component in post_timeout.values()
         )
     else:
-        assert timeout_value == pytest.approx(0.4)
+        assert post_timeout == pytest.approx(0.4)
+    if isinstance(get_timeout, dict):
+        assert all(
+            component == pytest.approx(0.4) for component in get_timeout.values()
+        )
+    else:
+        assert get_timeout == pytest.approx(0.4)
 
 
 @pytest.mark.asyncio
@@ -163,11 +204,12 @@ async def test_async_convert_to_markdown_success(
 ) -> None:
     monkeypatch.delenv("PDFREST_API_KEY", raising=False)
     input_file = make_pdf_file(PdfRestFileID.generate(2))
+    output_id = str(PdfRestFileID.generate())
     payload_dump = ConvertToMarkdownPayload.model_validate(
-        {"files": [input_file], "output_type": "json", "page_break_comments": "off"}
+        {"files": [input_file], "output_type": "file", "page_break_comments": "off"}
     ).model_dump(mode="json", by_alias=True, exclude_none=True, exclude_unset=True)
 
-    seen: dict[str, int] = {"post": 0}
+    seen: dict[str, int] = {"post": 0, "get": 0}
 
     def handler(request: httpx.Request) -> httpx.Response:
         if request.method == "POST" and request.url.path == "/markdown":
@@ -178,9 +220,18 @@ async def test_async_convert_to_markdown_success(
             return httpx.Response(
                 200,
                 json={
-                    "markdown": "Async md",
-                    "inputId": str(input_file.id),
+                    "inputId": [str(input_file.id)],
+                    "outputId": [output_id],
                 },
+            )
+        if request.method == "GET" and request.url.path == f"/resource/{output_id}":
+            seen["get"] += 1
+            assert request.url.params["format"] == "info"
+            return httpx.Response(
+                200,
+                json=_make_markdown_file(output_id, "async.md").model_dump(
+                    mode="json", by_alias=True
+                ),
             )
         msg = f"Unexpected request {request.method} {request.url}"
         raise AssertionError(msg)
@@ -188,10 +239,9 @@ async def test_async_convert_to_markdown_success(
     transport = httpx.MockTransport(handler)
     async with AsyncPdfRestClient(api_key=ASYNC_API_KEY, transport=transport) as client:
         response = await client.convert_to_markdown(
-            input_file, output_type="json", page_break_comments="off"
+            input_file, page_break_comments="off"
         )
 
-    assert seen == {"post": 1}
-    assert isinstance(response, ConvertToMarkdownResponse)
-    assert response.markdown == "Async md"
-    assert response.input_id == input_file.id
+    assert seen == {"post": 1, "get": 1}
+    assert isinstance(response, PdfRestFileBasedResponse)
+    assert len(response.output_files) == 1

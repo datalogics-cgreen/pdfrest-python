@@ -3,7 +3,7 @@ from __future__ import annotations
 import pytest
 
 from pdfrest import PdfRestApiError, PdfRestClient
-from pdfrest.models import ConvertToMarkdownResponse
+from pdfrest.models import PdfRestFileBasedResponse
 
 from ..resources import get_test_resource_path
 
@@ -18,13 +18,10 @@ def test_live_convert_to_markdown_success(
         base_url=pdfrest_live_base_url,
     ) as client:
         uploaded = client.files.create_from_paths([resource])[0]
-        response = client.convert_to_markdown(
-            uploaded,
-            output_type="json",
-        )
+        response = client.convert_to_markdown(uploaded)
 
-    assert isinstance(response, ConvertToMarkdownResponse)
-    assert response.markdown
+    assert isinstance(response, PdfRestFileBasedResponse)
+    assert response.output_files
     assert response.input_id == uploaded.id
 
 
