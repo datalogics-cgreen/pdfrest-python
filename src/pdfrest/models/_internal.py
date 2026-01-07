@@ -22,6 +22,7 @@ from pydantic import (
 from pdfrest.types.public import PdfRedactionPreset
 
 from ..types import (
+    PdfAType,
     PdfInfoQuery,
     PdfXType,
     SummaryFormat,
@@ -810,6 +811,38 @@ class PdfToPowerpointPayload(BaseModel):
         str | None,
         Field(serialization_alias="output", min_length=1, default=None),
         AfterValidator(_validate_output_prefix),
+    ] = None
+
+
+class PdfToPdfaPayload(BaseModel):
+    """Adapt caller options into a pdfRest-ready PDF/A request payload."""
+
+    files: Annotated[
+        list[PdfRestFile],
+        Field(
+            min_length=1,
+            max_length=1,
+            validation_alias=AliasChoices("file", "files"),
+            serialization_alias="id",
+        ),
+        BeforeValidator(_ensure_list),
+        AfterValidator(
+            _allowed_mime_types("application/pdf", error_msg="Must be a PDF file")
+        ),
+        PlainSerializer(_serialize_as_first_file_id),
+    ]
+    output_type: Annotated[PdfAType, Field(serialization_alias="output_type")]
+    output: Annotated[
+        str | None,
+        Field(serialization_alias="output", min_length=1, default=None),
+        AfterValidator(_validate_output_prefix),
+    ] = None
+    rasterize_if_errors_encountered: Annotated[
+        Literal["on", "off"] | None,
+        Field(
+            serialization_alias="rasterize_if_errors_encountered",
+            default=None,
+        ),
     ] = None
 
 

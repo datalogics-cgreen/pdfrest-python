@@ -2,6 +2,7 @@
 
 from .public import (
     ALL_PDF_INFO_QUERIES,
+    PdfAType,
     PdfInfoQuery,
     PdfMergeInput,
     PdfMergeSource,
@@ -19,6 +20,7 @@ from .public import (
 
 __all__ = [
     "ALL_PDF_INFO_QUERIES",
+    "PdfAType",
     "PdfInfoQuery",
     "PdfMergeInput",
     "PdfMergeSource",

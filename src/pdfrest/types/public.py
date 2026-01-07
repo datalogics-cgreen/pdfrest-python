@@ -14,6 +14,7 @@ else:  # pragma: no cover - used only for typing at runtime
 
 __all__ = (
     "ALL_PDF_INFO_QUERIES",
+    "PdfAType",
     "PdfInfoQuery",
     "PdfMergeInput",
     "PdfMergeSource",
@@ -102,6 +103,7 @@ class PdfMergeSource(TypedDict, total=False):
 
 PdfMergeInput = PdfRestFile | PdfMergeSource | tuple[PdfRestFile, PdfPageSelection]
 
+PdfAType = Literal["PDF/A-1b", "PDF/A-2b", "PDF/A-2u", "PDF/A-3b", "PDF/A-3u"]
 PdfXType = Literal["PDF/X-1a", "PDF/X-3", "PDF/X-4", "PDF/X-6"]
 
 SummaryFormat = Literal[

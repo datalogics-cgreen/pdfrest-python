@@ -94,6 +94,7 @@ from .models._internal import (
     PdfRestRawFileResponse,
     PdfSplitPayload,
     PdfToExcelPayload,
+    PdfToPdfaPayload,
     PdfToPdfxPayload,
     PdfToPowerpointPayload,
     PdfToWordPayload,
@@ -106,6 +107,7 @@ from .models._internal import (
 )
 from .types import (
     ALL_PDF_INFO_QUERIES,
+    PdfAType,
     PdfInfoQuery,
     PdfMergeInput,
     PdfPageSelection,
@@ -2810,6 +2812,36 @@ class PdfRestClient(_SyncApiClient):
             timeout=timeout,
         )
 
+    def convert_to_pdfa(
+        self,
+        file: PdfRestFile | Sequence[PdfRestFile],
+        *,
+        output_type: PdfAType,
+        output: str | None = None,
+        rasterize_if_errors_encountered: Literal["on", "off"] | None = None,
+        extra_query: Query | None = None,
+        extra_headers: AnyMapping | None = None,
+        extra_body: Body | None = None,
+        timeout: TimeoutTypes | None = None,
+    ) -> PdfRestFileBasedResponse:
+        """Convert a PDF to a specified PDF/A version."""
+
+        payload: dict[str, Any] = {"files": file, "output_type": output_type}
+        if output is not None:
+            payload["output"] = output
+        if rasterize_if_errors_encountered is not None:
+            payload["rasterize_if_errors_encountered"] = rasterize_if_errors_encountered
+
+        return self._post_file_operation(
+            endpoint="/pdfa",
+            payload=payload,
+            payload_model=PdfToPdfaPayload,
+            extra_query=extra_query,
+            extra_headers=extra_headers,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
+
     def convert_to_pdfx(
         self,
         file: PdfRestFile | Sequence[PdfRestFile],
@@ -3826,6 +3858,36 @@ class AsyncPdfRestClient(_AsyncApiClient):
             endpoint="/rasterized-pdf",
             payload=payload,
             payload_model=PdfRasterizePayload,
+            extra_query=extra_query,
+            extra_headers=extra_headers,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
+
+    async def convert_to_pdfa(
+        self,
+        file: PdfRestFile | Sequence[PdfRestFile],
+        *,
+        output_type: PdfAType,
+        output: str | None = None,
+        rasterize_if_errors_encountered: Literal["on", "off"] | None = None,
+        extra_query: Query | None = None,
+        extra_headers: AnyMapping | None = None,
+        extra_body: Body | None = None,
+        timeout: TimeoutTypes | None = None,
+    ) -> PdfRestFileBasedResponse:
+        """Asynchronously convert a PDF to a specified PDF/A version."""
+
+        payload: dict[str, Any] = {"files": file, "output_type": output_type}
+        if output is not None:
+            payload["output"] = output
+        if rasterize_if_errors_encountered is not None:
+            payload["rasterize_if_errors_encountered"] = rasterize_if_errors_encountered
+
+        return await self._post_file_operation(
+            endpoint="/pdfa",
+            payload=payload,
+            payload_model=PdfToPdfaPayload,
             extra_query=extra_query,
             extra_headers=extra_headers,
             extra_body=extra_body,
