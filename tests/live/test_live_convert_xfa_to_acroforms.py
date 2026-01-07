@@ -66,7 +66,7 @@ def test_live_convert_xfa_to_acroforms_invalid_file_id(
             api_key=pdfrest_api_key,
             base_url=pdfrest_live_base_url,
         ) as client,
-        pytest.raises(PdfRestApiError),
+        pytest.raises(PdfRestApiError, match=r"(?i)(id|file)"),
     ):
         client.convert_xfa_to_acroforms(
             uploaded_pdf_for_acroforms,
@@ -107,7 +107,7 @@ async def test_live_async_convert_xfa_to_acroforms_invalid_file_id(
         api_key=pdfrest_api_key,
         base_url=pdfrest_live_base_url,
     ) as client:
-        with pytest.raises(PdfRestApiError):
+        with pytest.raises(PdfRestApiError, match=r"(?i)(id|file)"):
             await client.convert_xfa_to_acroforms(
                 uploaded_pdf_for_acroforms,
                 extra_body={"id": "ffffffff-ffff-ffff-ffff-ffffffffffff"},

@@ -70,7 +70,7 @@ def test_live_extract_images_invalid_pages(
         base_url=pdfrest_live_base_url,
     ) as client:
         uploaded = client.files.create_from_paths([resource])[0]
-        with pytest.raises(PdfRestApiError):
+        with pytest.raises(PdfRestApiError, match=r"(?i)page"):
             client.extract_images(
                 uploaded,
                 extra_body={"pages": "last-1"},
@@ -88,7 +88,7 @@ async def test_live_async_extract_images_invalid_pages(
         base_url=pdfrest_live_base_url,
     ) as client:
         uploaded = (await client.files.create_from_paths([resource]))[0]
-        with pytest.raises(PdfRestApiError):
+        with pytest.raises(PdfRestApiError, match=r"(?i)page"):
             await client.extract_images(
                 uploaded,
                 extra_body={"pages": "last-1"},

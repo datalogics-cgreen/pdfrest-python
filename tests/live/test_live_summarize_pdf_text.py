@@ -87,7 +87,7 @@ def test_live_summarize_pdf_text_invalid_format(
         base_url=pdfrest_live_base_url,
     ) as client:
         uploaded = client.files.create_from_paths([resource])[0]
-        with pytest.raises(PdfRestApiError, match="error"):
+        with pytest.raises(PdfRestApiError, match=r"(?i)summary"):
             client.summarize_pdf_text(
                 uploaded,
                 extra_body={"summary_format": "invalid-style"},
@@ -105,7 +105,7 @@ async def test_live_async_summarize_pdf_text_invalid_format(
         base_url=pdfrest_live_base_url,
     ) as client:
         uploaded = (await client.files.create_from_paths([resource]))[0]
-        with pytest.raises(PdfRestApiError, match="error"):
+        with pytest.raises(PdfRestApiError, match=r"(?i)summary"):
             await client.summarize_pdf_text(
                 uploaded,
                 extra_body={"summary_format": "invalid-style"},

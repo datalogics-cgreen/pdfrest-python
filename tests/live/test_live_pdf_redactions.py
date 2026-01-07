@@ -183,7 +183,7 @@ def test_live_redactions_invalid_payloads(
         base_url=pdfrest_live_base_url,
     ) as client:
         if "redactions" in extra_body:
-            with pytest.raises(PdfRestApiError):
+            with pytest.raises(PdfRestApiError, match=r"(?i)redaction"):
                 client.preview_redactions(
                     uploaded_pdf_for_redaction,
                     redactions=[{"type": "literal", "value": "placeholder"}],
@@ -195,7 +195,7 @@ def test_live_redactions_invalid_payloads(
                 redactions=[{"type": "literal", "value": "placeholder"}],
             )
             preview_file = preview.output_files[0]
-            with pytest.raises(PdfRestApiError):
+            with pytest.raises(PdfRestApiError, match=r"(?i)rgb"):
                 client.apply_redactions(preview_file, extra_body=extra_body)
 
 
@@ -209,7 +209,7 @@ async def test_live_async_redactions_invalid_payloads(
         api_key=pdfrest_api_key,
         base_url=pdfrest_live_base_url,
     ) as client:
-        with pytest.raises(PdfRestApiError):
+        with pytest.raises(PdfRestApiError, match=r"(?i)rgb"):
             await client.preview_redactions(
                 uploaded_pdf_for_redaction,
                 redactions=[{"type": "literal", "value": "placeholder"}],

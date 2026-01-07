@@ -111,7 +111,7 @@ def test_live_pdf_info_invalid_query(
         PdfRestClient(
             api_key=pdfrest_api_key, base_url=pdfrest_live_base_url
         ) as client,
-        pytest.raises(PdfRestApiError),
+        pytest.raises(PdfRestApiError, match=r"(?i)quer"),
     ):
         client.query_pdf_info(
             uploaded_pdf,

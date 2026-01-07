@@ -89,7 +89,7 @@ def test_live_rasterize_pdf_invalid_file_id(
             api_key=pdfrest_api_key,
             base_url=pdfrest_live_base_url,
         ) as client,
-        pytest.raises(PdfRestApiError),
+        pytest.raises(PdfRestApiError, match=r"(?i)(id|file)"),
     ):
         client.rasterize_pdf(
             uploaded_pdf_for_rasterize,
@@ -107,7 +107,7 @@ async def test_live_async_rasterize_pdf_invalid_file_id(
         api_key=pdfrest_api_key,
         base_url=pdfrest_live_base_url,
     ) as client:
-        with pytest.raises(PdfRestApiError):
+        with pytest.raises(PdfRestApiError, match=r"(?i)(id|file)"):
             await client.rasterize_pdf(
                 uploaded_pdf_for_rasterize,
                 extra_body={"id": "ffffffff-ffff-ffff-ffff-ffffffffffff"},

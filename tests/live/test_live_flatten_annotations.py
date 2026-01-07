@@ -89,7 +89,7 @@ def test_live_flatten_annotations_invalid_file_id(
             api_key=pdfrest_api_key,
             base_url=pdfrest_live_base_url,
         ) as client,
-        pytest.raises(PdfRestApiError),
+        pytest.raises(PdfRestApiError, match=r"(?i)(id|file)"),
     ):
         client.flatten_annotations(
             uploaded_pdf_for_annotations,
@@ -107,7 +107,7 @@ async def test_live_async_flatten_annotations_invalid_file_id(
         api_key=pdfrest_api_key,
         base_url=pdfrest_live_base_url,
     ) as client:
-        with pytest.raises(PdfRestApiError):
+        with pytest.raises(PdfRestApiError, match=r"(?i)(id|file)"):
             await client.flatten_annotations(
                 uploaded_pdf_for_annotations,
                 extra_body={"id": "ffffffff-ffff-ffff-ffff-ffffffffffff"},

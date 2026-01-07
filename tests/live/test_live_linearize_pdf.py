@@ -90,7 +90,7 @@ def test_live_linearize_pdf_invalid_file_id(
             api_key=pdfrest_api_key,
             base_url=pdfrest_live_base_url,
         ) as client,
-        pytest.raises(PdfRestApiError),
+        pytest.raises(PdfRestApiError, match=r"(?i)(id|file)"),
     ):
         client.linearize_pdf(
             uploaded_pdf_for_linearize,
@@ -108,7 +108,7 @@ async def test_live_async_linearize_pdf_invalid_file_id(
         api_key=pdfrest_api_key,
         base_url=pdfrest_live_base_url,
     ) as client:
-        with pytest.raises(PdfRestApiError):
+        with pytest.raises(PdfRestApiError, match=r"(?i)(id|file)"):
             await client.linearize_pdf(
                 uploaded_pdf_for_linearize,
                 extra_body={"id": "00000000-0000-0000-0000-000000000000"},

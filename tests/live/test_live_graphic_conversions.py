@@ -190,7 +190,7 @@ def test_live_graphic_invalid_color_model(
         uploaded = client.files.create_from_paths([resource])[0]
         client_method = getattr(client, spec.method_name)
         resolution = _resolution_bounds(payload_model)[0]
-        with pytest.raises(PdfRestApiError):
+        with pytest.raises(PdfRestApiError, match=r"(?i)color"):
             client_method(
                 uploaded,
                 resolution=resolution,
@@ -235,7 +235,7 @@ def test_live_graphic_resolution_bounds(
 
         if should_raise:
             call_kwargs["extra_body"] = {"resolution": base_resolution + offset}
-            with pytest.raises(PdfRestApiError):
+            with pytest.raises(PdfRestApiError, match=r"(?i)resolution"):
                 client_method(uploaded, **call_kwargs)
         else:
             response = client_method(uploaded, **call_kwargs)
@@ -283,7 +283,7 @@ def test_live_graphic_invalid_smoothing(
     ) as client:
         uploaded = client.files.create_from_paths([resource])[0]
         client_method = getattr(client, spec.method_name)
-        with pytest.raises(PdfRestApiError):
+        with pytest.raises(PdfRestApiError, match=r"(?i)smooth"):
             client_method(
                 uploaded,
                 smoothing="none",
@@ -302,7 +302,7 @@ async def test_live_async_graphic_invalid_smoothing(
         base_url=pdfrest_live_base_url,
     ) as client:
         uploaded = (await client.files.create_from_paths([resource]))[0]
-        with pytest.raises(PdfRestApiError):
+        with pytest.raises(PdfRestApiError, match=r"(?i)smooth"):
             await client.convert_to_png(
                 uploaded,
                 smoothing="none",
@@ -357,7 +357,7 @@ def test_live_png_page_range_variants(
             )
             assert str(response.input_id) == str(uploaded_20_page_pdf.id)
         else:
-            with pytest.raises(PdfRestApiError):
+            with pytest.raises(PdfRestApiError, match=r"(?i)page"):
                 client.convert_to_png(
                     uploaded_20_page_pdf,
                     output_prefix=f"live-range-{case_id}",
@@ -389,7 +389,7 @@ def test_live_png_page_range_invalid_overrides(
             api_key=pdfrest_api_key,
             base_url=pdfrest_live_base_url,
         ) as client,
-        pytest.raises(PdfRestApiError),
+        pytest.raises(PdfRestApiError, match=r"(?i)page"),
     ):
         client.convert_to_png(
             uploaded_20_page_pdf,

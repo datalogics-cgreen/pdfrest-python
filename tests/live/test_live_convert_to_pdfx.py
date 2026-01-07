@@ -94,7 +94,7 @@ def test_live_convert_to_pdfx_invalid_output_type(
             api_key=pdfrest_api_key,
             base_url=pdfrest_live_base_url,
         ) as client,
-        pytest.raises(PdfRestApiError),
+        pytest.raises(PdfRestApiError, match=r"(?i)pdf.?x"),
     ):
         client.convert_to_pdfx(
             uploaded_pdf_for_pdfx,
@@ -113,7 +113,7 @@ async def test_live_async_convert_to_pdfx_invalid_output_type(
         api_key=pdfrest_api_key,
         base_url=pdfrest_live_base_url,
     ) as client:
-        with pytest.raises(PdfRestApiError):
+        with pytest.raises(PdfRestApiError, match=r"(?i)pdf.?x"):
             await client.convert_to_pdfx(
                 uploaded_pdf_for_pdfx,
                 output_type="PDF/X-1a",

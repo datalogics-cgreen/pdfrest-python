@@ -198,7 +198,7 @@ def test_live_split_pdf_invalid_pages(
             api_key=pdfrest_api_key,
             base_url=pdfrest_live_base_url,
         ) as client,
-        pytest.raises(PdfRestApiError),
+        pytest.raises(PdfRestApiError, match=r"(?i)page"),
     ):
         client.split_pdf(
             split_source,
@@ -270,7 +270,7 @@ def test_live_merge_pdfs_invalid_pages(
             api_key=pdfrest_api_key,
             base_url=pdfrest_live_base_url,
         ) as client,
-        pytest.raises(PdfRestApiError),
+        pytest.raises(PdfRestApiError, match=r"(?i)page"),
     ):
         client.merge_pdfs(
             sources,
@@ -373,7 +373,7 @@ def test_live_split_pdf_page_range_variants(
             output_pages = client.query_pdf_info(response.output_files[0]).page_count
             assert output_pages == len(expected_pages)
         else:
-            with pytest.raises(PdfRestApiError):
+            with pytest.raises(PdfRestApiError, match=r"(?i)page"):
                 client.split_pdf(
                     split_source,
                     page_groups=[selection if not requires_override else "1"],
@@ -446,7 +446,7 @@ def test_live_merge_pdf_page_range_variants(
             output_info = client.query_pdf_info(response.output_file)
             assert output_info.page_count == expected_total_pages
         else:
-            with pytest.raises(PdfRestApiError):
+            with pytest.raises(PdfRestApiError, match=r"(?i)page"):
                 client.merge_pdfs(
                     sources,
                     output_prefix=f"live-merge-range-{case_id}",
