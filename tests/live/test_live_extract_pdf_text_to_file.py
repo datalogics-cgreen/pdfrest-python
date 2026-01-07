@@ -29,8 +29,8 @@ def test_live_extract_pdf_text_to_file_success(
     assert isinstance(response, PdfRestFileBasedResponse)
     assert response.output_files
     output_file = response.output_file
-    assert output_file.name.endswith(".txt")
-    assert output_file.type == "text/plain"
+    assert output_file.name.endswith(".json")
+    assert output_file.type == "application/json"
     assert output_file.size > 0
     assert response.warning is None
     assert response.input_id == uploaded.id
@@ -60,7 +60,8 @@ async def test_live_async_extract_pdf_text_to_file_success(
     assert response.output_files
     output_file = response.output_file
     assert output_file.name.startswith("async-text")
-    assert output_file.type == "text/plain"
+    assert output_file.name.endswith(".json")
+    assert output_file.type == "application/json"
     assert output_file.size > 0
     assert response.warning is None
     assert response.input_id == uploaded.id
