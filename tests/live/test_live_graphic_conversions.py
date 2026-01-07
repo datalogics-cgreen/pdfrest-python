@@ -5,7 +5,7 @@ from typing import Any, NamedTuple, get_args
 
 import pytest
 
-from pdfrest import PdfRestApiError, PdfRestClient
+from pdfrest import AsyncPdfRestClient, PdfRestApiError, PdfRestClient
 from pdfrest.models import PdfRestFile
 from pdfrest.models._internal import (
     BasePdfRestGraphicPayload,
@@ -119,6 +119,28 @@ def uploaded_20_page_pdf(
         base_url=pdfrest_live_base_url,
     ) as client:
         return client.files.create_from_paths([resource])[0]
+
+
+@pytest.mark.asyncio
+async def test_live_async_convert_to_png_success(
+    pdfrest_api_key: str,
+    pdfrest_live_base_url: str,
+) -> None:
+    resource = get_test_resource_path("report.pdf")
+    async with AsyncPdfRestClient(
+        api_key=pdfrest_api_key,
+        base_url=pdfrest_live_base_url,
+    ) as client:
+        uploaded = (await client.files.create_from_paths([resource]))[0]
+        response = await client.convert_to_png(
+            uploaded,
+            output_prefix="async-png",
+            resolution=150,
+        )
+
+    assert response.output_files
+    assert all(file_info.type == "image/png" for file_info in response.output_files)
+    assert str(response.input_id) == str(uploaded.id)
 
 
 @pytest.mark.parametrize(
@@ -266,6 +288,25 @@ def test_live_graphic_invalid_smoothing(
                 uploaded,
                 smoothing="none",
                 extra_body={"smoothing": invalid_smoothing},
+            )
+
+
+@pytest.mark.asyncio
+async def test_live_async_graphic_invalid_smoothing(
+    pdfrest_api_key: str,
+    pdfrest_live_base_url: str,
+) -> None:
+    resource = get_test_resource_path("report.pdf")
+    async with AsyncPdfRestClient(
+        api_key=pdfrest_api_key,
+        base_url=pdfrest_live_base_url,
+    ) as client:
+        uploaded = (await client.files.create_from_paths([resource]))[0]
+        with pytest.raises(PdfRestApiError):
+            await client.convert_to_png(
+                uploaded,
+                smoothing="none",
+                extra_body={"smoothing": "super-smooth"},
             )
 
 

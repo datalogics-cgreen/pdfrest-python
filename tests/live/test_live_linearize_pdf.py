@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import pytest
 
-from pdfrest import PdfRestApiError, PdfRestClient
+from pdfrest import AsyncPdfRestClient, PdfRestApiError, PdfRestClient
 from pdfrest.models import PdfRestFile
 
 from ..resources import get_test_resource_path
@@ -54,6 +54,28 @@ def test_live_linearize_pdf(
         assert output_file.name.endswith(".pdf")
 
 
+@pytest.mark.asyncio
+async def test_live_async_linearize_pdf(
+    pdfrest_api_key: str,
+    pdfrest_live_base_url: str,
+    uploaded_pdf_for_linearize: PdfRestFile,
+) -> None:
+    async with AsyncPdfRestClient(
+        api_key=pdfrest_api_key,
+        base_url=pdfrest_live_base_url,
+    ) as client:
+        response = await client.linearize_pdf(
+            uploaded_pdf_for_linearize,
+            output="async-linearized",
+        )
+
+    assert response.output_files
+    output_file = response.output_file
+    assert output_file.name.startswith("async-linearized")
+    assert output_file.type == "application/pdf"
+    assert str(response.input_id) == str(uploaded_pdf_for_linearize.id)
+
+
 def test_live_linearize_pdf_invalid_file_id(
     pdfrest_api_key: str,
     pdfrest_live_base_url: str,
@@ -70,3 +92,20 @@ def test_live_linearize_pdf_invalid_file_id(
             uploaded_pdf_for_linearize,
             extra_body={"id": "ffffffff-ffff-ffff-ffff-ffffffffffff"},
         )
+
+
+@pytest.mark.asyncio
+async def test_live_async_linearize_pdf_invalid_file_id(
+    pdfrest_api_key: str,
+    pdfrest_live_base_url: str,
+    uploaded_pdf_for_linearize: PdfRestFile,
+) -> None:
+    async with AsyncPdfRestClient(
+        api_key=pdfrest_api_key,
+        base_url=pdfrest_live_base_url,
+    ) as client:
+        with pytest.raises(PdfRestApiError):
+            await client.linearize_pdf(
+                uploaded_pdf_for_linearize,
+                extra_body={"id": "00000000-0000-0000-0000-000000000000"},
+            )

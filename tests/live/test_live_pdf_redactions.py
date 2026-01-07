@@ -4,7 +4,7 @@ from typing import get_args
 
 import pytest
 
-from pdfrest import PdfRestApiError, PdfRestClient
+from pdfrest import AsyncPdfRestClient, PdfRestApiError, PdfRestClient
 from pdfrest.models import PdfRestFile
 from pdfrest.types import PdfRedactionInstruction, PdfRedactionPreset
 
@@ -135,6 +135,36 @@ def test_live_redaction_preview_and_apply_multiple(
         assert final_file.type == "application/pdf"
 
 
+@pytest.mark.asyncio
+async def test_live_async_redaction_preview_and_apply(
+    pdfrest_api_key: str,
+    pdfrest_live_base_url: str,
+    uploaded_pdf_for_redaction: PdfRestFile,
+) -> None:
+    async with AsyncPdfRestClient(
+        api_key=pdfrest_api_key,
+        base_url=pdfrest_live_base_url,
+    ) as client:
+        preview = await client.preview_redactions(
+            uploaded_pdf_for_redaction,
+            redactions=[{"type": "literal", "value": "quick brown fox"}],
+            output="async-redaction-preview",
+        )
+
+        preview_file = preview.output_files[0]
+        applied = await client.apply_redactions(
+            preview_file,
+            output="async-redaction-final",
+        )
+
+    assert preview.output_files
+    assert preview_file.name.endswith("async-redaction-preview.pdf")
+    assert applied.output_files
+    final_file = applied.output_files[0]
+    assert final_file.name.endswith("async-redaction-final.pdf")
+    assert final_file.type == "application/pdf"
+
+
 @pytest.mark.parametrize(
     "extra_body",
     [
@@ -167,3 +197,21 @@ def test_live_redactions_invalid_payloads(
             preview_file = preview.output_files[0]
             with pytest.raises(PdfRestApiError):
                 client.apply_redactions(preview_file, extra_body=extra_body)
+
+
+@pytest.mark.asyncio
+async def test_live_async_redactions_invalid_payloads(
+    pdfrest_api_key: str,
+    pdfrest_live_base_url: str,
+    uploaded_pdf_for_redaction: PdfRestFile,
+) -> None:
+    async with AsyncPdfRestClient(
+        api_key=pdfrest_api_key,
+        base_url=pdfrest_live_base_url,
+    ) as client:
+        with pytest.raises(PdfRestApiError):
+            await client.preview_redactions(
+                uploaded_pdf_for_redaction,
+                redactions=[{"type": "literal", "value": "placeholder"}],
+                extra_body={"rgb_color": "-1,-1,-1"},
+            )

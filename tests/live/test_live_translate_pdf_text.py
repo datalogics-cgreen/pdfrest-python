@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import pytest
 
-from pdfrest import PdfRestApiError, PdfRestClient
+from pdfrest import AsyncPdfRestClient, PdfRestApiError, PdfRestClient
 from pdfrest.models import (
     TranslatePdfTextFileResponse,
     TranslatePdfTextResponse,
@@ -34,6 +34,29 @@ def test_live_translate_pdf_text_success(
     assert response.input_id == uploaded.id
 
 
+@pytest.mark.asyncio
+async def test_live_async_translate_pdf_text_success(
+    pdfrest_api_key: str,
+    pdfrest_live_base_url: str,
+) -> None:
+    resource = get_test_resource_path("report.pdf")
+    async with AsyncPdfRestClient(
+        api_key=pdfrest_api_key,
+        base_url=pdfrest_live_base_url,
+    ) as client:
+        uploaded = (await client.files.create_from_paths([resource]))[0]
+        response = await client.translate_pdf_text(
+            uploaded,
+            output_language="es",
+            output_format="plaintext",
+        )
+
+    assert isinstance(response, TranslatePdfTextResponse)
+    assert response.translated_text
+    assert response.output_language == "es"
+    assert response.input_id == uploaded.id
+
+
 def test_live_translate_pdf_text_invalid_output_format(
     pdfrest_api_key: str,
     pdfrest_live_base_url: str,
@@ -48,6 +71,25 @@ def test_live_translate_pdf_text_invalid_output_format(
             client.translate_pdf_text(
                 uploaded,
                 output_language="es",
+                extra_body={"output_format": "invalid-format"},
+            )
+
+
+@pytest.mark.asyncio
+async def test_live_async_translate_pdf_text_invalid_output_format(
+    pdfrest_api_key: str,
+    pdfrest_live_base_url: str,
+) -> None:
+    resource = get_test_resource_path("report.pdf")
+    async with AsyncPdfRestClient(
+        api_key=pdfrest_api_key,
+        base_url=pdfrest_live_base_url,
+    ) as client:
+        uploaded = (await client.files.create_from_paths([resource]))[0]
+        with pytest.raises(PdfRestApiError, match="error"):
+            await client.translate_pdf_text(
+                uploaded,
+                output_language="de",
                 extra_body={"output_format": "invalid-format"},
             )
 
