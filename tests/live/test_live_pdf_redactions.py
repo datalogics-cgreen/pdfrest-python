@@ -183,7 +183,13 @@ def test_live_redactions_invalid_payloads(
         base_url=pdfrest_live_base_url,
     ) as client:
         if "redactions" in extra_body:
-            with pytest.raises(PdfRestApiError, match=r"(?i)redaction"):
+            with pytest.raises(
+                PdfRestApiError,
+                match=(
+                    r"The JSON data provided is not properly formatted\. Please check "
+                    r"your syntax and try again\."
+                ),
+            ):
                 client.preview_redactions(
                     uploaded_pdf_for_redaction,
                     redactions=[{"type": "literal", "value": "placeholder"}],
