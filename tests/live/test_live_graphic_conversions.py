@@ -389,7 +389,10 @@ def test_live_png_page_range_invalid_overrides(
             api_key=pdfrest_api_key,
             base_url=pdfrest_live_base_url,
         ) as client,
-        pytest.raises(PdfRestApiError, match=r"(?i)page"),
+        pytest.raises(
+            PdfRestApiError,
+            match=r"There was an issue processing your file\. Validate all fields and try again\.",
+        ),
     ):
         client.convert_to_png(
             uploaded_20_page_pdf,
