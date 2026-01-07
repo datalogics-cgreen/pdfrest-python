@@ -112,6 +112,11 @@ def test_live_translate_pdf_text_file_success(
 
     assert isinstance(response, TranslatePdfTextFileResponse)
     assert response.output_files
+    output_file = response.output_file
+    assert output_file.name.endswith(".txt")
+    assert output_file.type == "text/plain"
+    assert output_file.size > 0
+    assert response.warning is None
     assert response.output_language == "fr"
     assert response.source_languages
     assert response.input_id == uploaded.id

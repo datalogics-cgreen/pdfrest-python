@@ -50,6 +50,8 @@ def test_live_convert_to_powerpoint_success(
         output_file.type
         == "application/vnd.openxmlformats-officedocument.presentationml.presentation"
     )
+    assert output_file.size > 0
+    assert response.warning is None
     assert str(response.input_id) == str(uploaded_pdf_for_powerpoint.id)
     if output_name is not None:
         assert output_file.name.startswith(output_name)
@@ -78,6 +80,8 @@ async def test_live_async_convert_to_powerpoint_success(
         output_file.type
         == "application/vnd.openxmlformats-officedocument.presentationml.presentation"
     )
+    assert output_file.size > 0
+    assert response.warning is None
     assert str(response.input_id) == str(uploaded_pdf_for_powerpoint.id)
 
 

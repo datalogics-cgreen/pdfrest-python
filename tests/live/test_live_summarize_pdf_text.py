@@ -47,7 +47,11 @@ def test_live_summarize_pdf_text_to_file_success(
 
     assert isinstance(response, PdfRestFileBasedResponse)
     assert response.output_files
-    assert response.output_file.id
+    output_file = response.output_file
+    assert output_file.name.endswith(".md")
+    assert output_file.type == "text/markdown"
+    assert output_file.size > 0
+    assert response.warning is None
     assert response.input_id == uploaded.id
 
 

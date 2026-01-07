@@ -50,6 +50,8 @@ def test_live_flatten_transparencies_success(
     assert response.output_files
     output_file = response.output_file
     assert output_file.type == "application/pdf"
+    assert output_file.size > 0
+    assert response.warning is None
     assert str(response.input_id) == str(uploaded_pdf_for_transparencies.id)
     if output_name is not None:
         assert output_file.name.startswith(output_name)
@@ -75,6 +77,8 @@ async def test_live_async_flatten_transparencies_success(
     output_file = response.output_file
     assert output_file.name.startswith("async")
     assert output_file.type == "application/pdf"
+    assert output_file.size > 0
+    assert response.warning is None
     assert str(response.input_id) == str(uploaded_pdf_for_transparencies.id)
 
 

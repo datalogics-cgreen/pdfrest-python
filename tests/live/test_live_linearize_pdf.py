@@ -47,6 +47,8 @@ def test_live_linearize_pdf(
     assert response.output_files
     output_file = response.output_file
     assert output_file.type == "application/pdf"
+    assert output_file.size > 0
+    assert response.warning is None
     assert str(response.input_id) == str(uploaded_pdf_for_linearize.id)
     if output_name is not None:
         assert output_file.name.startswith(output_name)
@@ -73,6 +75,8 @@ async def test_live_async_linearize_pdf(
     output_file = response.output_file
     assert output_file.name.startswith("async-linearized")
     assert output_file.type == "application/pdf"
+    assert output_file.size > 0
+    assert response.warning is None
     assert str(response.input_id) == str(uploaded_pdf_for_linearize.id)
 
 

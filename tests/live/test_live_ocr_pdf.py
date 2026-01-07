@@ -22,7 +22,11 @@ def test_live_ocr_pdf_success(
 
     assert isinstance(response, PdfRestFileBasedResponse)
     assert response.output_files
-    assert response.output_file.id
+    output_file = response.output_file
+    assert output_file.name.endswith(".pdf")
+    assert output_file.type == "application/pdf"
+    assert output_file.size > 0
+    assert response.warning is None
     assert response.input_id == uploaded.id
 
 
@@ -42,6 +46,9 @@ async def test_live_async_ocr_pdf_success(
     assert isinstance(response, PdfRestFileBasedResponse)
     assert response.output_files
     assert response.output_file.name.startswith("async-ocr")
+    assert response.output_file.type == "application/pdf"
+    assert response.output_file.size > 0
+    assert response.warning is None
     assert response.input_id == uploaded.id
 
 

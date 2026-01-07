@@ -22,6 +22,11 @@ def test_live_convert_to_markdown_success(
 
     assert isinstance(response, PdfRestFileBasedResponse)
     assert response.output_files
+    output_file = response.output_file
+    assert output_file.name.endswith(".md")
+    assert output_file.type == "text/markdown"
+    assert output_file.size > 0
+    assert response.warning is None
     assert response.input_id == uploaded.id
 
 
@@ -40,7 +45,11 @@ async def test_live_async_convert_to_markdown_success(
 
     assert isinstance(response, PdfRestFileBasedResponse)
     assert response.output_files
-    assert response.output_file.name.startswith("async-md")
+    output_file = response.output_file
+    assert output_file.name.startswith("async-md")
+    assert output_file.type == "text/markdown"
+    assert output_file.size > 0
+    assert response.warning is None
     assert response.input_id == uploaded.id
 
 

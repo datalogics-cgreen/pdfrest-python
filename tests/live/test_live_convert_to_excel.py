@@ -50,6 +50,8 @@ def test_live_convert_to_excel_success(
         output_file.type
         == "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     )
+    assert output_file.size > 0
+    assert response.warning is None
     assert str(response.input_id) == str(uploaded_pdf_for_excel.id)
     if output_name is not None:
         assert output_file.name.startswith(output_name)
@@ -76,6 +78,8 @@ async def test_live_async_convert_to_excel_success(
         output_file.type
         == "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     )
+    assert output_file.size > 0
+    assert response.warning is None
     assert str(response.input_id) == str(uploaded_pdf_for_excel.id)
 
 

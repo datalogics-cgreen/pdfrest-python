@@ -21,7 +21,15 @@ def test_live_extract_images_success(
         response = client.extract_images(uploaded)
 
     assert isinstance(response, PdfRestFileBasedResponse)
-    assert response.output_files
+    output_files = response.output_files
+    assert output_files
+    assert all(file.name for file in output_files)
+    assert all(
+        file.type and (file.type.startswith("image/") or file.type == "application/zip")
+        for file in output_files
+    )
+    assert all(file.size > 0 for file in output_files)
+    assert response.warning is None
     assert response.input_id == uploaded.id
 
 
@@ -39,8 +47,16 @@ async def test_live_async_extract_images_success(
         response = await client.extract_images(uploaded, output="async-images")
 
     assert isinstance(response, PdfRestFileBasedResponse)
-    assert response.output_files
-    assert response.output_file.name.startswith("async-images")
+    output_files = response.output_files
+    assert output_files
+    assert output_files[0].name.startswith("async-images")
+    assert all(file.name for file in output_files)
+    assert all(
+        file.type and (file.type.startswith("image/") or file.type == "application/zip")
+        for file in output_files
+    )
+    assert all(file.size > 0 for file in output_files)
+    assert response.warning is None
     assert response.input_id == uploaded.id
 
 
