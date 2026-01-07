@@ -67,7 +67,10 @@ def test_live_translate_pdf_text_invalid_output_format(
         base_url=pdfrest_live_base_url,
     ) as client:
         uploaded = client.files.create_from_paths([resource])[0]
-        with pytest.raises(PdfRestApiError, match=r"(?i)output\s*format"):
+        with pytest.raises(
+            PdfRestApiError,
+            match=r"invalid-format is not a valid input for 'output_format'",
+        ):
             client.translate_pdf_text(
                 uploaded,
                 output_language="es",
@@ -86,7 +89,10 @@ async def test_live_async_translate_pdf_text_invalid_output_format(
         base_url=pdfrest_live_base_url,
     ) as client:
         uploaded = (await client.files.create_from_paths([resource]))[0]
-        with pytest.raises(PdfRestApiError, match=r"(?i)output\s*format"):
+        with pytest.raises(
+            PdfRestApiError,
+            match=r"invalid-format is not a valid input for 'output_format'",
+        ):
             await client.translate_pdf_text(
                 uploaded,
                 output_language="de",
