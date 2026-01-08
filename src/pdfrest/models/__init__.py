@@ -1,5 +1,4 @@
 from .public import (
-    ConvertToMarkdownResponse,
     ExtractTextResponse,
     PdfRestDeletionResponse,
     PdfRestErrorResponse,
@@ -14,7 +13,6 @@ from .public import (
 )
 
 __all__ = [
-    "ConvertToMarkdownResponse",
     "ExtractTextResponse",
     "PdfRestDeletionResponse",
     "PdfRestErrorResponse",
