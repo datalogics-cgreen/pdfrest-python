@@ -325,7 +325,7 @@ class SummarizePdfTextResponse(BaseModel):
     summary: Annotated[
         str | None,
         Field(
-            description="Inline summary content when output_type is json.",
+            description="Summary content",
             default=None,
         ),
     ] = None
