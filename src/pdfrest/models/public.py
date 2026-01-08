@@ -14,12 +14,24 @@ from pydantic import (
     ConfigDict,
     Field,
     HttpUrl,
+    RootModel,
 )
 from pydantic.json_schema import JsonSchemaValue
 from pydantic_core import CoreSchema
 from typing_extensions import override
 
 __all__ = (
+    "ExtractTextResponse",
+    "ExtractedTextDocument",
+    "ExtractedTextFullText",
+    "ExtractedTextFullTextPage",
+    "ExtractedTextFullTextPages",
+    "ExtractedTextPoint",
+    "ExtractedTextWord",
+    "ExtractedTextWordColor",
+    "ExtractedTextWordCoordinates",
+    "ExtractedTextWordFont",
+    "ExtractedTextWordStyle",
     "PdfRestDeletionResponse",
     "PdfRestErrorResponse",
     "PdfRestFile",
@@ -399,6 +411,313 @@ class TranslatePdfTextFileResponse(PdfRestFileBasedResponse):
             description="Target language used for the translation.",
             default=None,
         ),
+    ] = None
+
+
+class ExtractTextResponse(BaseModel):
+    """Response returned by the extracted-text tool."""
+
+    model_config = ConfigDict(extra="allow")
+
+    full_text: Annotated[
+        str | None,
+        Field(
+            alias="fullText",
+            validation_alias=AliasChoices("full_text", "fullText"),
+            description="Inline extracted text when output_type is json.",
+            default=None,
+        ),
+    ] = None
+    input_id: Annotated[
+        PdfRestFileID,
+        Field(
+            validation_alias=AliasChoices("input_id", "inputId"),
+            description="The id of the input file.",
+        ),
+    ]
+    warning: Annotated[
+        str | None,
+        Field(description="A warning that was generated during text extraction."),
+    ] = None
+
+
+class ExtractedTextPoint(BaseModel):
+    """A point in PDF coordinate space expressed in points."""
+
+    model_config = ConfigDict(extra="allow")
+
+    x: Annotated[
+        float,
+        Field(description="Horizontal position in PDF points."),
+    ]
+    y: Annotated[
+        float,
+        Field(description="Vertical position in PDF points."),
+    ]
+
+
+class ExtractedTextWordCoordinates(BaseModel):
+    """Bounding box describing where a word appears on the page."""
+
+    model_config = ConfigDict(extra="allow")
+
+    top_left: Annotated[
+        ExtractedTextPoint,
+        Field(
+            alias="topLeft",
+            validation_alias=AliasChoices("top_left", "topLeft"),
+            description="Upper-left corner of the word bounds.",
+        ),
+    ]
+    top_right: Annotated[
+        ExtractedTextPoint,
+        Field(
+            alias="topRight",
+            validation_alias=AliasChoices("top_right", "topRight"),
+            description="Upper-right corner of the word bounds.",
+        ),
+    ]
+    bottom_left: Annotated[
+        ExtractedTextPoint,
+        Field(
+            alias="bottomLeft",
+            validation_alias=AliasChoices("bottom_left", "bottomLeft"),
+            description="Lower-left corner of the word bounds.",
+        ),
+    ]
+    bottom_right: Annotated[
+        ExtractedTextPoint,
+        Field(
+            alias="bottomRight",
+            validation_alias=AliasChoices("bottom_right", "bottomRight"),
+            description="Lower-right corner of the word bounds.",
+        ),
+    ]
+
+
+class ExtractedTextWordColor(BaseModel):
+    """Font color applied to an extracted word."""
+
+    model_config = ConfigDict(extra="allow")
+
+    space: Annotated[
+        str,
+        Field(description="Color space name reported by pdfRest (e.g., DeviceRGB)."),
+    ]
+    values: Annotated[
+        list[float],
+        Field(
+            description="Numeric components in the reported color space.",
+            min_length=1,
+        ),
+    ]
+
+
+class ExtractedTextWordFont(BaseModel):
+    """Font metadata applied to an extracted word."""
+
+    model_config = ConfigDict(extra="allow")
+
+    name: Annotated[
+        str | None,
+        Field(
+            description="Reported font face name.",
+            default=None,
+        ),
+    ] = None
+    size: Annotated[
+        float | None,
+        Field(
+            description="Font size in points.",
+            default=None,
+        ),
+    ] = None
+
+
+class ExtractedTextWordStyle(BaseModel):
+    """Style information for an extracted word."""
+
+    model_config = ConfigDict(extra="allow")
+
+    color: Annotated[
+        ExtractedTextWordColor,
+        Field(description="Color information for the word."),
+    ]
+    font: Annotated[
+        ExtractedTextWordFont,
+        Field(description="Font information for the word."),
+    ]
+
+
+class ExtractedTextWord(BaseModel):
+    """A single word extracted from a PDF page."""
+
+    model_config = ConfigDict(extra="allow")
+
+    text: Annotated[
+        str,
+        Field(description="Word content as rendered by the PDF."),
+    ]
+    page: Annotated[
+        int,
+        Field(description="1-indexed page number containing the word.", ge=1),
+    ]
+    coordinates: Annotated[
+        ExtractedTextWordCoordinates | None,
+        Field(
+            description="Bounding box for the word when positional data is requested.",
+            default=None,
+        ),
+    ] = None
+    style: Annotated[
+        ExtractedTextWordStyle | None,
+        Field(
+            description="Font/color details captured for the word.",
+            default=None,
+        ),
+    ] = None
+
+
+class ExtractedTextFullTextPage(BaseModel):
+    """Per-page representation of the aggregated text content."""
+
+    model_config = ConfigDict(extra="allow")
+
+    page: Annotated[
+        int,
+        Field(description="1-indexed page number.", ge=1),
+    ]
+    text: Annotated[
+        str,
+        Field(description="Concatenated text for the page."),
+    ]
+
+
+class ExtractedTextFullTextPages(BaseModel):
+    """Container for per-page text output."""
+
+    model_config = ConfigDict(extra="allow")
+
+    pages: Annotated[
+        list[ExtractedTextFullTextPage],
+        Field(
+            description="Ordered text for each page present in the document.",
+            min_length=1,
+        ),
+    ]
+
+
+class ExtractedTextFullText(RootModel[str | ExtractedTextFullTextPages]):
+    """
+    Represents full-text extraction in either "document" (str) or "page" (object)
+    modes while providing convenience accessors for both forms.
+    """
+
+    root: str | ExtractedTextFullTextPages
+
+    @property
+    def document_text(self) -> str | None:
+        """
+        Return the document-level string. Falls back to space-joining per-page text
+        when only the page-structured payload is available.
+        """
+        if isinstance(self.root, str):
+            return self.root
+        return " ".join(page.text for page in self.root.pages)
+
+    @property
+    def pages(self) -> list[ExtractedTextFullTextPage]:
+        """
+        Return page entries when pdfRest emits per-page text.
+        Raises ValueError when the payload is in document-string mode.
+        """
+        if isinstance(self.root, ExtractedTextFullTextPages):
+            return self.root.pages
+        msg = "full text payload was emitted in document mode; page data unavailable"
+        raise ValueError(msg)
+
+    def iter_pages(self) -> list[ExtractedTextFullTextPage]:
+        """
+        Convenience helper that provides a stable iterable without requiring
+        callers to guard against the document-only representation.
+        """
+        try:
+            return self.pages
+        except ValueError:
+            return []
+
+
+class ExtractedTextDocument(BaseModel):
+    """Structured representation of the JSON output returned by extract_text_to_file."""
+
+    model_config = ConfigDict(extra="allow")
+
+    input_id: Annotated[
+        PdfRestFileID,
+        Field(
+            alias="inputId",
+            validation_alias=AliasChoices("input_id", "inputId"),
+            description="Identifier of the uploaded PDF.",
+        ),
+    ]
+    words: Annotated[
+        list[ExtractedTextWord] | None,
+        Field(
+            description="Individual word records when word-level extraction is enabled.",
+            default=None,
+        ),
+    ] = None
+    full_text: Annotated[
+        ExtractedTextFullText | None,
+        Field(
+            alias="fullText",
+            validation_alias=AliasChoices("full_text", "fullText"),
+            description="Full text output (document string or per-page content).",
+            default=None,
+        ),
+    ] = None
+
+
+class ConvertToMarkdownResponse(BaseModel):
+    """Response returned by the markdown conversion tool."""
+
+    model_config = ConfigDict(extra="allow")
+
+    markdown: Annotated[
+        str | None,
+        Field(
+            description="Inline markdown content when output_type is json.",
+            default=None,
+        ),
+    ] = None
+    input_id: Annotated[
+        PdfRestFileID,
+        Field(
+            validation_alias=AliasChoices("input_id", "inputId"),
+            description="The id of the input file.",
+        ),
+    ]
+    output_url: Annotated[
+        HttpUrl | None,
+        Field(
+            alias="outputUrl",
+            validation_alias=AliasChoices("output_url", "outputUrl"),
+            description="Download URL for file output.",
+            default=None,
+        ),
+    ] = None
+    output_id: Annotated[
+        PdfRestFileID | None,
+        Field(
+            alias="outputId",
+            validation_alias=AliasChoices("output_id", "outputId"),
+            description="The id of the generated output when output_type is file.",
+            default=None,
+        ),
+    ] = None
+    warning: Annotated[
+        str | None,
+        Field(description="A warning that was generated during markdown conversion."),
     ] = None
 
 
