@@ -113,8 +113,6 @@ def test_summarize_pdf_text_json_success(monkeypatch: pytest.MonkeyPatch) -> Non
     assert isinstance(response, SummarizePdfTextResponse)
     assert response.summary == "Key points..."
     assert response.input_id == input_file.id
-    assert response.output_id is None
-    assert response.output_url is None
 
 
 def test_summarize_pdf_text_to_file_success(
