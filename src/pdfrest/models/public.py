@@ -424,24 +424,6 @@ class ExtractTextResponse(BaseModel):
             description="The id of the input file.",
         ),
     ]
-    output_url: Annotated[
-        HttpUrl | None,
-        Field(
-            alias="outputUrl",
-            validation_alias=AliasChoices("output_url", "outputUrl"),
-            description="Download URL for file output.",
-            default=None,
-        ),
-    ] = None
-    output_id: Annotated[
-        PdfRestFileID | None,
-        Field(
-            alias="outputId",
-            validation_alias=AliasChoices("output_id", "outputId"),
-            description="The id of the generated output when output_type is file.",
-            default=None,
-        ),
-    ] = None
     warning: Annotated[
         str | None,
         Field(description="A warning that was generated during text extraction."),
