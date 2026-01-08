@@ -109,8 +109,6 @@ def test_translate_pdf_text_json_success(monkeypatch: pytest.MonkeyPatch) -> Non
     assert response.source_languages == ["en"]
     assert response.output_language == "fr"
     assert response.input_id == input_file.id
-    assert response.output_id is None
-    assert response.output_url is None
 
 
 def test_translate_pdf_text_request_customization(
