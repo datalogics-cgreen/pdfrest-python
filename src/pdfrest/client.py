@@ -60,6 +60,7 @@ from .exceptions import (
     translate_httpx_error,
 )
 from .models import (
+    ExtractedTextDocument,
     PdfRestDeletionResponse,
     PdfRestErrorResponse,
     PdfRestFile,
@@ -2398,6 +2399,48 @@ class PdfRestClient(_SyncApiClient):
             timeout=timeout,
         )
 
+    def extract_pdf_text(
+        self,
+        file: PdfRestFile | Sequence[PdfRestFile],
+        *,
+        pages: PdfPageSelection | None = None,
+        full_text: Literal["off", "by_page", "document"] = "document",
+        preserve_line_breaks: bool = False,
+        word_style: bool = False,
+        word_coordinates: bool = False,
+        extra_query: Query | None = None,
+        extra_headers: AnyMapping | None = None,
+        extra_body: Body | None = None,
+        timeout: TimeoutTypes | None = None,
+    ) -> ExtractedTextDocument:
+        """Extract text content from a PDF and return parsed JSON results."""
+
+        payload: dict[str, Any] = {
+            "files": file,
+            "full_text": full_text,
+            "preserve_line_breaks": preserve_line_breaks,
+            "word_style": word_style,
+            "word_coordinates": word_coordinates,
+            "output_type": "json",
+        }
+        if pages is not None:
+            payload["pages"] = pages
+
+        validated_payload = ExtractTextPayload.model_validate(payload)
+        request = self.prepare_request(
+            "POST",
+            "/extracted-text",
+            json_body=validated_payload.model_dump(
+                mode="json", by_alias=True, exclude_none=True, exclude_unset=True
+            ),
+            extra_query=extra_query,
+            extra_headers=extra_headers,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
+        raw_payload = self._send_request(request)
+        return ExtractedTextDocument.model_validate(raw_payload)
+
     def extract_pdf_text_to_file(
         self,
         file: PdfRestFile | Sequence[PdfRestFile],
@@ -3392,6 +3435,48 @@ class AsyncPdfRestClient(_AsyncApiClient):
             extra_body=extra_body,
             timeout=timeout,
         )
+
+    async def extract_pdf_text(
+        self,
+        file: PdfRestFile | Sequence[PdfRestFile],
+        *,
+        pages: PdfPageSelection | None = None,
+        full_text: Literal["off", "by_page", "document"] = "document",
+        preserve_line_breaks: bool = False,
+        word_style: bool = False,
+        word_coordinates: bool = False,
+        extra_query: Query | None = None,
+        extra_headers: AnyMapping | None = None,
+        extra_body: Body | None = None,
+        timeout: TimeoutTypes | None = None,
+    ) -> ExtractedTextDocument:
+        """Extract text content from a PDF and return parsed JSON results."""
+
+        payload: dict[str, Any] = {
+            "files": file,
+            "full_text": full_text,
+            "preserve_line_breaks": preserve_line_breaks,
+            "word_style": word_style,
+            "word_coordinates": word_coordinates,
+            "output_type": "json",
+        }
+        if pages is not None:
+            payload["pages"] = pages
+
+        validated_payload = ExtractTextPayload.model_validate(payload)
+        request = self.prepare_request(
+            "POST",
+            "/extracted-text",
+            json_body=validated_payload.model_dump(
+                mode="json", by_alias=True, exclude_none=True, exclude_unset=True
+            ),
+            extra_query=extra_query,
+            extra_headers=extra_headers,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
+        raw_payload = await self._send_request(request)
+        return ExtractedTextDocument.model_validate(raw_payload)
 
     async def extract_pdf_text_to_file(
         self,
