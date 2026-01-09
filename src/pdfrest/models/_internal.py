@@ -418,6 +418,7 @@ class ConvertToMarkdownPayload(BaseModel):
     page_break_comments: Annotated[
         Literal["on", "off"] | None,
         Field(serialization_alias="page_break_comments", default=None),
+        BeforeValidator(_bool_to_on_off),
     ] = None
     output: Annotated[
         str | None,
@@ -855,6 +856,7 @@ class PdfToPdfaPayload(BaseModel):
             serialization_alias="rasterize_if_errors_encountered",
             default=None,
         ),
+        BeforeValidator(_bool_to_on_off),
     ] = None
 
 
