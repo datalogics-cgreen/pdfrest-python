@@ -20,7 +20,6 @@ from pydantic_core import CoreSchema
 from typing_extensions import override
 
 __all__ = (
-    "ExtractTextResponse",
     "PdfRestDeletionResponse",
     "PdfRestErrorResponse",
     "PdfRestFile",
@@ -400,33 +399,6 @@ class TranslatePdfTextFileResponse(PdfRestFileBasedResponse):
             description="Target language used for the translation.",
             default=None,
         ),
-    ] = None
-
-
-class ExtractTextResponse(BaseModel):
-    """Response returned by the extracted-text tool."""
-
-    model_config = ConfigDict(extra="allow")
-
-    full_text: Annotated[
-        str | None,
-        Field(
-            alias="fullText",
-            validation_alias=AliasChoices("full_text", "fullText"),
-            description="Inline extracted text when output_type is json.",
-            default=None,
-        ),
-    ] = None
-    input_id: Annotated[
-        PdfRestFileID,
-        Field(
-            validation_alias=AliasChoices("input_id", "inputId"),
-            description="The id of the input file.",
-        ),
-    ]
-    warning: Annotated[
-        str | None,
-        Field(description="A warning that was generated during text extraction."),
     ] = None
 
 
