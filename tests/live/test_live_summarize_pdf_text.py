@@ -8,7 +8,7 @@ from pdfrest.models import PdfRestFileBasedResponse, SummarizePdfTextResponse
 from ..resources import get_test_resource_path
 
 
-def test_live_summarize_pdf_text_success(
+def test_live_summarize_text_success(
     pdfrest_api_key: str,
     pdfrest_live_base_url: str,
 ) -> None:
@@ -18,7 +18,7 @@ def test_live_summarize_pdf_text_success(
         base_url=pdfrest_live_base_url,
     ) as client:
         uploaded = client.files.create_from_paths([resource])[0]
-        response = client.summarize_pdf_text(
+        response = client.summarize_text(
             uploaded,
             target_word_count=40,
             summary_format="overview",
@@ -29,7 +29,7 @@ def test_live_summarize_pdf_text_success(
     assert response.input_id == uploaded.id
 
 
-def test_live_summarize_pdf_text_to_file_success(
+def test_live_summarize_text_to_file_success(
     pdfrest_api_key: str,
     pdfrest_live_base_url: str,
 ) -> None:
@@ -39,7 +39,7 @@ def test_live_summarize_pdf_text_to_file_success(
         base_url=pdfrest_live_base_url,
     ) as client:
         uploaded = client.files.create_from_paths([resource])[0]
-        response = client.summarize_pdf_text_to_file(
+        response = client.summarize_text_to_file(
             uploaded,
             target_word_count=40,
             summary_format="overview",
@@ -56,7 +56,7 @@ def test_live_summarize_pdf_text_to_file_success(
 
 
 @pytest.mark.asyncio
-async def test_live_async_summarize_pdf_text_success(
+async def test_live_async_summarize_text_success(
     pdfrest_api_key: str,
     pdfrest_live_base_url: str,
 ) -> None:
@@ -66,7 +66,7 @@ async def test_live_async_summarize_pdf_text_success(
         base_url=pdfrest_live_base_url,
     ) as client:
         uploaded = (await client.files.create_from_paths([resource]))[0]
-        response = await client.summarize_pdf_text(
+        response = await client.summarize_text(
             uploaded,
             target_word_count=30,
             summary_format="overview",
@@ -77,7 +77,7 @@ async def test_live_async_summarize_pdf_text_success(
     assert response.input_id == uploaded.id
 
 
-def test_live_summarize_pdf_text_invalid_format(
+def test_live_summarize_text_invalid_format(
     pdfrest_api_key: str,
     pdfrest_live_base_url: str,
 ) -> None:
@@ -88,14 +88,14 @@ def test_live_summarize_pdf_text_invalid_format(
     ) as client:
         uploaded = client.files.create_from_paths([resource])[0]
         with pytest.raises(PdfRestApiError, match=r"(?i)summary"):
-            client.summarize_pdf_text(
+            client.summarize_text(
                 uploaded,
                 extra_body={"summary_format": "invalid-style"},
             )
 
 
 @pytest.mark.asyncio
-async def test_live_async_summarize_pdf_text_invalid_format(
+async def test_live_async_summarize_text_invalid_format(
     pdfrest_api_key: str,
     pdfrest_live_base_url: str,
 ) -> None:
@@ -106,7 +106,7 @@ async def test_live_async_summarize_pdf_text_invalid_format(
     ) as client:
         uploaded = (await client.files.create_from_paths([resource]))[0]
         with pytest.raises(PdfRestApiError, match=r"(?i)summary"):
-            await client.summarize_pdf_text(
+            await client.summarize_text(
                 uploaded,
                 extra_body={"summary_format": "invalid-style"},
             )

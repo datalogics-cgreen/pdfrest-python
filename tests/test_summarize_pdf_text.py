@@ -66,7 +66,7 @@ def test_summarize_payload_invalid_page_range() -> None:
         SummarizePdfTextPayload.model_validate({"files": [file_repr], "pages": ["5-2"]})
 
 
-def test_summarize_pdf_text_json_success(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_summarize_text_json_success(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.delenv("PDFREST_API_KEY", raising=False)
     input_file = _make_text_file(str(PdfRestFileID.generate(1)))
     payload_dump = SummarizePdfTextPayload.model_validate(
@@ -100,7 +100,7 @@ def test_summarize_pdf_text_json_success(monkeypatch: pytest.MonkeyPatch) -> Non
 
     transport = httpx.MockTransport(handler)
     with PdfRestClient(api_key=VALID_API_KEY, transport=transport) as client:
-        response = client.summarize_pdf_text(
+        response = client.summarize_text(
             input_file,
             target_word_count=120,
             summary_format="bullet_points",
@@ -115,7 +115,7 @@ def test_summarize_pdf_text_json_success(monkeypatch: pytest.MonkeyPatch) -> Non
     assert response.input_id == input_file.id
 
 
-def test_summarize_pdf_text_to_file_success(
+def test_summarize_text_to_file_success(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.delenv("PDFREST_API_KEY", raising=False)
@@ -158,7 +158,7 @@ def test_summarize_pdf_text_to_file_success(
 
     transport = httpx.MockTransport(handler)
     with PdfRestClient(api_key=VALID_API_KEY, transport=transport) as client:
-        response = client.summarize_pdf_text_to_file(
+        response = client.summarize_text_to_file(
             input_file,
             target_word_count=200,
             summary_format="bullet_points",
@@ -174,7 +174,7 @@ def test_summarize_pdf_text_to_file_success(
     assert response.input_id == input_file.id
 
 
-def test_summarize_pdf_text_to_file_request_customization(
+def test_summarize_text_to_file_request_customization(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.delenv("PDFREST_API_KEY", raising=False)
@@ -223,7 +223,7 @@ def test_summarize_pdf_text_to_file_request_customization(
 
     transport = httpx.MockTransport(handler)
     with PdfRestClient(api_key=VALID_API_KEY, transport=transport) as client:
-        response = client.summarize_pdf_text_to_file(
+        response = client.summarize_text_to_file(
             input_file,
             extra_query={"trace": "true"},
             extra_headers={"X-Debug": "sync"},
@@ -246,7 +246,7 @@ def test_summarize_pdf_text_to_file_request_customization(
 
 
 @pytest.mark.asyncio
-async def test_async_summarize_pdf_text_success(
+async def test_async_summarize_text_success(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.delenv("PDFREST_API_KEY", raising=False)
@@ -275,7 +275,7 @@ async def test_async_summarize_pdf_text_success(
 
     transport = httpx.MockTransport(handler)
     async with AsyncPdfRestClient(api_key=ASYNC_API_KEY, transport=transport) as client:
-        response = await client.summarize_pdf_text(input_file)
+        response = await client.summarize_text(input_file)
 
     assert seen == {"post": 1}
     assert isinstance(response, SummarizePdfTextResponse)
@@ -284,7 +284,7 @@ async def test_async_summarize_pdf_text_success(
 
 
 @pytest.mark.asyncio
-async def test_async_summarize_pdf_text_to_file_success(
+async def test_async_summarize_text_to_file_success(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.delenv("PDFREST_API_KEY", raising=False)
@@ -322,7 +322,7 @@ async def test_async_summarize_pdf_text_to_file_success(
 
     transport = httpx.MockTransport(handler)
     async with AsyncPdfRestClient(api_key=ASYNC_API_KEY, transport=transport) as client:
-        response = await client.summarize_pdf_text_to_file(input_file)
+        response = await client.summarize_text_to_file(input_file)
 
     assert seen == {"post": 1, "get": 1}
     assert isinstance(response, PdfRestFileBasedResponse)

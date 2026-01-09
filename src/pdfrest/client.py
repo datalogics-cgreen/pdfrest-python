@@ -2132,7 +2132,7 @@ class PdfRestClient(_SyncApiClient):
         raw_payload = self._send_request(request)
         return PdfRestInfoResponse.model_validate(raw_payload)
 
-    def summarize_pdf_text(
+    def summarize_text(
         self,
         file: PdfRestFile | Sequence[PdfRestFile],
         *,
@@ -2179,7 +2179,7 @@ class PdfRestClient(_SyncApiClient):
         raw_payload = self._send_request(request)
         return SummarizePdfTextResponse.model_validate(raw_payload)
 
-    def summarize_pdf_text_to_file(
+    def summarize_text_to_file(
         self,
         file: PdfRestFile | Sequence[PdfRestFile],
         *,
@@ -3142,7 +3142,7 @@ class AsyncPdfRestClient(_AsyncApiClient):
         raw_payload = await self._send_request(request)
         return PdfRestInfoResponse.model_validate(raw_payload)
 
-    async def summarize_pdf_text(
+    async def summarize_text(
         self,
         file: PdfRestFile | Sequence[PdfRestFile],
         *,
@@ -3189,7 +3189,7 @@ class AsyncPdfRestClient(_AsyncApiClient):
         raw_payload = await self._send_request(request)
         return SummarizePdfTextResponse.model_validate(raw_payload)
 
-    async def summarize_pdf_text_to_file(
+    async def summarize_text_to_file(
         self,
         file: PdfRestFile | Sequence[PdfRestFile],
         *,
