@@ -120,6 +120,12 @@ def _serialize_file_ids(value: list[PdfRestFile]) -> str:
     return ",".join(str(file.id) for file in value)
 
 
+def _bool_to_on_off(value: Any) -> Any:
+    if isinstance(value, bool):
+        return "on" if value else "off"
+    return value
+
+
 def _serialize_page_ranges(value: list[str | int | tuple[str | int, ...]]) -> str:
     def join_tuple(value: str | int | tuple[str | int, ...]) -> str:
         if isinstance(value, tuple):
@@ -364,9 +370,15 @@ class ExtractTextPayload(BaseModel):
         PlainSerializer(_serialize_page_ranges),
     ] = None
     full_text: Literal["off", "by_page", "document"] = "document"
-    preserve_line_breaks: Literal["off", "on"] = "off"
-    word_style: Literal["off", "on"] = "off"
-    word_coordinates: Literal["off", "on"] = "off"
+    preserve_line_breaks: Annotated[
+        Literal["off", "on"], BeforeValidator(_bool_to_on_off)
+    ] = "off"
+    word_style: Annotated[Literal["off", "on"], BeforeValidator(_bool_to_on_off)] = (
+        "off"
+    )
+    word_coordinates: Annotated[
+        Literal["off", "on"], BeforeValidator(_bool_to_on_off)
+    ] = "off"
     output_type: Literal["json", "file"] = "json"
     output: Annotated[
         str | None,
