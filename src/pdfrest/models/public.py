@@ -519,19 +519,13 @@ class ExtractedTextWordFont(BaseModel):
     model_config = ConfigDict(extra="allow")
 
     name: Annotated[
-        str | None,
-        Field(
-            description="Reported font face name.",
-            default=None,
-        ),
-    ] = None
+        str,
+        Field(description="Reported font face name."),
+    ]
     size: Annotated[
-        float | None,
-        Field(
-            description="Font size in points.",
-            default=None,
-        ),
-    ] = None
+        float,
+        Field(description="Font size in points."),
+    ]
 
 
 class ExtractedTextWordStyle(BaseModel):

@@ -51,12 +51,10 @@ def _format_color(word: ExtractedTextWord) -> str:
 
 def _format_font(word: ExtractedTextWord) -> str:
     style = word.style
-    if style is None or style.font is None:
+    if style is None:
         return "—"
     font = style.font
-    name = font.name or "Unknown"
-    size = f"{font.size:.1f} pt" if font.size is not None else "Unknown size"
-    return f"{name} ({size})"
+    return f"{font.name} ({font.size:.1f} pt)"
 
 
 def _build_word_table(document: ExtractedTextDocument) -> Table:
