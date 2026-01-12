@@ -107,6 +107,13 @@ from .models._internal import (
 )
 from .types import (
     ALL_PDF_INFO_QUERIES,
+    BmpColorModel,
+    CompressionLevel,
+    ExtractTextGranularity,
+    FlattenQuality,
+    GifColorModel,
+    GraphicSmoothing,
+    JpegColorModel,
     PdfAType,
     PdfInfoQuery,
     PdfMergeInput,
@@ -114,8 +121,10 @@ from .types import (
     PdfRedactionInstruction,
     PdfRGBColor,
     PdfXType,
+    PngColorModel,
     SummaryFormat,
     SummaryOutputFormat,
+    TiffColorModel,
     TranslateOutputFormat,
 )
 
@@ -2392,7 +2401,7 @@ class PdfRestClient(_SyncApiClient):
         file: PdfRestFile | Sequence[PdfRestFile],
         *,
         pages: PdfPageSelection | None = None,
-        full_text: Literal["off", "by_page", "document"] = "document",
+        full_text: ExtractTextGranularity = "document",
         preserve_line_breaks: bool = False,
         word_style: bool = False,
         word_coordinates: bool = False,
@@ -2677,7 +2686,7 @@ class PdfRestClient(_SyncApiClient):
         self,
         file: PdfRestFile | Sequence[PdfRestFile],
         *,
-        compression_level: Literal["low", "medium", "high", "custom"],
+        compression_level: CompressionLevel,
         profile: PdfRestFile | Sequence[PdfRestFile] | None = None,
         output: str | None = None,
         extra_query: Query | None = None,
@@ -2711,7 +2720,7 @@ class PdfRestClient(_SyncApiClient):
         file: PdfRestFile | Sequence[PdfRestFile],
         *,
         output: str | None = None,
-        quality: Literal["low", "medium", "high"] = "medium",
+        quality: FlattenQuality = "medium",
         extra_query: Query | None = None,
         extra_headers: AnyMapping | None = None,
         extra_body: Body | None = None,
@@ -2876,10 +2885,8 @@ class PdfRestClient(_SyncApiClient):
         output_prefix: str | None = None,
         page_range: str | Sequence[str] | None = None,
         resolution: int = 300,
-        color_model: Literal["rgb", "rgba", "gray"] = "rgb",
-        smoothing: Literal["none", "all", "text", "line", "image"]
-        | Sequence[Literal["none", "all", "text", "line", "image"]]
-        | None = None,
+        color_model: PngColorModel = "rgb",
+        smoothing: GraphicSmoothing | Sequence[GraphicSmoothing] | None = None,
         extra_query: Query | None = None,
         extra_headers: AnyMapping | None = None,
         extra_body: Body | None = None,
@@ -2916,10 +2923,8 @@ class PdfRestClient(_SyncApiClient):
         output_prefix: str | None = None,
         page_range: str | Sequence[str] | None = None,
         resolution: int = 300,
-        color_model: Literal["rgb", "gray"] = "rgb",
-        smoothing: Literal["none", "all", "text", "line", "image"]
-        | Sequence[Literal["none", "all", "text", "line", "image"]]
-        | None = None,
+        color_model: BmpColorModel = "rgb",
+        smoothing: GraphicSmoothing | Sequence[GraphicSmoothing] | None = None,
         extra_query: Query | None = None,
         extra_headers: AnyMapping | None = None,
         extra_body: Body | None = None,
@@ -2956,10 +2961,8 @@ class PdfRestClient(_SyncApiClient):
         output_prefix: str | None = None,
         page_range: str | Sequence[str] | None = None,
         resolution: int = 300,
-        color_model: Literal["rgb", "gray"] = "rgb",
-        smoothing: Literal["none", "all", "text", "line", "image"]
-        | Sequence[Literal["none", "all", "text", "line", "image"]]
-        | None = None,
+        color_model: GifColorModel = "rgb",
+        smoothing: GraphicSmoothing | Sequence[GraphicSmoothing] | None = None,
         extra_query: Query | None = None,
         extra_headers: AnyMapping | None = None,
         extra_body: Body | None = None,
@@ -2996,10 +2999,8 @@ class PdfRestClient(_SyncApiClient):
         output_prefix: str | None = None,
         page_range: str | Sequence[str] | None = None,
         resolution: int = 300,
-        color_model: Literal["rgb", "cmyk", "gray"] = "rgb",
-        smoothing: Literal["none", "all", "text", "line", "image"]
-        | Sequence[Literal["none", "all", "text", "line", "image"]]
-        | None = None,
+        color_model: JpegColorModel = "rgb",
+        smoothing: GraphicSmoothing | Sequence[GraphicSmoothing] | None = None,
         jpeg_quality: int = 75,
         extra_query: Query | None = None,
         extra_headers: AnyMapping | None = None,
@@ -3038,10 +3039,8 @@ class PdfRestClient(_SyncApiClient):
         output_prefix: str | None = None,
         page_range: str | Sequence[str] | None = None,
         resolution: int = 300,
-        color_model: Literal["rgb", "rgba", "cmyk", "lab", "gray"] = "rgb",
-        smoothing: Literal["none", "all", "text", "line", "image"]
-        | Sequence[Literal["none", "all", "text", "line", "image"]]
-        | None = None,
+        color_model: TiffColorModel = "rgb",
+        smoothing: GraphicSmoothing | Sequence[GraphicSmoothing] | None = None,
         extra_query: Query | None = None,
         extra_headers: AnyMapping | None = None,
         extra_body: Body | None = None,
@@ -3401,7 +3400,7 @@ class AsyncPdfRestClient(_AsyncApiClient):
         file: PdfRestFile | Sequence[PdfRestFile],
         *,
         pages: PdfPageSelection | None = None,
-        full_text: Literal["off", "by_page", "document"] = "document",
+        full_text: ExtractTextGranularity = "document",
         preserve_line_breaks: bool = False,
         word_style: bool = False,
         word_coordinates: bool = False,
@@ -3728,7 +3727,7 @@ class AsyncPdfRestClient(_AsyncApiClient):
         self,
         file: PdfRestFile | Sequence[PdfRestFile],
         *,
-        compression_level: Literal["low", "medium", "high", "custom"],
+        compression_level: CompressionLevel,
         profile: PdfRestFile | Sequence[PdfRestFile] | None = None,
         output: str | None = None,
         extra_query: Query | None = None,
@@ -3762,7 +3761,7 @@ class AsyncPdfRestClient(_AsyncApiClient):
         file: PdfRestFile | Sequence[PdfRestFile],
         *,
         output: str | None = None,
-        quality: Literal["low", "medium", "high"] = "medium",
+        quality: FlattenQuality = "medium",
         extra_query: Query | None = None,
         extra_headers: AnyMapping | None = None,
         extra_body: Body | None = None,
@@ -3928,10 +3927,8 @@ class AsyncPdfRestClient(_AsyncApiClient):
         output_prefix: str | None = None,
         page_range: str | Sequence[str] | None = None,
         resolution: int = 300,
-        color_model: Literal["rgb", "rgba", "gray"] = "rgb",
-        smoothing: Literal["none", "all", "text", "line", "image"]
-        | Sequence[Literal["none", "all", "text", "line", "image"]]
-        | None = None,
+        color_model: PngColorModel = "rgb",
+        smoothing: GraphicSmoothing | Sequence[GraphicSmoothing] | None = None,
         extra_query: Query | None = None,
         extra_headers: AnyMapping | None = None,
         extra_body: Body | None = None,
@@ -3968,10 +3965,8 @@ class AsyncPdfRestClient(_AsyncApiClient):
         output_prefix: str | None = None,
         page_range: str | Sequence[str] | None = None,
         resolution: int = 300,
-        color_model: Literal["rgb", "gray"] = "rgb",
-        smoothing: Literal["none", "all", "text", "line", "image"]
-        | Sequence[Literal["none", "all", "text", "line", "image"]]
-        | None = None,
+        color_model: BmpColorModel = "rgb",
+        smoothing: GraphicSmoothing | Sequence[GraphicSmoothing] | None = None,
         extra_query: Query | None = None,
         extra_headers: AnyMapping | None = None,
         extra_body: Body | None = None,
@@ -4008,10 +4003,8 @@ class AsyncPdfRestClient(_AsyncApiClient):
         output_prefix: str | None = None,
         page_range: str | Sequence[str] | None = None,
         resolution: int = 300,
-        color_model: Literal["rgb", "gray"] = "rgb",
-        smoothing: Literal["none", "all", "text", "line", "image"]
-        | Sequence[Literal["none", "all", "text", "line", "image"]]
-        | None = None,
+        color_model: GifColorModel = "rgb",
+        smoothing: GraphicSmoothing | Sequence[GraphicSmoothing] | None = None,
         extra_query: Query | None = None,
         extra_headers: AnyMapping | None = None,
         extra_body: Body | None = None,
@@ -4048,10 +4041,8 @@ class AsyncPdfRestClient(_AsyncApiClient):
         output_prefix: str | None = None,
         page_range: str | Sequence[str] | None = None,
         resolution: int = 300,
-        color_model: Literal["rgb", "cmyk", "gray"] = "rgb",
-        smoothing: Literal["none", "all", "text", "line", "image"]
-        | Sequence[Literal["none", "all", "text", "line", "image"]]
-        | None = None,
+        color_model: JpegColorModel = "rgb",
+        smoothing: GraphicSmoothing | Sequence[GraphicSmoothing] | None = None,
         jpeg_quality: int = 75,
         extra_query: Query | None = None,
         extra_headers: AnyMapping | None = None,
@@ -4090,10 +4081,8 @@ class AsyncPdfRestClient(_AsyncApiClient):
         output_prefix: str | None = None,
         page_range: str | Sequence[str] | None = None,
         resolution: int = 300,
-        color_model: Literal["rgb", "rgba", "cmyk", "lab", "gray"] = "rgb",
-        smoothing: Literal["none", "all", "text", "line", "image"]
-        | Sequence[Literal["none", "all", "text", "line", "image"]]
-        | None = None,
+        color_model: TiffColorModel = "rgb",
+        smoothing: GraphicSmoothing | Sequence[GraphicSmoothing] | None = None,
         extra_query: Query | None = None,
         extra_headers: AnyMapping | None = None,
         extra_body: Body | None = None,

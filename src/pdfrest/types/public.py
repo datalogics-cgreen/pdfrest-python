@@ -14,6 +14,13 @@ else:  # pragma: no cover - used only for typing at runtime
 
 __all__ = (
     "ALL_PDF_INFO_QUERIES",
+    "BmpColorModel",
+    "CompressionLevel",
+    "ExtractTextGranularity",
+    "FlattenQuality",
+    "GifColorModel",
+    "GraphicSmoothing",
+    "JpegColorModel",
     "PdfAType",
     "PdfInfoQuery",
     "PdfMergeInput",
@@ -24,9 +31,11 @@ __all__ = (
     "PdfRedactionPreset",
     "PdfRedactionType",
     "PdfXType",
+    "PngColorModel",
     "SummaryFormat",
     "SummaryOutputFormat",
     "SummaryOutputType",
+    "TiffColorModel",
     "TranslateOutputFormat",
 )
 
@@ -105,6 +114,15 @@ PdfMergeInput = PdfRestFile | PdfMergeSource | tuple[PdfRestFile, PdfPageSelecti
 
 PdfAType = Literal["PDF/A-1b", "PDF/A-2b", "PDF/A-2u", "PDF/A-3b", "PDF/A-3u"]
 PdfXType = Literal["PDF/X-1a", "PDF/X-3", "PDF/X-4", "PDF/X-6"]
+ExtractTextGranularity = Literal["off", "by_page", "document"]
+CompressionLevel = Literal["low", "medium", "high", "custom"]
+FlattenQuality = Literal["low", "medium", "high"]
+PngColorModel = Literal["rgb", "rgba", "gray"]
+BmpColorModel = Literal["rgb", "gray"]
+GifColorModel = Literal["rgb", "gray"]
+JpegColorModel = Literal["rgb", "cmyk", "gray"]
+TiffColorModel = Literal["rgb", "rgba", "cmyk", "lab", "gray"]
+GraphicSmoothing = Literal["none", "all", "text", "line", "image"]
 
 SummaryFormat = Literal[
     "overview",

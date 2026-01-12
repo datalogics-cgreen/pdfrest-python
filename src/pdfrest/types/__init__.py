@@ -2,6 +2,13 @@
 
 from .public import (
     ALL_PDF_INFO_QUERIES,
+    BmpColorModel,
+    CompressionLevel,
+    ExtractTextGranularity,
+    FlattenQuality,
+    GifColorModel,
+    GraphicSmoothing,
+    JpegColorModel,
     PdfAType,
     PdfInfoQuery,
     PdfMergeInput,
@@ -12,14 +19,23 @@ from .public import (
     PdfRedactionType,
     PdfRGBColor,
     PdfXType,
+    PngColorModel,
     SummaryFormat,
     SummaryOutputFormat,
     SummaryOutputType,
+    TiffColorModel,
     TranslateOutputFormat,
 )
 
 __all__ = [
     "ALL_PDF_INFO_QUERIES",
+    "BmpColorModel",
+    "CompressionLevel",
+    "ExtractTextGranularity",
+    "FlattenQuality",
+    "GifColorModel",
+    "GraphicSmoothing",
+    "JpegColorModel",
     "PdfAType",
     "PdfInfoQuery",
     "PdfMergeInput",
@@ -30,8 +46,10 @@ __all__ = [
     "PdfRedactionPreset",
     "PdfRedactionType",
     "PdfXType",
+    "PngColorModel",
     "SummaryFormat",
     "SummaryOutputFormat",
     "SummaryOutputType",
+    "TiffColorModel",
     "TranslateOutputFormat",
 ]
