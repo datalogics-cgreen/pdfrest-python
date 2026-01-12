@@ -2136,7 +2136,7 @@ class PdfRestClient(_SyncApiClient):
         self,
         file: PdfRestFile | Sequence[PdfRestFile],
         *,
-        target_word_count: int | None = 400,
+        target_word_count: int = 400,
         summary_format: SummaryFormat = "overview",
         pages: PdfPageSelection | None = None,
         output_format: SummaryOutputFormat = "markdown",
@@ -2183,7 +2183,7 @@ class PdfRestClient(_SyncApiClient):
         self,
         file: PdfRestFile | Sequence[PdfRestFile],
         *,
-        target_word_count: int | None = 400,
+        target_word_count: int = 400,
         summary_format: SummaryFormat = "overview",
         pages: PdfPageSelection | None = None,
         output_format: SummaryOutputFormat = "markdown",
@@ -2222,7 +2222,7 @@ class PdfRestClient(_SyncApiClient):
         file: PdfRestFile | Sequence[PdfRestFile],
         *,
         pages: PdfPageSelection | None = None,
-        page_break_comments: bool | None = None,
+        page_break_comments: bool = False,
         output: str | None = None,
         extra_query: Query | None = None,
         extra_headers: AnyMapping | None = None,
@@ -2234,11 +2234,10 @@ class PdfRestClient(_SyncApiClient):
         payload: dict[str, Any] = {
             "files": file,
             "output_type": "file",
+            "page_break_comments": page_break_comments,
         }
         if pages is not None:
             payload["pages"] = pages
-        if page_break_comments is not None:
-            payload["page_break_comments"] = page_break_comments
         if output is not None:
             payload["output"] = output
 
@@ -2818,7 +2817,7 @@ class PdfRestClient(_SyncApiClient):
         *,
         output_type: PdfAType,
         output: str | None = None,
-        rasterize_if_errors_encountered: bool | None = None,
+        rasterize_if_errors_encountered: bool = False,
         extra_query: Query | None = None,
         extra_headers: AnyMapping | None = None,
         extra_body: Body | None = None,
@@ -2826,12 +2825,13 @@ class PdfRestClient(_SyncApiClient):
     ) -> PdfRestFileBasedResponse:
         """Convert a PDF to a specified PDF/A version."""
 
-        payload: dict[str, Any] = {"files": file, "output_type": output_type}
+        payload: dict[str, Any] = {
+            "files": file,
+            "output_type": output_type,
+            "rasterize_if_errors_encountered": rasterize_if_errors_encountered,
+        }
         if output is not None:
             payload["output"] = output
-        if rasterize_if_errors_encountered is not None:
-            payload["rasterize_if_errors_encountered"] = rasterize_if_errors_encountered
-
         return self._post_file_operation(
             endpoint="/pdfa",
             payload=payload,
@@ -3000,7 +3000,7 @@ class PdfRestClient(_SyncApiClient):
         smoothing: Literal["none", "all", "text", "line", "image"]
         | Sequence[Literal["none", "all", "text", "line", "image"]]
         | None = None,
-        jpeg_quality: int | None = None,
+        jpeg_quality: int = 75,
         extra_query: Query | None = None,
         extra_headers: AnyMapping | None = None,
         extra_body: Body | None = None,
@@ -3012,6 +3012,7 @@ class PdfRestClient(_SyncApiClient):
             "files": files,
             "resolution": resolution,
             "color_model": color_model,
+            "jpeg_quality": jpeg_quality,
         }
         if output_prefix is not None:
             payload["output_prefix"] = output_prefix
@@ -3019,8 +3020,6 @@ class PdfRestClient(_SyncApiClient):
             payload["page_range"] = page_range
         if smoothing is not None:
             payload["smoothing"] = smoothing
-        if jpeg_quality is not None:
-            payload["jpeg_quality"] = jpeg_quality
 
         return self._convert_to_graphic(
             endpoint="/jpg",
@@ -3146,7 +3145,7 @@ class AsyncPdfRestClient(_AsyncApiClient):
         self,
         file: PdfRestFile | Sequence[PdfRestFile],
         *,
-        target_word_count: int | None = 400,
+        target_word_count: int = 400,
         summary_format: SummaryFormat = "overview",
         pages: PdfPageSelection | None = None,
         output_format: SummaryOutputFormat = "markdown",
@@ -3193,7 +3192,7 @@ class AsyncPdfRestClient(_AsyncApiClient):
         self,
         file: PdfRestFile | Sequence[PdfRestFile],
         *,
-        target_word_count: int | None = 400,
+        target_word_count: int = 400,
         summary_format: SummaryFormat = "overview",
         pages: PdfPageSelection | None = None,
         output_format: SummaryOutputFormat = "markdown",
@@ -3232,7 +3231,7 @@ class AsyncPdfRestClient(_AsyncApiClient):
         file: PdfRestFile | Sequence[PdfRestFile],
         *,
         pages: PdfPageSelection | None = None,
-        page_break_comments: bool | None = None,
+        page_break_comments: bool = False,
         output: str | None = None,
         extra_query: Query | None = None,
         extra_headers: AnyMapping | None = None,
@@ -3244,11 +3243,10 @@ class AsyncPdfRestClient(_AsyncApiClient):
         payload: dict[str, Any] = {
             "files": file,
             "output_type": "file",
+            "page_break_comments": page_break_comments,
         }
         if pages is not None:
             payload["pages"] = pages
-        if page_break_comments is not None:
-            payload["page_break_comments"] = page_break_comments
         if output is not None:
             payload["output"] = output
 
@@ -3870,7 +3868,7 @@ class AsyncPdfRestClient(_AsyncApiClient):
         *,
         output_type: PdfAType,
         output: str | None = None,
-        rasterize_if_errors_encountered: bool | None = None,
+        rasterize_if_errors_encountered: bool = False,
         extra_query: Query | None = None,
         extra_headers: AnyMapping | None = None,
         extra_body: Body | None = None,
@@ -3878,11 +3876,13 @@ class AsyncPdfRestClient(_AsyncApiClient):
     ) -> PdfRestFileBasedResponse:
         """Asynchronously convert a PDF to a specified PDF/A version."""
 
-        payload: dict[str, Any] = {"files": file, "output_type": output_type}
+        payload: dict[str, Any] = {
+            "files": file,
+            "output_type": output_type,
+            "rasterize_if_errors_encountered": rasterize_if_errors_encountered,
+        }
         if output is not None:
             payload["output"] = output
-        if rasterize_if_errors_encountered is not None:
-            payload["rasterize_if_errors_encountered"] = rasterize_if_errors_encountered
 
         return await self._post_file_operation(
             endpoint="/pdfa",
@@ -4052,7 +4052,7 @@ class AsyncPdfRestClient(_AsyncApiClient):
         smoothing: Literal["none", "all", "text", "line", "image"]
         | Sequence[Literal["none", "all", "text", "line", "image"]]
         | None = None,
-        jpeg_quality: int | None = None,
+        jpeg_quality: int = 75,
         extra_query: Query | None = None,
         extra_headers: AnyMapping | None = None,
         extra_body: Body | None = None,
@@ -4064,6 +4064,7 @@ class AsyncPdfRestClient(_AsyncApiClient):
             "files": files,
             "resolution": resolution,
             "color_model": color_model,
+            "jpeg_quality": jpeg_quality,
         }
         if output_prefix is not None:
             payload["output_prefix"] = output_prefix
@@ -4071,8 +4072,6 @@ class AsyncPdfRestClient(_AsyncApiClient):
             payload["page_range"] = page_range
         if smoothing is not None:
             payload["smoothing"] = smoothing
-        if jpeg_quality is not None:
-            payload["jpeg_quality"] = jpeg_quality
 
         return await self._convert_to_graphic(
             endpoint="/jpg",
