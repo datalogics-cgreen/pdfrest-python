@@ -2271,7 +2271,7 @@ class PdfRestClient(_SyncApiClient):
         extra_body: Body | None = None,
         timeout: TimeoutTypes | None = None,
     ) -> PdfRestFileBasedResponse:
-        """Perform OCR on a PDF to extract searchable text."""
+        """Perform OCR on a PDF to make text searchable and extractable."""
 
         payload: dict[str, Any] = {"files": file}
         if pages is not None:
@@ -3270,7 +3270,7 @@ class AsyncPdfRestClient(_AsyncApiClient):
         extra_body: Body | None = None,
         timeout: TimeoutTypes | None = None,
     ) -> PdfRestFileBasedResponse:
-        """Perform OCR on a PDF to extract searchable text."""
+        """Perform OCR on a PDF to make text searchable and extractable."""
 
         payload: dict[str, Any] = {"files": file}
         if pages is not None:
