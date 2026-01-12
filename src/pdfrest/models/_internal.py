@@ -22,6 +22,7 @@ from pydantic import (
 from pdfrest.types.public import PdfRedactionPreset
 
 from ..types import (
+    OcrLanguage,
     PdfAType,
     PdfInfoQuery,
     PdfXType,
@@ -328,6 +329,18 @@ class OcrPdfPayload(BaseModel):
             _allowed_mime_types("application/pdf", error_msg="Must be a PDF file")
         ),
         PlainSerializer(_serialize_as_first_file_id),
+    ]
+    languages: Annotated[
+        list[OcrLanguage],
+        Field(
+            serialization_alias="languages",
+            validation_alias=AliasChoices("languages", "language"),
+            min_length=1,
+            default_factory=lambda: ["English"],
+        ),
+        BeforeValidator(_ensure_list),
+        BeforeValidator(_split_comma_list),
+        PlainSerializer(_serialize_as_comma_separated_string),
     ]
     pages: Annotated[
         list[AscendingPageRange] | None,
