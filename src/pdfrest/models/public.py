@@ -269,7 +269,6 @@ class PdfRestFileBasedResponse(BaseModel):
         list[PdfRestFileID],
         Field(
             description="The ids of the files that were input to the pdfRest operation",
-            min_length=1,
             validation_alias=AliasChoices("input_id", "inputId"),
         ),
     ]

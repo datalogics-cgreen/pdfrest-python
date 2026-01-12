@@ -30,7 +30,9 @@ __all__ = (
     "PdfInfoQuery",
     "PdfMergeInput",
     "PdfMergeSource",
+    "PdfPageOrientation",
     "PdfPageSelection",
+    "PdfPageSize",
     "PdfRGBColor",
     "PdfRedactionInstruction",
     "PdfRedactionPreset",
@@ -197,3 +199,5 @@ PdfRestriction = Literal[
 ALL_PDF_RESTRICTIONS: tuple[PdfRestriction, ...] = cast(
     tuple[PdfRestriction, ...], get_args(PdfRestriction)
 )
+PdfPageSize = Literal["letter", "legal", "ledger", "A3", "A4", "A5", "custom"]
+PdfPageOrientation = Literal["portrait", "landscape"]
