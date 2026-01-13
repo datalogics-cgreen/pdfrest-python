@@ -83,7 +83,7 @@ def test_convert_to_jpeg_success(
     assert str(output_file.url).endswith(output_id)
 
 
-def test_convert_to_jpeg_defaults_excluded(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_convert_to_jpeg_defaults_included(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.delenv("PDFREST_API_KEY", raising=False)
     input_file = make_pdf_file(PdfRestFileID.generate(1))
     output_id = "8e9f0011-2222-4bcd-9f00-abcdefabcdef"
@@ -98,7 +98,9 @@ def test_convert_to_jpeg_defaults_excluded(monkeypatch: pytest.MonkeyPatch) -> N
             assert_conversion_payload(
                 payload, request_payload, allowed_extras={"jpeg_quality"}
             )
-            assert "jpeg_quality" not in payload
+            assert payload["jpeg_quality"] == 75
+            assert payload["resolution"] == 300
+            assert payload["color_model"] == "rgb"
             return httpx.Response(
                 200,
                 json={"inputId": [input_file.id], "outputId": [output_id]},
@@ -457,7 +459,7 @@ def test_convert_to_jpeg_sequence_arguments(monkeypatch: pytest.MonkeyPatch) -> 
             "page_range": "1, 3",
             "smoothing": "text",
         }
-    ).model_dump(mode="json", by_alias=True, exclude_none=True, exclude_defaults=True)
+    ).model_dump(mode="json", by_alias=True, exclude_none=True)
 
     seen: dict[str, int] = {"post": 0, "get": 0}
 
