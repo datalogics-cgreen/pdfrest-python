@@ -36,8 +36,13 @@ def test_convert_to_pdfa_success(
     input_file = make_pdf_file(PdfRestFileID.generate(1))
     output_id = str(PdfRestFileID.generate())
     payload_dump = PdfToPdfaPayload.model_validate(
-        {"files": [input_file], "output_type": output_type, "output": "archive"}
-    ).model_dump(mode="json", by_alias=True, exclude_none=True, exclude_unset=True)
+        {
+            "files": [input_file],
+            "output_type": output_type,
+            "output": "archive",
+            "rasterize_if_errors_encountered": "off",
+        }
+    ).model_dump(mode="json", by_alias=True, exclude_none=True)
 
     seen: dict[str, int] = {"post": 0, "get": 0}
 
@@ -99,8 +104,12 @@ async def test_async_convert_to_pdfa_success(
     input_file = make_pdf_file(PdfRestFileID.generate(2))
     output_id = str(PdfRestFileID.generate())
     payload_dump = PdfToPdfaPayload.model_validate(
-        {"files": [input_file], "output_type": output_type}
-    ).model_dump(mode="json", by_alias=True, exclude_none=True, exclude_unset=True)
+        {
+            "files": [input_file],
+            "output_type": output_type,
+            "rasterize_if_errors_encountered": "off",
+        }
+    ).model_dump(mode="json", by_alias=True, exclude_none=True)
 
     seen: dict[str, int] = {"post": 0, "get": 0}
 
