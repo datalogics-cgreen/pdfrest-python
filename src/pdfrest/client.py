@@ -108,6 +108,7 @@ from .models._internal import (
     SummarizePdfTextPayload,
     TiffPdfRestPayload,
     TranslatePdfTextPayload,
+    UnzipPayload,
     UploadURLs,
     ZipPayload,
 )
@@ -2629,6 +2630,32 @@ class PdfRestClient(_SyncApiClient):
             timeout=timeout,
         )
 
+    def unzip_file(
+        self,
+        file: PdfRestFile | Sequence[PdfRestFile],
+        *,
+        password: str | None = None,
+        extra_query: Query | None = None,
+        extra_headers: AnyMapping | None = None,
+        extra_body: Body | None = None,
+        timeout: TimeoutTypes | None = None,
+    ) -> PdfRestFileBasedResponse:
+        """Extract files from a zip archive."""
+
+        payload: dict[str, Any] = {"files": file}
+        if password is not None:
+            payload["password"] = password
+
+        return self._post_file_operation(
+            endpoint="/unzip",
+            payload=payload,
+            payload_model=UnzipPayload,
+            extra_query=extra_query,
+            extra_headers=extra_headers,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
+
     def convert_to_excel(
         self,
         file: PdfRestFile | Sequence[PdfRestFile],
@@ -3936,6 +3963,32 @@ class AsyncPdfRestClient(_AsyncApiClient):
             endpoint="/zip",
             payload=payload,
             payload_model=ZipPayload,
+            extra_query=extra_query,
+            extra_headers=extra_headers,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
+
+    async def unzip_file(
+        self,
+        file: PdfRestFile | Sequence[PdfRestFile],
+        *,
+        password: str | None = None,
+        extra_query: Query | None = None,
+        extra_headers: AnyMapping | None = None,
+        extra_body: Body | None = None,
+        timeout: TimeoutTypes | None = None,
+    ) -> PdfRestFileBasedResponse:
+        """Asynchronously extract files from a zip archive."""
+
+        payload: dict[str, Any] = {"files": file}
+        if password is not None:
+            payload["password"] = password
+
+        return await self._post_file_operation(
+            endpoint="/unzip",
+            payload=payload,
+            payload_model=UnzipPayload,
             extra_query=extra_query,
             extra_headers=extra_headers,
             extra_body=extra_body,
