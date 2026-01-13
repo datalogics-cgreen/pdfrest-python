@@ -6,6 +6,7 @@ from collections.abc import Callable, Sequence
 from pathlib import PurePath
 from typing import Annotated, Any, Generic, Literal, TypeVar
 
+from langcodes import tag_is_valid
 from pydantic import (
     AfterValidator,
     AliasChoices,
@@ -173,6 +174,45 @@ def _int_to_string(value: Any) -> Any:
     if isinstance(value, list):
         return [_int_to_string(item) for item in value]  # pyright: ignore[reportUnknownVariableType]
     return value
+
+
+_OUTPUT_LANGUAGE_ERROR = (
+    "The provided 'output_language' language tag is invalid. Format 'output_language' as "
+    "a valid 2-3 character ISO 639 language code (e.g., 'en', 'es', 'fra'), optionally "
+    "with a script, alphabetic region, or numeric region (e.g., 'zh-Hant', 'eng-US', "
+    "'es-419'). See documentation for recommended formats."
+)
+
+
+def _validate_output_language(value: str) -> str:
+    if not value:
+        raise ValueError(_OUTPUT_LANGUAGE_ERROR)
+
+    trimmed = value.strip()
+    if not trimmed:
+        raise ValueError(_OUTPUT_LANGUAGE_ERROR)
+
+    segments = trimmed.split("-")
+    if len(segments) > 2:
+        raise ValueError(_OUTPUT_LANGUAGE_ERROR)
+
+    language = segments[0]
+    if not re.fullmatch(r"[A-Za-z]{2,3}", language):
+        raise ValueError(_OUTPUT_LANGUAGE_ERROR)
+
+    if len(segments) == 2:
+        subtag = segments[1]
+        if not (
+            re.fullmatch(r"[A-Za-z]{4}", subtag)
+            or re.fullmatch(r"[A-Za-z]{2}", subtag)
+            or re.fullmatch(r"[0-9]{3}", subtag)
+        ):
+            raise ValueError(_OUTPUT_LANGUAGE_ERROR)
+
+    if not tag_is_valid(trimmed):
+        raise ValueError(_OUTPUT_LANGUAGE_ERROR)
+
+    return trimmed
 
 
 class UploadURLs(BaseModel):
@@ -464,7 +504,8 @@ class TranslatePdfTextPayload(BaseModel):
     ]
     output_language: Annotated[
         str,
-        Field(serialization_alias="output_language", min_length=1),
+        Field(serialization_alias="output_language"),
+        AfterValidator(_validate_output_language),
     ]
     pages: Annotated[
         list[AscendingPageRange] | None,

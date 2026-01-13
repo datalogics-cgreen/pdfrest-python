@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import re
 
 import httpx
 import pytest
@@ -16,6 +17,13 @@ from pdfrest.models import (
 from pdfrest.models._internal import TranslatePdfTextPayload
 
 from .graphics_test_helpers import ASYNC_API_KEY, VALID_API_KEY, make_pdf_file
+
+OUTPUT_LANGUAGE_ERROR = (
+    "The provided 'output_language' language tag is invalid. Format 'output_language' "
+    "as a valid 2-3 character ISO 639 language code (e.g., 'en', 'es', 'fra'), "
+    "optionally with a script, alphabetic region, or numeric region (e.g., 'zh-Hant', "
+    "'eng-US', 'es-419'). See documentation for recommended formats."
+)
 
 
 def _make_markdown_file(file_id: str) -> PdfRestFile:
@@ -51,6 +59,51 @@ def test_translate_payload_rejects_invalid_mime() -> None:
     ):
         TranslatePdfTextPayload.model_validate(
             {"files": [image_file], "output_language": "fr"}
+        )
+
+
+@pytest.mark.parametrize(
+    "output_language",
+    [
+        pytest.param("en", id="language-2-letter"),
+        pytest.param("fra", id="language-3-letter"),
+        pytest.param("zh-Hant", id="script"),
+        pytest.param("eng-US", id="alpha-region"),
+        pytest.param("es-419", id="numeric-region"),
+    ],
+)
+def test_translate_payload_accepts_valid_output_language(
+    output_language: str,
+) -> None:
+    file_repr = make_pdf_file(PdfRestFileID.generate(1))
+    payload = TranslatePdfTextPayload.model_validate(
+        {"files": [file_repr], "output_language": output_language}
+    )
+
+    assert payload.output_language == output_language
+
+
+@pytest.mark.parametrize(
+    "output_language",
+    [
+        pytest.param("", id="empty"),
+        pytest.param("e", id="too-short"),
+        pytest.param("english", id="not-a-code"),
+        pytest.param("eng-USA", id="long-subtag"),
+        pytest.param("en-1234", id="long-numeric-region"),
+        pytest.param("en-US-extra", id="too-many-subtags"),
+    ],
+)
+def test_translate_payload_rejects_invalid_output_language(
+    output_language: str,
+) -> None:
+    file_repr = make_pdf_file(PdfRestFileID.generate(1))
+    with pytest.raises(
+        ValidationError,
+        match=re.escape(OUTPUT_LANGUAGE_ERROR),
+    ):
+        TranslatePdfTextPayload.model_validate(
+            {"files": [file_repr], "output_language": output_language}
         )
 
 
