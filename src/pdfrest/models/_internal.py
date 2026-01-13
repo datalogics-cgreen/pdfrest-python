@@ -42,6 +42,8 @@ from ..types import (
     SummaryOutputFormat,
     SummaryOutputType,
     TranslateOutputFormat,
+    WatermarkHorizontalAlignment,
+    WatermarkVerticalAlignment,
 )
 from .public import PdfRestFile, PdfRestFileID
 
@@ -1602,6 +1604,107 @@ class PdfAddImagePayload(BaseModel):
         Field(serialization_alias="output", min_length=1, default=None),
         AfterValidator(_validate_output_prefix),
     ] = None
+
+
+class PdfWatermarkPayload(BaseModel):
+    """Adapt caller options into a pdfRest-ready watermark request payload."""
+
+    files: Annotated[
+        list[PdfRestFile],
+        Field(
+            min_length=1,
+            max_length=1,
+            validation_alias=AliasChoices("file", "files"),
+            serialization_alias="id",
+        ),
+        BeforeValidator(_ensure_list),
+        AfterValidator(
+            _allowed_mime_types("application/pdf", error_msg="Must be a PDF file")
+        ),
+        PlainSerializer(_serialize_as_first_file_id),
+    ]
+    watermark_text: Annotated[
+        str | None,
+        Field(serialization_alias="watermark_text", min_length=1, default=None),
+    ] = None
+    watermark_file: Annotated[
+        list[PdfRestFile] | None,
+        Field(
+            default=None,
+            min_length=1,
+            max_length=1,
+            serialization_alias="watermark_file_id",
+        ),
+        BeforeValidator(_ensure_list),
+        AfterValidator(
+            _allowed_mime_types("application/pdf", error_msg="Must be a PDF file")
+        ),
+        PlainSerializer(_serialize_as_first_file_id),
+    ] = None
+    output: Annotated[
+        str | None,
+        Field(serialization_alias="output", min_length=1, default=None),
+        AfterValidator(_validate_output_prefix),
+    ] = None
+    font: Annotated[
+        str | None, Field(serialization_alias="font", min_length=1, default=None)
+    ] = None
+    text_size: Annotated[
+        int,
+        Field(serialization_alias="text_size", ge=5, le=100, default=72),
+    ] = 72
+    text_color_rgb: Annotated[
+        tuple[RgbChannel, RgbChannel, RgbChannel] | None,
+        Field(serialization_alias="text_color_rgb", default=None),
+        BeforeValidator(_split_comma_string),
+        PlainSerializer(_serialize_as_comma_separated_string),
+    ] = None
+    text_color_cmyk: Annotated[
+        tuple[CmykChannel, CmykChannel, CmykChannel, CmykChannel] | None,
+        Field(serialization_alias="text_color_cmyk", default=None),
+        BeforeValidator(_split_comma_string),
+        PlainSerializer(_serialize_as_comma_separated_string),
+    ] = None
+    watermark_file_scale: Annotated[
+        float, Field(serialization_alias="watermark_file_scale", ge=0, default=0.5)
+    ] = 0.5
+    opacity: Annotated[
+        float, Field(serialization_alias="opacity", ge=0, le=1, default=0.5)
+    ] = 0.5
+    horizontal_alignment: Annotated[
+        WatermarkHorizontalAlignment,
+        Field(serialization_alias="horizontal_alignment", default="center"),
+    ] = "center"
+    vertical_alignment: Annotated[
+        WatermarkVerticalAlignment,
+        Field(serialization_alias="vertical_alignment", default="center"),
+    ] = "center"
+    x: Annotated[int, Field(serialization_alias="x", default=0)] = 0
+    y: Annotated[int, Field(serialization_alias="y", default=0)] = 0
+    rotation: Annotated[int, Field(serialization_alias="rotation", default=0)] = 0
+    pages: Annotated[
+        list[AscendingPageRange] | None,
+        Field(serialization_alias="pages", min_length=1, default=None),
+        BeforeValidator(_ensure_list),
+        BeforeValidator(_split_comma_list),
+        BeforeValidator(_int_to_string),
+        PlainSerializer(_serialize_page_ranges),
+    ] = None
+    behind_page: Annotated[
+        bool, Field(serialization_alias="behind_page", default=False)
+    ] = False
+
+    @model_validator(mode="after")
+    def _validate_watermark_payload(self) -> PdfWatermarkPayload:
+        has_text = self.watermark_text is not None
+        has_file = self.watermark_file is not None
+        if has_text == has_file:
+            msg = "Provide exactly one of watermark_text or watermark_file."
+            raise ValueError(msg)
+        if self.text_color_rgb is not None and self.text_color_cmyk is not None:
+            msg = "Specify only one of text_color_rgb or text_color_cmyk."
+            raise ValueError(msg)
+        return self
 
 
 class PdfXfaToAcroformsPayload(BaseModel):

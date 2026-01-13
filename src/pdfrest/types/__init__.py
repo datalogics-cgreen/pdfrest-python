@@ -18,7 +18,7 @@ from .public import (
     OcrLanguage,
     PdfAddTextObject,
     PdfAType,
-    PdfCmykColor,
+    PdfCMYKColor,
     PdfColorProfile,
     PdfConversionCompression,
     PdfConversionDownsample,
@@ -43,6 +43,8 @@ from .public import (
     SummaryOutputType,
     TiffColorModel,
     TranslateOutputFormat,
+    WatermarkHorizontalAlignment,
+    WatermarkVerticalAlignment,
 )
 
 __all__ = [
@@ -63,7 +65,7 @@ __all__ = [
     "OcrLanguage",
     "PdfAType",
     "PdfAddTextObject",
-    "PdfCmykColor",
+    "PdfCMYKColor",
     "PdfColorProfile",
     "PdfConversionCompression",
     "PdfConversionDownsample",
@@ -88,4 +90,6 @@ __all__ = [
     "SummaryOutputType",
     "TiffColorModel",
     "TranslateOutputFormat",
+    "WatermarkHorizontalAlignment",
+    "WatermarkVerticalAlignment",
 ]

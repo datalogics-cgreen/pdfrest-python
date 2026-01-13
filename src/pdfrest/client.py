@@ -117,6 +117,7 @@ from .models._internal import (
     PdfToPowerpointPayload,
     PdfToWordPayload,
     PdfUnrestrictPayload,
+    PdfWatermarkPayload,
     PdfXfaToAcroformsPayload,
     PngPdfRestPayload,
     SummarizePdfTextPayload,
@@ -142,6 +143,7 @@ from .types import (
     OcrLanguage,
     PdfAddTextObject,
     PdfAType,
+    PdfCMYKColor,
     PdfConversionCompression,
     PdfConversionDownsample,
     PdfConversionLocale,
@@ -160,6 +162,8 @@ from .types import (
     SummaryOutputFormat,
     TiffColorModel,
     TranslateOutputFormat,
+    WatermarkHorizontalAlignment,
+    WatermarkVerticalAlignment,
 )
 
 __all__ = ("AsyncPdfRestClient", "PdfRestClient")
@@ -3615,6 +3619,65 @@ class PdfRestClient(_SyncApiClient):
             timeout=timeout,
         )
 
+    def watermark_pdf(
+        self,
+        file: PdfRestFile | Sequence[PdfRestFile],
+        *,
+        watermark_text: str | None = None,
+        watermark_file: PdfRestFile | Sequence[PdfRestFile] | None = None,
+        output: str | None = None,
+        font: str | None = None,
+        text_size: int = 72,
+        text_color_rgb: PdfRGBColor | Sequence[int] | None = None,
+        text_color_cmyk: PdfCMYKColor | Sequence[int] | None = None,
+        watermark_file_scale: float = 0.5,
+        opacity: float = 0.5,
+        horizontal_alignment: WatermarkHorizontalAlignment = "center",
+        vertical_alignment: WatermarkVerticalAlignment = "center",
+        x: int = 0,
+        y: int = 0,
+        rotation: int = 0,
+        pages: PdfPageSelection | None = None,
+        behind_page: bool = False,
+        extra_query: Query | None = None,
+        extra_headers: AnyMapping | None = None,
+        extra_body: Body | None = None,
+        timeout: TimeoutTypes | None = None,
+    ) -> PdfRestFileBasedResponse:
+        """Apply a text or file watermark to a PDF."""
+
+        payload: dict[str, Any] = {
+            "files": file,
+            "watermark_text": watermark_text,
+            "watermark_file": watermark_file,
+            "font": font,
+            "text_size": text_size,
+            "text_color_rgb": text_color_rgb,
+            "text_color_cmyk": text_color_cmyk,
+            "watermark_file_scale": watermark_file_scale,
+            "opacity": opacity,
+            "horizontal_alignment": horizontal_alignment,
+            "vertical_alignment": vertical_alignment,
+            "x": x,
+            "y": y,
+            "rotation": rotation,
+            "behind_page": behind_page,
+        }
+        if output is not None:
+            payload["output"] = output
+        if pages is not None:
+            payload["pages"] = pages
+
+        return self._post_file_operation(
+            endpoint="/watermarked-pdf",
+            payload=payload,
+            payload_model=PdfWatermarkPayload,
+            extra_query=extra_query,
+            extra_headers=extra_headers,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
+
     def convert_to_pdfa(
         self,
         file: PdfRestFile | Sequence[PdfRestFile],
@@ -5406,6 +5469,65 @@ class AsyncPdfRestClient(_AsyncApiClient):
             endpoint="/pdf",
             payload=payload,
             payload_model=ConvertUrlToPdfPayload,
+            extra_query=extra_query,
+            extra_headers=extra_headers,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
+
+    async def watermark_pdf(
+        self,
+        file: PdfRestFile | Sequence[PdfRestFile],
+        *,
+        watermark_text: str | None = None,
+        watermark_file: PdfRestFile | Sequence[PdfRestFile] | None = None,
+        output: str | None = None,
+        font: str | None = None,
+        text_size: int = 72,
+        text_color_rgb: PdfRGBColor | Sequence[int] | None = None,
+        text_color_cmyk: PdfCMYKColor | Sequence[int] | None = None,
+        watermark_file_scale: float = 0.5,
+        opacity: float = 0.5,
+        horizontal_alignment: WatermarkHorizontalAlignment = "center",
+        vertical_alignment: WatermarkVerticalAlignment = "center",
+        x: int = 0,
+        y: int = 0,
+        rotation: int = 0,
+        pages: PdfPageSelection | None = None,
+        behind_page: bool = False,
+        extra_query: Query | None = None,
+        extra_headers: AnyMapping | None = None,
+        extra_body: Body | None = None,
+        timeout: TimeoutTypes | None = None,
+    ) -> PdfRestFileBasedResponse:
+        """Asynchronously apply a text or file watermark to a PDF."""
+
+        payload: dict[str, Any] = {
+            "files": file,
+            "watermark_text": watermark_text,
+            "watermark_file": watermark_file,
+            "font": font,
+            "text_size": text_size,
+            "text_color_rgb": text_color_rgb,
+            "text_color_cmyk": text_color_cmyk,
+            "watermark_file_scale": watermark_file_scale,
+            "opacity": opacity,
+            "horizontal_alignment": horizontal_alignment,
+            "vertical_alignment": vertical_alignment,
+            "x": x,
+            "y": y,
+            "rotation": rotation,
+            "behind_page": behind_page,
+        }
+        if output is not None:
+            payload["output"] = output
+        if pages is not None:
+            payload["pages"] = pages
+
+        return await self._post_file_operation(
+            endpoint="/watermarked-pdf",
+            payload=payload,
+            payload_model=PdfWatermarkPayload,
             extra_query=extra_query,
             extra_headers=extra_headers,
             extra_body=extra_body,
