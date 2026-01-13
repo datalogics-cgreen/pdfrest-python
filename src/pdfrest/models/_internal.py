@@ -122,6 +122,10 @@ def _serialize_file_ids(value: list[PdfRestFile]) -> str:
     return ",".join(str(file.id) for file in value)
 
 
+def _serialize_file_id_list(value: list[PdfRestFile]) -> list[str]:
+    return [str(file.id) for file in value]
+
+
 def _bool_to_on_off(value: Any) -> Any:
     if isinstance(value, bool):
         return "on" if value else "off"
@@ -237,6 +241,26 @@ class DeletePayload(BaseModel):
         BeforeValidator(_ensure_list),
         PlainSerializer(_serialize_file_ids),
     ]
+
+
+class ZipPayload(BaseModel):
+    """Adapt caller options into a pdfRest-ready zip request payload."""
+
+    files: Annotated[
+        list[PdfRestFile],
+        Field(
+            min_length=1,
+            validation_alias=AliasChoices("file", "files"),
+            serialization_alias="id",
+        ),
+        BeforeValidator(_ensure_list),
+        PlainSerializer(_serialize_file_id_list),
+    ]
+    output: Annotated[
+        str | None,
+        Field(serialization_alias="output", min_length=1, default=None),
+        AfterValidator(_validate_output_prefix),
+    ] = None
 
 
 PageNumber = Annotated[int, Field(ge=1), PlainSerializer(lambda x: str(x))]
