@@ -23,8 +23,14 @@ from pydantic_core import to_json
 from pdfrest.types.public import PdfRedactionPreset
 
 from ..types import (
+    HtmlPageOrientation,
+    HtmlPageSize,
+    HtmlWebLayout,
     OcrLanguage,
     PdfAType,
+    PdfConversionCompression,
+    PdfConversionDownsample,
+    PdfConversionLocale,
     PdfInfoQuery,
     PdfPageOrientation,
     PdfPageSize,
@@ -240,6 +246,19 @@ def _validate_output_language(value: str) -> str:
     if not tag_is_valid(trimmed):
         raise ValueError(_OUTPUT_LANGUAGE_ERROR)
 
+    return trimmed
+
+
+_PAGE_MARGIN_PATTERN = re.compile(r"^(?:\d+(?:\.\d+)?)(?:mm|in)$")
+
+
+def _validate_page_margin(value: str | None) -> str | None:
+    if value is None:
+        return None
+    trimmed = value.strip()
+    if not trimmed or not _PAGE_MARGIN_PATTERN.fullmatch(trimmed):
+        msg = "page_margin must be a number followed by 'in' or 'mm'."
+        raise ValueError(msg)
     return trimmed
 
 
@@ -548,6 +567,189 @@ class ConvertToMarkdownPayload(BaseModel):
         str | None,
         Field(serialization_alias="output", min_length=1, default=None),
         AfterValidator(_validate_output_prefix),
+    ] = None
+
+
+_PDF_SUPPORTED_MIME_TYPES: tuple[str, ...] = (
+    "application/msword",
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    "application/vnd.ms-excel",
+    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    "application/vnd.ms-powerpoint",
+    "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+    "application/postscript",
+    "application/eps",
+    "application/x-eps",
+    "message/rfc822",
+    "image/jpeg",
+    "image/tiff",
+    "image/bmp",
+    "image/png",
+    "text/html",
+)
+
+_PDF_WORD_MIME_TYPES = {
+    "application/msword",
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+}
+_PDF_EXCEL_MIME_TYPES = {
+    "application/vnd.ms-excel",
+    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+}
+_PDF_POWERPOINT_MIME_TYPES = {
+    "application/vnd.ms-powerpoint",
+    "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+}
+_PDF_OFFICE_MIME_TYPES = (
+    _PDF_WORD_MIME_TYPES | _PDF_EXCEL_MIME_TYPES | _PDF_POWERPOINT_MIME_TYPES
+)
+_PDF_POSTSCRIPT_MIME_TYPES = {
+    "application/postscript",
+    "application/eps",
+    "application/x-eps",
+}
+_PDF_HTML_MIME_TYPES = {"text/html"}
+_PDF_COMPRESSION_COMPATIBLE_MIME_TYPES = (
+    _PDF_OFFICE_MIME_TYPES | _PDF_POSTSCRIPT_MIME_TYPES | _PDF_HTML_MIME_TYPES
+)
+
+
+class ConvertToPdfPayload(BaseModel):
+    """Adapt caller options into a pdfRest-ready convert-to-pdf payload."""
+
+    files: Annotated[
+        list[PdfRestFile],
+        Field(
+            min_length=1,
+            max_length=1,
+            validation_alias=AliasChoices("file", "files"),
+            serialization_alias="id",
+        ),
+        BeforeValidator(_ensure_list),
+        AfterValidator(
+            _allowed_mime_types(
+                _PDF_SUPPORTED_MIME_TYPES[0],
+                *_PDF_SUPPORTED_MIME_TYPES[1:],
+                error_msg="Must be a supported file type for PDF conversion.",
+            )
+        ),
+        PlainSerializer(_serialize_as_first_file_id),
+    ]
+    output: Annotated[
+        str | None,
+        Field(serialization_alias="output", min_length=1, default=None),
+        AfterValidator(_validate_output_prefix),
+    ] = None
+    compression: Annotated[
+        PdfConversionCompression | None,
+        Field(serialization_alias="compression", default=None),
+    ] = None
+    downsample: Annotated[
+        PdfConversionDownsample | None,
+        Field(serialization_alias="downsample", default=None),
+    ] = None
+    tagged_pdf: Annotated[
+        Literal["on", "off"] | None,
+        Field(serialization_alias="tagged_pdf", default=None),
+        BeforeValidator(_bool_to_on_off),
+    ] = None
+    locale: Annotated[
+        PdfConversionLocale | None,
+        Field(serialization_alias="locale", default=None),
+    ] = None
+    page_size: Annotated[
+        HtmlPageSize | None,
+        Field(serialization_alias="page_size", default=None),
+    ] = None
+    page_margin: Annotated[
+        str | None,
+        Field(serialization_alias="page_margin", default=None),
+        AfterValidator(_validate_page_margin),
+    ] = None
+    page_orientation: Annotated[
+        HtmlPageOrientation | None,
+        Field(serialization_alias="page_orientation", default=None),
+    ] = None
+    web_layout: Annotated[
+        HtmlWebLayout | None,
+        Field(serialization_alias="web_layout", default=None),
+    ] = None
+
+    @model_validator(mode="after")
+    def _validate_option_compatibility(self) -> ConvertToPdfPayload:
+        mime_type = self.files[0].type
+        if self.locale is not None and mime_type not in _PDF_EXCEL_MIME_TYPES:
+            msg = "locale is only supported for Excel inputs."
+            raise ValueError(msg)
+
+        if self.tagged_pdf is not None and mime_type not in _PDF_OFFICE_MIME_TYPES:
+            msg = "tagged_pdf is only supported for Microsoft Office inputs."
+            raise ValueError(msg)
+
+        if mime_type not in _PDF_HTML_MIME_TYPES:
+            if self.page_size is not None:
+                msg = "page_size is only supported for HTML inputs."
+                raise ValueError(msg)
+            if self.page_margin is not None:
+                msg = "page_margin is only supported for HTML inputs."
+                raise ValueError(msg)
+            if self.page_orientation is not None:
+                msg = "page_orientation is only supported for HTML inputs."
+                raise ValueError(msg)
+            if self.web_layout is not None:
+                msg = "web_layout is only supported for HTML inputs."
+                raise ValueError(msg)
+
+        if (
+            self.compression is not None or self.downsample is not None
+        ) and mime_type not in _PDF_COMPRESSION_COMPATIBLE_MIME_TYPES:
+            msg = (
+                "compression and downsample are only supported for Microsoft Office, "
+                "PostScript, or HTML inputs."
+            )
+            raise ValueError(msg)
+
+        return self
+
+
+class ConvertUrlsToPdfPayload(BaseModel):
+    """Adapt caller options into a pdfRest-ready convert-to-pdf payload for URLs."""
+
+    url: Annotated[
+        list[HttpUrl],
+        Field(serialization_alias="url", min_length=1),
+        BeforeValidator(_list_of_strings),
+        BeforeValidator(_ensure_list),
+    ]
+    output: Annotated[
+        str | None,
+        Field(serialization_alias="output", min_length=1, default=None),
+        AfterValidator(_validate_output_prefix),
+    ] = None
+    compression: Annotated[
+        PdfConversionCompression | None,
+        Field(serialization_alias="compression", default=None),
+    ] = None
+    downsample: Annotated[
+        PdfConversionDownsample | None,
+        Field(serialization_alias="downsample", default=None),
+    ] = None
+    page_size: Annotated[
+        HtmlPageSize | None,
+        Field(serialization_alias="page_size", default=None),
+    ] = None
+    page_margin: Annotated[
+        str | None,
+        Field(serialization_alias="page_margin", default=None),
+        AfterValidator(_validate_page_margin),
+    ] = None
+    page_orientation: Annotated[
+        HtmlPageOrientation | None,
+        Field(serialization_alias="page_orientation", default=None),
+    ] = None
+    web_layout: Annotated[
+        HtmlWebLayout | None,
+        Field(serialization_alias="web_layout", default=None),
     ] = None
 
 

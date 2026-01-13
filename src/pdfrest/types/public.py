@@ -22,11 +22,17 @@ __all__ = (
     "FlattenQuality",
     "GifColorModel",
     "GraphicSmoothing",
+    "HtmlPageOrientation",
+    "HtmlPageSize",
+    "HtmlWebLayout",
     "JpegColorModel",
     "OcrLanguage",
     "PdfAType",
     "PdfAddTextObject",
     "PdfCmykColor",
+    "PdfConversionCompression",
+    "PdfConversionDownsample",
+    "PdfConversionLocale",
     "PdfCustomPageSize",
     "PdfInfoQuery",
     "PdfMergeInput",
@@ -144,6 +150,12 @@ class PdfMergeSource(TypedDict, total=False):
 
 PdfMergeInput = PdfRestFile | PdfMergeSource | tuple[PdfRestFile, PdfPageSelection]
 
+PdfConversionCompression = Literal["lossy", "lossless"]
+PdfConversionDownsample = Literal["off", 75, 150, 300, 600, 1200]
+PdfConversionLocale = Literal["US", "Germany"]
+HtmlPageSize = Literal["letter", "legal", "ledger", "A3", "A4", "A5"]
+HtmlPageOrientation = Literal["portrait", "landscape"]
+HtmlWebLayout = Literal["desktop", "tablet", "mobile"]
 PdfAType = Literal["PDF/A-1b", "PDF/A-2b", "PDF/A-2u", "PDF/A-3b", "PDF/A-3u"]
 PdfXType = Literal["PDF/X-1a", "PDF/X-3", "PDF/X-4", "PDF/X-6"]
 ExtractTextGranularity = Literal["off", "by_page", "document"]
