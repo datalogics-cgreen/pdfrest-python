@@ -49,7 +49,7 @@ def assert_conversion_payload(
     for key, value in expected.items():
         assert payload[key] == value
     extra_keys = set(payload) - set(expected)
-    permitted = {"color_model", "resolution"}
+    permitted = {"color_model", "resolution", "smoothing"}
     if allowed_extras is not None:
         permitted.update(allowed_extras)
     assert extra_keys <= permitted
@@ -57,3 +57,5 @@ def assert_conversion_payload(
         assert payload["resolution"] == 300
     if "color_model" not in expected and "color_model" in payload:
         assert payload["color_model"] == "rgb"
+    if "smoothing" not in expected and "smoothing" in payload:
+        assert payload["smoothing"] == "none"

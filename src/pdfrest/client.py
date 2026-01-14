@@ -2888,7 +2888,7 @@ class PdfRestClient(_SyncApiClient):
         page_range: str | Sequence[str] | None = None,
         resolution: int = 300,
         color_model: PngColorModel = "rgb",
-        smoothing: GraphicSmoothing | Sequence[GraphicSmoothing] | None = None,
+        smoothing: GraphicSmoothing | Sequence[GraphicSmoothing] = "none",
         extra_query: Query | None = None,
         extra_headers: AnyMapping | None = None,
         extra_body: Body | None = None,
@@ -2900,13 +2900,12 @@ class PdfRestClient(_SyncApiClient):
             "files": files,
             "resolution": resolution,
             "color_model": color_model,
+            "smoothing": smoothing,
         }
         if output_prefix is not None:
             payload["output_prefix"] = output_prefix
         if page_range is not None:
             payload["page_range"] = page_range
-        if smoothing is not None:
-            payload["smoothing"] = smoothing
 
         return self._convert_to_graphic(
             endpoint="/png",
@@ -2926,7 +2925,7 @@ class PdfRestClient(_SyncApiClient):
         page_range: str | Sequence[str] | None = None,
         resolution: int = 300,
         color_model: BmpColorModel = "rgb",
-        smoothing: GraphicSmoothing | Sequence[GraphicSmoothing] | None = None,
+        smoothing: GraphicSmoothing | Sequence[GraphicSmoothing] = "none",
         extra_query: Query | None = None,
         extra_headers: AnyMapping | None = None,
         extra_body: Body | None = None,
@@ -2938,13 +2937,12 @@ class PdfRestClient(_SyncApiClient):
             "files": files,
             "resolution": resolution,
             "color_model": color_model,
+            "smoothing": smoothing,
         }
         if output_prefix is not None:
             payload["output_prefix"] = output_prefix
         if page_range is not None:
             payload["page_range"] = page_range
-        if smoothing is not None:
-            payload["smoothing"] = smoothing
 
         return self._convert_to_graphic(
             endpoint="/bmp",
@@ -2964,7 +2962,7 @@ class PdfRestClient(_SyncApiClient):
         page_range: str | Sequence[str] | None = None,
         resolution: int = 300,
         color_model: GifColorModel = "rgb",
-        smoothing: GraphicSmoothing | Sequence[GraphicSmoothing] | None = None,
+        smoothing: GraphicSmoothing | Sequence[GraphicSmoothing] = "none",
         extra_query: Query | None = None,
         extra_headers: AnyMapping | None = None,
         extra_body: Body | None = None,
@@ -2976,13 +2974,12 @@ class PdfRestClient(_SyncApiClient):
             "files": files,
             "resolution": resolution,
             "color_model": color_model,
+            "smoothing": smoothing,
         }
         if output_prefix is not None:
             payload["output_prefix"] = output_prefix
         if page_range is not None:
             payload["page_range"] = page_range
-        if smoothing is not None:
-            payload["smoothing"] = smoothing
 
         return self._convert_to_graphic(
             endpoint="/gif",
@@ -3002,7 +2999,7 @@ class PdfRestClient(_SyncApiClient):
         page_range: str | Sequence[str] | None = None,
         resolution: int = 300,
         color_model: JpegColorModel = "rgb",
-        smoothing: GraphicSmoothing | Sequence[GraphicSmoothing] | None = None,
+        smoothing: GraphicSmoothing | Sequence[GraphicSmoothing] = "none",
         jpeg_quality: int = 75,
         extra_query: Query | None = None,
         extra_headers: AnyMapping | None = None,
@@ -3015,14 +3012,13 @@ class PdfRestClient(_SyncApiClient):
             "files": files,
             "resolution": resolution,
             "color_model": color_model,
+            "smoothing": smoothing,
             "jpeg_quality": jpeg_quality,
         }
         if output_prefix is not None:
             payload["output_prefix"] = output_prefix
         if page_range is not None:
             payload["page_range"] = page_range
-        if smoothing is not None:
-            payload["smoothing"] = smoothing
 
         return self._convert_to_graphic(
             endpoint="/jpg",
@@ -3042,7 +3038,7 @@ class PdfRestClient(_SyncApiClient):
         page_range: str | Sequence[str] | None = None,
         resolution: int = 300,
         color_model: TiffColorModel = "rgb",
-        smoothing: GraphicSmoothing | Sequence[GraphicSmoothing] | None = None,
+        smoothing: GraphicSmoothing | Sequence[GraphicSmoothing] = "none",
         extra_query: Query | None = None,
         extra_headers: AnyMapping | None = None,
         extra_body: Body | None = None,
@@ -3054,13 +3050,12 @@ class PdfRestClient(_SyncApiClient):
             "files": files,
             "resolution": resolution,
             "color_model": color_model,
+            "smoothing": smoothing,
         }
         if output_prefix is not None:
             payload["output_prefix"] = output_prefix
         if page_range is not None:
             payload["page_range"] = page_range
-        if smoothing is not None:
-            payload["smoothing"] = smoothing
 
         return self._convert_to_graphic(
             endpoint="/tif",
@@ -3931,7 +3926,7 @@ class AsyncPdfRestClient(_AsyncApiClient):
         page_range: str | Sequence[str] | None = None,
         resolution: int = 300,
         color_model: PngColorModel = "rgb",
-        smoothing: GraphicSmoothing | Sequence[GraphicSmoothing] | None = None,
+        smoothing: GraphicSmoothing | Sequence[GraphicSmoothing] = "none",
         extra_query: Query | None = None,
         extra_headers: AnyMapping | None = None,
         extra_body: Body | None = None,
@@ -3943,13 +3938,12 @@ class AsyncPdfRestClient(_AsyncApiClient):
             "files": files,
             "resolution": resolution,
             "color_model": color_model,
+            "smoothing": smoothing,
         }
         if output_prefix is not None:
             payload["output_prefix"] = output_prefix
         if page_range is not None:
             payload["page_range"] = page_range
-        if smoothing is not None:
-            payload["smoothing"] = smoothing
 
         return await self._convert_to_graphic(
             endpoint="/png",
@@ -3969,7 +3963,7 @@ class AsyncPdfRestClient(_AsyncApiClient):
         page_range: str | Sequence[str] | None = None,
         resolution: int = 300,
         color_model: BmpColorModel = "rgb",
-        smoothing: GraphicSmoothing | Sequence[GraphicSmoothing] | None = None,
+        smoothing: GraphicSmoothing | Sequence[GraphicSmoothing] = "none",
         extra_query: Query | None = None,
         extra_headers: AnyMapping | None = None,
         extra_body: Body | None = None,
@@ -3981,13 +3975,12 @@ class AsyncPdfRestClient(_AsyncApiClient):
             "files": files,
             "resolution": resolution,
             "color_model": color_model,
+            "smoothing": smoothing,
         }
         if output_prefix is not None:
             payload["output_prefix"] = output_prefix
         if page_range is not None:
             payload["page_range"] = page_range
-        if smoothing is not None:
-            payload["smoothing"] = smoothing
 
         return await self._convert_to_graphic(
             endpoint="/bmp",
@@ -4007,7 +4000,7 @@ class AsyncPdfRestClient(_AsyncApiClient):
         page_range: str | Sequence[str] | None = None,
         resolution: int = 300,
         color_model: GifColorModel = "rgb",
-        smoothing: GraphicSmoothing | Sequence[GraphicSmoothing] | None = None,
+        smoothing: GraphicSmoothing | Sequence[GraphicSmoothing] = "none",
         extra_query: Query | None = None,
         extra_headers: AnyMapping | None = None,
         extra_body: Body | None = None,
@@ -4019,13 +4012,12 @@ class AsyncPdfRestClient(_AsyncApiClient):
             "files": files,
             "resolution": resolution,
             "color_model": color_model,
+            "smoothing": smoothing,
         }
         if output_prefix is not None:
             payload["output_prefix"] = output_prefix
         if page_range is not None:
             payload["page_range"] = page_range
-        if smoothing is not None:
-            payload["smoothing"] = smoothing
 
         return await self._convert_to_graphic(
             endpoint="/gif",
@@ -4045,7 +4037,7 @@ class AsyncPdfRestClient(_AsyncApiClient):
         page_range: str | Sequence[str] | None = None,
         resolution: int = 300,
         color_model: JpegColorModel = "rgb",
-        smoothing: GraphicSmoothing | Sequence[GraphicSmoothing] | None = None,
+        smoothing: GraphicSmoothing | Sequence[GraphicSmoothing] = "none",
         jpeg_quality: int = 75,
         extra_query: Query | None = None,
         extra_headers: AnyMapping | None = None,
@@ -4058,14 +4050,13 @@ class AsyncPdfRestClient(_AsyncApiClient):
             "files": files,
             "resolution": resolution,
             "color_model": color_model,
+            "smoothing": smoothing,
             "jpeg_quality": jpeg_quality,
         }
         if output_prefix is not None:
             payload["output_prefix"] = output_prefix
         if page_range is not None:
             payload["page_range"] = page_range
-        if smoothing is not None:
-            payload["smoothing"] = smoothing
 
         return await self._convert_to_graphic(
             endpoint="/jpg",
@@ -4085,7 +4076,7 @@ class AsyncPdfRestClient(_AsyncApiClient):
         page_range: str | Sequence[str] | None = None,
         resolution: int = 300,
         color_model: TiffColorModel = "rgb",
-        smoothing: GraphicSmoothing | Sequence[GraphicSmoothing] | None = None,
+        smoothing: GraphicSmoothing | Sequence[GraphicSmoothing] = "none",
         extra_query: Query | None = None,
         extra_headers: AnyMapping | None = None,
         extra_body: Body | None = None,
@@ -4097,13 +4088,12 @@ class AsyncPdfRestClient(_AsyncApiClient):
             "files": files,
             "resolution": resolution,
             "color_model": color_model,
+            "smoothing": smoothing,
         }
         if output_prefix is not None:
             payload["output_prefix"] = output_prefix
         if page_range is not None:
             payload["page_range"] = page_range
-        if smoothing is not None:
-            payload["smoothing"] = smoothing
 
         return await self._convert_to_graphic(
             endpoint="/tif",
