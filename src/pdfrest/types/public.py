@@ -18,6 +18,7 @@ __all__ = (
     "ALL_PDF_RESTRICTIONS",
     "BmpColorModel",
     "CompressionLevel",
+    "ExportDataFormat",
     "ExtractTextGranularity",
     "FlattenQuality",
     "GifColorModel",
@@ -167,6 +168,7 @@ GifColorModel = Literal["rgb", "gray"]
 JpegColorModel = Literal["rgb", "cmyk", "gray"]
 TiffColorModel = Literal["rgb", "rgba", "cmyk", "lab", "gray"]
 GraphicSmoothing = Literal["none", "all", "text", "line", "image"]
+ExportDataFormat = Literal["fdf", "xfdf", "xml", "xdp", "xfd"]
 
 SummaryFormat = Literal[
     "overview",

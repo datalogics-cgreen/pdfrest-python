@@ -95,6 +95,7 @@ from .models._internal import (
     PdfCompressPayload,
     PdfDecryptPayload,
     PdfEncryptPayload,
+    PdfExportFormDataPayload,
     PdfFlattenAnnotationsPayload,
     PdfFlattenFormsPayload,
     PdfFlattenLayersPayload,
@@ -128,6 +129,7 @@ from .types import (
     ALL_PDF_INFO_QUERIES,
     BmpColorModel,
     CompressionLevel,
+    ExportDataFormat,
     ExtractTextGranularity,
     FlattenQuality,
     GifColorModel,
@@ -2874,6 +2876,36 @@ class PdfRestClient(_SyncApiClient):
             timeout=timeout,
         )
 
+    def export_form_data(
+        self,
+        file: PdfRestFile | Sequence[PdfRestFile],
+        *,
+        data_format: ExportDataFormat,
+        output: str | None = None,
+        extra_query: Query | None = None,
+        extra_headers: AnyMapping | None = None,
+        extra_body: Body | None = None,
+        timeout: TimeoutTypes | None = None,
+    ) -> PdfRestFileBasedResponse:
+        """Export form data from a PDF with form fields to an external data file."""
+
+        payload: dict[str, Any] = {
+            "files": file,
+            "data_format": data_format,
+        }
+        if output is not None:
+            payload["output"] = output
+
+        return self._post_file_operation(
+            endpoint="/exported-form-data",
+            payload=payload,
+            payload_model=PdfExportFormDataPayload,
+            extra_query=extra_query,
+            extra_headers=extra_headers,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
+
     def flatten_pdf_forms(
         self,
         file: PdfRestFile | Sequence[PdfRestFile],
@@ -4598,6 +4630,36 @@ class AsyncPdfRestClient(_AsyncApiClient):
             endpoint="/pdf-with-imported-form-data",
             payload=payload,
             payload_model=PdfImportFormDataPayload,
+            extra_query=extra_query,
+            extra_headers=extra_headers,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
+
+    async def export_form_data(
+        self,
+        file: PdfRestFile | Sequence[PdfRestFile],
+        *,
+        data_format: ExportDataFormat,
+        output: str | None = None,
+        extra_query: Query | None = None,
+        extra_headers: AnyMapping | None = None,
+        extra_body: Body | None = None,
+        timeout: TimeoutTypes | None = None,
+    ) -> PdfRestFileBasedResponse:
+        """Asynchronously export form data from a PDF into a data file."""
+
+        payload: dict[str, Any] = {
+            "files": file,
+            "data_format": data_format,
+        }
+        if output is not None:
+            payload["output"] = output
+
+        return await self._post_file_operation(
+            endpoint="/exported-form-data",
+            payload=payload,
+            payload_model=PdfExportFormDataPayload,
             extra_query=extra_query,
             extra_headers=extra_headers,
             extra_body=extra_body,
