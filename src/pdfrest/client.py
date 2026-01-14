@@ -99,6 +99,7 @@ from .models._internal import (
     PdfFlattenFormsPayload,
     PdfFlattenLayersPayload,
     PdfFlattenTransparenciesPayload,
+    PdfImportFormDataPayload,
     PdfInfoPayload,
     PdfLinearizePayload,
     PdfMergePayload,
@@ -2846,6 +2847,33 @@ class PdfRestClient(_SyncApiClient):
             timeout=timeout,
         )
 
+    def import_form_data(
+        self,
+        file: PdfRestFile | Sequence[PdfRestFile],
+        data_file: PdfRestFile | Sequence[PdfRestFile],
+        *,
+        output: str | None = None,
+        extra_query: Query | None = None,
+        extra_headers: AnyMapping | None = None,
+        extra_body: Body | None = None,
+        timeout: TimeoutTypes | None = None,
+    ) -> PdfRestFileBasedResponse:
+        """Import form data from a data file into an existing PDF with form fields."""
+
+        payload: dict[str, Any] = {"files": file, "data_file": data_file}
+        if output is not None:
+            payload["output"] = output
+
+        return self._post_file_operation(
+            endpoint="/pdf-with-imported-form-data",
+            payload=payload,
+            payload_model=PdfImportFormDataPayload,
+            extra_query=extra_query,
+            extra_headers=extra_headers,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
+
     def flatten_pdf_forms(
         self,
         file: PdfRestFile | Sequence[PdfRestFile],
@@ -4543,6 +4571,33 @@ class AsyncPdfRestClient(_AsyncApiClient):
             endpoint="/word",
             payload=payload,
             payload_model=PdfToWordPayload,
+            extra_query=extra_query,
+            extra_headers=extra_headers,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
+
+    async def import_form_data(
+        self,
+        file: PdfRestFile | Sequence[PdfRestFile],
+        data_file: PdfRestFile | Sequence[PdfRestFile],
+        *,
+        output: str | None = None,
+        extra_query: Query | None = None,
+        extra_headers: AnyMapping | None = None,
+        extra_body: Body | None = None,
+        timeout: TimeoutTypes | None = None,
+    ) -> PdfRestFileBasedResponse:
+        """Asynchronously import form data from a data file into a PDF."""
+
+        payload: dict[str, Any] = {"files": file, "data_file": data_file}
+        if output is not None:
+            payload["output"] = output
+
+        return await self._post_file_operation(
+            endpoint="/pdf-with-imported-form-data",
+            payload=payload,
+            payload_model=PdfImportFormDataPayload,
             extra_query=extra_query,
             extra_headers=extra_headers,
             extra_body=extra_body,
