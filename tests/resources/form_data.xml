@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xfdf xmlns="http://ns.adobe.com/xfdf/" xml:space="preserve">
+  <fields>
+    <field name="first_name">
+      <value>Jamie</value>
+    </field>
+    <field name="last_name">
+      <value>Appleseed</value>
+    </field>
+    <field name="favorite_color">
+      <value>Green</value>
+    </field>
+  </fields>
+</xfdf>
