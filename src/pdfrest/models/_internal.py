@@ -1021,6 +1021,53 @@ class PdfCompressPayload(BaseModel):
         return self
 
 
+class PdfAddImagePayload(BaseModel):
+    """Adapt caller options into a pdfRest-ready add-image request payload."""
+
+    files: Annotated[
+        list[PdfRestFile],
+        Field(
+            min_length=1,
+            max_length=1,
+            validation_alias=AliasChoices("file", "files"),
+            serialization_alias="id",
+        ),
+        BeforeValidator(_ensure_list),
+        AfterValidator(
+            _allowed_mime_types("application/pdf", error_msg="Must be a PDF file")
+        ),
+        PlainSerializer(_serialize_as_first_file_id),
+    ]
+    image: Annotated[
+        list[PdfRestFile],
+        Field(
+            min_length=1,
+            max_length=1,
+            validation_alias=AliasChoices("image", "images", "image_file", "image_id"),
+            serialization_alias="image_id",
+        ),
+        BeforeValidator(_ensure_list),
+        AfterValidator(
+            _allowed_mime_types(
+                "image/jpeg",
+                "image/png",
+                "image/tiff",
+                "image/gif",
+                error_msg="Image must be JPEG, PNG, TIFF, or GIF",
+            )
+        ),
+        PlainSerializer(_serialize_as_first_file_id),
+    ]
+    x: Annotated[int, Field(serialization_alias="x")]
+    y: Annotated[int, Field(serialization_alias="y")]
+    page: Annotated[int, Field(serialization_alias="page", ge=1)]
+    output: Annotated[
+        str | None,
+        Field(serialization_alias="output", min_length=1, default=None),
+        AfterValidator(_validate_output_prefix),
+    ] = None
+
+
 class PdfXfaToAcroformsPayload(BaseModel):
     """Adapt caller options into a pdfRest-ready XFA-to-AcroForms request payload."""
 

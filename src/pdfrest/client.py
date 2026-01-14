@@ -83,6 +83,7 @@ from .models._internal import (
     JpegPdfRestPayload,
     OcrPdfPayload,
     PdfAddAttachmentPayload,
+    PdfAddImagePayload,
     PdfCompressPayload,
     PdfDecryptPayload,
     PdfEncryptPayload,
@@ -2548,6 +2549,42 @@ class PdfRestClient(_SyncApiClient):
             timeout=timeout,
         )
 
+    def add_image_to_pdf(
+        self,
+        file: PdfRestFile | Sequence[PdfRestFile],
+        *,
+        image: PdfRestFile | Sequence[PdfRestFile],
+        x: int,
+        y: int,
+        page: int,
+        output: str | None = None,
+        extra_query: Query | None = None,
+        extra_headers: AnyMapping | None = None,
+        extra_body: Body | None = None,
+        timeout: TimeoutTypes | None = None,
+    ) -> PdfRestFileBasedResponse:
+        """Insert an image into a single page of a PDF."""
+
+        payload: dict[str, Any] = {
+            "files": file,
+            "image": image,
+            "x": x,
+            "y": y,
+            "page": page,
+        }
+        if output is not None:
+            payload["output"] = output
+
+        return self._post_file_operation(
+            endpoint="/pdf-with-added-image",
+            payload=payload,
+            payload_model=PdfAddImagePayload,
+            extra_query=extra_query,
+            extra_headers=extra_headers,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
+
     def split_pdf(
         self,
         file: PdfRestFile | Sequence[PdfRestFile],
@@ -3814,6 +3851,42 @@ class AsyncPdfRestClient(_AsyncApiClient):
             endpoint="/pdf-with-redacted-text-applied",
             payload=payload,
             payload_model=PdfRedactionApplyPayload,
+            extra_query=extra_query,
+            extra_headers=extra_headers,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
+
+    async def add_image_to_pdf(
+        self,
+        file: PdfRestFile | Sequence[PdfRestFile],
+        *,
+        image: PdfRestFile | Sequence[PdfRestFile],
+        x: int,
+        y: int,
+        page: int,
+        output: str | None = None,
+        extra_query: Query | None = None,
+        extra_headers: AnyMapping | None = None,
+        extra_body: Body | None = None,
+        timeout: TimeoutTypes | None = None,
+    ) -> PdfRestFileBasedResponse:
+        """Asynchronously insert an image into a PDF."""
+
+        payload: dict[str, Any] = {
+            "files": file,
+            "image": image,
+            "x": x,
+            "y": y,
+            "page": page,
+        }
+        if output is not None:
+            payload["output"] = output
+
+        return await self._post_file_operation(
+            endpoint="/pdf-with-added-image",
+            payload=payload,
+            payload_model=PdfAddImagePayload,
             extra_query=extra_query,
             extra_headers=extra_headers,
             extra_body=extra_body,
