@@ -36,3 +36,9 @@ Run the test suite with:
 ```bash
 uv run pytest
 ```
+
+Check sync/async parity for changed tests (defaults to `upstream/main..HEAD`):
+
+```bash
+scripts/check_test_parity.sh
+```

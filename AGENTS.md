@@ -19,6 +19,9 @@
 - `uv run pre-commit run --all-files` — enforce formatting and lint rules before
   pushing.
 - `uv run pytest` — execute the suite with the active interpreter.
+- `scripts/check_test_parity.sh` — run changed tests and report sync/async
+  parity gaps (accepts optional base/head refs, defaults to
+  `upstream/main..HEAD`).
 - `uv build` — produce wheels and sdists identical to the release workflow.
 - `uvx nox -s tests` — create matrix virtualenvs via nox and execute the pytest
   session.

@@ -13,6 +13,9 @@ iteration required.
   request customization, validation failures, file helpers, and live calls. Do
   not hide the transport behind a parameter; the test name itself should reveal
   which client is under test.
+- **Check parity regularly.** Run `scripts/check_test_parity.sh` (defaults to
+  `upstream/main..HEAD`) to spot missing sync/async counterparts, keeping
+  parameterized test IDs aligned between transports.
 - **Exercise both sides of the contract.** Hermetic tests (via
   `httpx.MockTransport`) validate serialization and local validation. Live
   suites prove the server behaves the same way, including invalid literal
