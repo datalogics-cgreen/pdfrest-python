@@ -84,6 +84,7 @@ from .models._internal import (
     OcrPdfPayload,
     PdfAddAttachmentPayload,
     PdfAddImagePayload,
+    PdfAddTextPayload,
     PdfCompressPayload,
     PdfDecryptPayload,
     PdfEncryptPayload,
@@ -122,6 +123,7 @@ from .types import (
     GraphicSmoothing,
     JpegColorModel,
     OcrLanguage,
+    PdfAddTextObject,
     PdfAType,
     PdfInfoQuery,
     PdfMergeInput,
@@ -2549,6 +2551,36 @@ class PdfRestClient(_SyncApiClient):
             timeout=timeout,
         )
 
+    def add_text_to_pdf(
+        self,
+        file: PdfRestFile | Sequence[PdfRestFile],
+        *,
+        text_objects: PdfAddTextObject | Sequence[PdfAddTextObject],
+        output: str | None = None,
+        extra_query: Query | None = None,
+        extra_headers: AnyMapping | None = None,
+        extra_body: Body | None = None,
+        timeout: TimeoutTypes | None = None,
+    ) -> PdfRestFileBasedResponse:
+        """Insert one or more text blocks into a PDF."""
+
+        payload: dict[str, Any] = {
+            "files": file,
+            "text_objects": text_objects,
+        }
+        if output is not None:
+            payload["output"] = output
+
+        return self._post_file_operation(
+            endpoint="/pdf-with-added-text",
+            payload=payload,
+            payload_model=PdfAddTextPayload,
+            extra_query=extra_query,
+            extra_headers=extra_headers,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
+
     def add_image_to_pdf(
         self,
         file: PdfRestFile | Sequence[PdfRestFile],
@@ -3851,6 +3883,36 @@ class AsyncPdfRestClient(_AsyncApiClient):
             endpoint="/pdf-with-redacted-text-applied",
             payload=payload,
             payload_model=PdfRedactionApplyPayload,
+            extra_query=extra_query,
+            extra_headers=extra_headers,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
+
+    async def add_text_to_pdf(
+        self,
+        file: PdfRestFile | Sequence[PdfRestFile],
+        *,
+        text_objects: PdfAddTextObject | Sequence[PdfAddTextObject],
+        output: str | None = None,
+        extra_query: Query | None = None,
+        extra_headers: AnyMapping | None = None,
+        extra_body: Body | None = None,
+        timeout: TimeoutTypes | None = None,
+    ) -> PdfRestFileBasedResponse:
+        """Asynchronously insert text blocks into a PDF."""
+
+        payload: dict[str, Any] = {
+            "files": file,
+            "text_objects": text_objects,
+        }
+        if output is not None:
+            payload["output"] = output
+
+        return await self._post_file_operation(
+            endpoint="/pdf-with-added-text",
+            payload=payload,
+            payload_model=PdfAddTextPayload,
             extra_query=extra_query,
             extra_headers=extra_headers,
             extra_body=extra_body,

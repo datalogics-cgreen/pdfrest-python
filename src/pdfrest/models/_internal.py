@@ -148,6 +148,11 @@ def _serialize_redactions(value: list[_PdfRedactionVariant]) -> str:
     return json.dumps(payload, separators=(",", ":"))
 
 
+def _serialize_text_objects(value: list[BaseModel]) -> str:
+    payload = [entry.model_dump(mode="json", exclude_none=True) for entry in value]
+    return json.dumps(payload, separators=(",", ":"))
+
+
 def _allowed_mime_types(
     allowed_mime_types: str, *more_allowed_mime_types: str, error_msg: str | None
 ) -> Callable[[Any], Any]:
@@ -563,6 +568,64 @@ class ExtractImagesPayload(BaseModel):
 
 
 RgbChannel = Annotated[int, Field(ge=0, le=255)]
+CmykChannel = Annotated[int, Field(ge=0, le=100)]
+
+
+def _validate_rgb_values(value: list[Any] | tuple[Any, ...] | None) -> list[int] | None:
+    if value is None:
+        return None
+    if len(value) != 3:
+        msg = "text_color_rgb must have exactly 3 values."
+        raise ValueError(msg)
+    channels: list[int] = []
+    for channel in value:
+        try:
+            numeric = int(channel)
+        except (TypeError, ValueError) as exc:
+            msg = "text_color_rgb values must be integers."
+            raise ValueError(msg) from exc
+        if not 0 <= numeric <= 255:
+            msg = "text_color_rgb values must be between 0 and 255."
+            raise ValueError(msg)
+        channels.append(numeric)
+    return channels
+
+
+def _validate_cmyk_values(
+    value: list[Any] | tuple[Any, ...] | None,
+) -> list[int] | None:
+    if value is None:
+        return None
+    if len(value) != 4:
+        msg = "text_color_cmyk must have exactly 4 values."
+        raise ValueError(msg)
+    channels: list[int] = []
+    for channel in value:
+        try:
+            numeric = int(channel)
+        except (TypeError, ValueError) as exc:
+            msg = "text_color_cmyk values must be integers."
+            raise ValueError(msg) from exc
+        if not 0 <= numeric <= 100:
+            msg = "text_color_cmyk values must be between 0 and 100."
+            raise ValueError(msg)
+        channels.append(numeric)
+    return channels
+
+
+def _validate_add_text_page(value: str | int) -> str | int:
+    if isinstance(value, str):
+        if value.lower() == "all":
+            return "all"
+        if value.isdigit():
+            numeric_page = int(value)
+            if numeric_page >= 1:
+                return numeric_page
+    else:
+        if value >= 1:
+            return value
+    msg = 'page must be a positive integer or "all".'
+    raise ValueError(msg)
 
 
 class PdfLiteralRedactionModel(BaseModel):
@@ -1019,6 +1082,94 @@ class PdfCompressPayload(BaseModel):
             msg = "A profile can only be provided when compression_level is 'custom'."
             raise ValueError(msg)
         return self
+
+
+class PdfAddTextObjectModel(BaseModel):
+    """Adapt caller text options for insertion into a PDF."""
+
+    font: Annotated[str, Field(min_length=1, serialization_alias="font")]
+    max_width: Annotated[
+        float,
+        Field(serialization_alias="max_width", gt=0),
+    ]
+    opacity: Annotated[
+        float,
+        Field(serialization_alias="opacity", ge=0.0, le=1.0),
+    ]
+    page: Annotated[
+        str | int,
+        Field(serialization_alias="page"),
+        AfterValidator(_validate_add_text_page),
+    ]
+    rotation: Annotated[float, Field(serialization_alias="rotation")]
+    text: Annotated[str, Field(min_length=1, serialization_alias="text")]
+    text_color_rgb: Annotated[
+        list[int] | tuple[int, ...] | None,
+        Field(serialization_alias="text_color_rgb", default=None),
+        BeforeValidator(_split_comma_string),
+        AfterValidator(_validate_rgb_values),
+        PlainSerializer(_serialize_as_comma_separated_string),
+    ] = None
+    text_color_cmyk: Annotated[
+        list[int] | tuple[int, ...] | None,
+        Field(serialization_alias="text_color_cmyk", default=None),
+        BeforeValidator(_split_comma_string),
+        AfterValidator(_validate_cmyk_values),
+        PlainSerializer(_serialize_as_comma_separated_string),
+    ] = None
+    text_size: Annotated[
+        float,
+        Field(serialization_alias="text_size", ge=5, le=100),
+    ]
+    x: Annotated[float, Field(serialization_alias="x")]
+    y: Annotated[float, Field(serialization_alias="y")]
+    is_rtl: Annotated[
+        bool | None,
+        Field(serialization_alias="is_rtl", default=None),
+    ] = None
+
+    @model_validator(mode="after")
+    def _ensure_single_color_option(self) -> PdfAddTextObjectModel:
+        if self.text_color_rgb is None and self.text_color_cmyk is None:
+            msg = "Either text_color_rgb or text_color_cmyk must be provided."
+            raise ValueError(msg)
+        if self.text_color_rgb is not None and self.text_color_cmyk is not None:
+            msg = "Provide only one of text_color_rgb or text_color_cmyk."
+            raise ValueError(msg)
+        return self
+
+
+class PdfAddTextPayload(BaseModel):
+    """Adapt caller options into a pdfRest-ready add-text request payload."""
+
+    files: Annotated[
+        list[PdfRestFile],
+        Field(
+            min_length=1,
+            max_length=1,
+            validation_alias=AliasChoices("file", "files"),
+            serialization_alias="id",
+        ),
+        BeforeValidator(_ensure_list),
+        AfterValidator(
+            _allowed_mime_types("application/pdf", error_msg="Must be a PDF file")
+        ),
+        PlainSerializer(_serialize_as_first_file_id),
+    ]
+    text_objects: Annotated[
+        list[PdfAddTextObjectModel],
+        Field(
+            serialization_alias="text_objects",
+            min_length=1,
+        ),
+        BeforeValidator(_ensure_list),
+        PlainSerializer(_serialize_text_objects),
+    ]
+    output: Annotated[
+        str | None,
+        Field(serialization_alias="output", min_length=1, default=None),
+        AfterValidator(_validate_output_prefix),
+    ] = None
 
 
 class PdfAddImagePayload(BaseModel):
