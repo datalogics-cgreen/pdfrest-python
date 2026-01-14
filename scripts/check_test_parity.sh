@@ -15,7 +15,12 @@ if ! git rev-parse --verify "$head_ref" > /dev/null 2>&1; then
     exit 1
 fi
 
-mapfile -t test_files < <(
+test_files=()
+while IFS= read -r file; do
+    if [[ -n "$file" ]]; then
+        test_files+=("$file")
+    fi
+done < <(
     git diff --name-only "$base_ref..$head_ref" -- tests | grep -E '\.py$' || true
 )
 
