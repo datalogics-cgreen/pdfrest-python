@@ -95,7 +95,7 @@ def test_live_pdf_info_queries(
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("query_name", ALLOWED_QUERIES, ids=list(ALLOWED_QUERIES))
-async def test_live_pdf_info_async_queries(
+async def test_live_async_pdf_info_queries(
     pdfrest_api_key: str,
     pdfrest_live_base_url: str,
     uploaded_pdf: PdfRestFile,
@@ -150,7 +150,7 @@ def test_live_pdf_info_invalid_query(
         pytest.param("🚫", id="emoji"),
     ],
 )
-async def test_live_pdf_info_async_invalid_query(
+async def test_live_async_pdf_info_invalid_query(
     pdfrest_api_key: str,
     pdfrest_live_base_url: str,
     uploaded_pdf: PdfRestFile,
@@ -200,7 +200,7 @@ def test_live_pdf_info_multiple_queries(
         pytest.param(("page_count", "file_size", "pdf_version"), id="three-values"),
     ],
 )
-async def test_live_pdf_info_async_multiple_queries(
+async def test_live_async_pdf_info_multiple_queries(
     pdfrest_api_key: str,
     pdfrest_live_base_url: str,
     uploaded_pdf: PdfRestFile,
@@ -236,7 +236,7 @@ def test_live_pdf_info_all_queries(
 
 
 @pytest.mark.asyncio
-async def test_live_pdf_info_async_all_queries(
+async def test_live_async_pdf_info_all_queries(
     pdfrest_api_key: str,
     pdfrest_live_base_url: str,
     uploaded_pdf: PdfRestFile,
