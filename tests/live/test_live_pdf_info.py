@@ -145,6 +145,23 @@ def test_live_pdf_info_multiple_queries(
         _assert_expected_value(item, getattr(response, item))
 
 
+def test_live_pdf_info_all_queries(
+    pdfrest_api_key: str,
+    pdfrest_live_base_url: str,
+    uploaded_pdf: PdfRestFile,
+) -> None:
+    with PdfRestClient(
+        api_key=pdfrest_api_key, base_url=pdfrest_live_base_url
+    ) as client:
+        response = client.query_pdf_info(uploaded_pdf, queries=ALLOWED_QUERIES)
+
+    assert isinstance(response, PdfRestInfoResponse)
+    assert str(response.input_id) == str(uploaded_pdf.id)
+    assert response.all_queries_processed is True
+    for query in ALLOWED_QUERIES:
+        _assert_expected_value(query, getattr(response, query))
+
+
 @pytest.mark.asyncio
 async def test_live_pdf_info_async_all_queries(
     pdfrest_api_key: str,

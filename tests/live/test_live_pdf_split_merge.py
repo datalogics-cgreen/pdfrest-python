@@ -280,7 +280,7 @@ def test_live_merge_pdfs_invalid_pages(
 
 
 @pytest.mark.asyncio
-async def test_live_async_merge_pdfs(
+async def test_live_async_merge_pdfs_success(
     pdfrest_api_key: str,
     pdfrest_live_base_url: str,
     uploaded_live_pdfs: tuple[PdfRestFile, PdfRestFile],

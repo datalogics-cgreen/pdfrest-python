@@ -57,23 +57,38 @@ def test_live_linearize_pdf(
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "output_name",
+    [
+        pytest.param(None, id="default-output"),
+        pytest.param("linearized-live", id="custom-output"),
+    ],
+)
 async def test_live_async_linearize_pdf(
     pdfrest_api_key: str,
     pdfrest_live_base_url: str,
     uploaded_pdf_for_linearize: PdfRestFile,
+    output_name: str | None,
 ) -> None:
+    kwargs: dict[str, str] = {}
+    if output_name is not None:
+        kwargs["output"] = output_name
+
     async with AsyncPdfRestClient(
         api_key=pdfrest_api_key,
         base_url=pdfrest_live_base_url,
     ) as client:
         response = await client.linearize_pdf(
             uploaded_pdf_for_linearize,
-            output="async-linearized",
+            **kwargs,
         )
 
     assert response.output_files
     output_file = response.output_file
-    assert output_file.name.startswith("async-linearized")
+    if output_name is not None:
+        assert output_file.name.startswith(output_name)
+    else:
+        assert output_file.name.endswith(".pdf")
     assert output_file.type == "application/pdf"
     assert output_file.size > 0
     assert response.warning is None

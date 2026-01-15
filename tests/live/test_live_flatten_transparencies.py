@@ -60,22 +60,38 @@ def test_live_flatten_transparencies_success(
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("output_name", "quality"),
+    [
+        pytest.param(None, "medium", id="default-output"),
+        pytest.param("flatten-transparency", "high", id="custom-output-high"),
+    ],
+)
 async def test_live_async_flatten_transparencies_success(
     pdfrest_api_key: str,
     pdfrest_live_base_url: str,
     uploaded_pdf_for_transparencies: PdfRestFile,
+    output_name: str | None,
+    quality: str,
 ) -> None:
+    kwargs: dict[str, str] = {"quality": quality}
+    if output_name is not None:
+        kwargs["output"] = output_name
+
     async with AsyncPdfRestClient(
         api_key=pdfrest_api_key,
         base_url=pdfrest_live_base_url,
     ) as client:
         response = await client.flatten_transparencies(
-            uploaded_pdf_for_transparencies, output="async", quality="low"
+            uploaded_pdf_for_transparencies, **kwargs
         )
 
     assert response.output_files
     output_file = response.output_file
-    assert output_file.name.startswith("async")
+    if output_name is not None:
+        assert output_file.name.startswith(output_name)
+    else:
+        assert output_file.name.endswith(".pdf")
     assert output_file.type == "application/pdf"
     assert output_file.size > 0
     assert response.warning is None

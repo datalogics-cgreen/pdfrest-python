@@ -55,23 +55,38 @@ def test_live_flatten_pdf_forms(
 
 
 @pytest.mark.asyncio
-async def test_live_async_flatten_pdf_forms_success(
+@pytest.mark.parametrize(
+    "output_name",
+    [
+        pytest.param(None, id="default-output"),
+        pytest.param("flattened-live", id="custom-output"),
+    ],
+)
+async def test_live_async_flatten_pdf_forms(
     pdfrest_api_key: str,
     pdfrest_live_base_url: str,
     uploaded_pdf_with_forms: PdfRestFile,
+    output_name: str | None,
 ) -> None:
+    kwargs: dict[str, str] = {}
+    if output_name is not None:
+        kwargs["output"] = output_name
+
     async with AsyncPdfRestClient(
         api_key=pdfrest_api_key,
         base_url=pdfrest_live_base_url,
     ) as client:
         response = await client.flatten_pdf_forms(
             uploaded_pdf_with_forms,
-            output="async-flattened",
+            **kwargs,
         )
 
     assert response.output_files
     output_file = response.output_file
-    assert output_file.name.startswith("async-flattened")
+    if output_name is not None:
+        assert output_file.name.startswith(output_name)
+    else:
+        assert output_file.name.endswith(".pdf")
     assert output_file.type == "application/pdf"
     assert str(response.input_id) == str(uploaded_pdf_with_forms.id)
 
