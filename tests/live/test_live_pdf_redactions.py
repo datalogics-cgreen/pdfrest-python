@@ -317,7 +317,6 @@ async def test_live_async_redactions_invalid_payloads(
             preview = await client.preview_redactions(
                 uploaded_pdf_for_redaction,
                 redactions=[{"type": "literal", "value": "placeholder"}],
-                extra_body=extra_body,
             )
             preview_file = preview.output_files[0]
             with pytest.raises(PdfRestApiError, match=r"(?i)rgb"):

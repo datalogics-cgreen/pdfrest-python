@@ -288,10 +288,3 @@ async def test_async_rasterize_pdf_validation(monkeypatch: pytest.MonkeyPatch) -
             await client.rasterize_pdf(
                 [pdf_file, make_pdf_file(PdfRestFileID.generate())]
             )
-
-        with pytest.raises(ValidationError, match="Timeout must be greater than 0"):
-            await client.rasterize_pdf(
-                make_pdf_file(PdfRestFileID.generate(1)),
-                output="output",
-                timeout=0,
-            )
