@@ -101,6 +101,30 @@ def test_live_convert_to_pdfa_with_rasterize_option(
     assert str(response.input_id) == str(uploaded_pdf_for_pdfa.id)
 
 
+@pytest.mark.asyncio
+async def test_live_async_convert_to_pdfa_with_rasterize_option(
+    pdfrest_api_key: str,
+    pdfrest_live_base_url: str,
+    uploaded_pdf_for_pdfa: PdfRestFile,
+) -> None:
+    async with AsyncPdfRestClient(
+        api_key=pdfrest_api_key,
+        base_url=pdfrest_live_base_url,
+    ) as client:
+        response = await client.convert_to_pdfa(
+            uploaded_pdf_for_pdfa,
+            output_type="PDF/A-2b",
+            rasterize_if_errors_encountered="on",
+            output="async-pdfa-rasterize",
+        )
+
+    assert response.output_files
+    output_file = response.output_file
+    assert output_file.name.startswith("async-pdfa-rasterize")
+    assert output_file.type == "application/pdf"
+    assert str(response.input_id) == str(uploaded_pdf_for_pdfa.id)
+
+
 @pytest.mark.parametrize(
     "invalid_output_type",
     [

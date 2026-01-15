@@ -316,3 +316,52 @@ def test_convert_to_pdfa_validation(monkeypatch: pytest.MonkeyPatch) -> None:
             [pdf_file, make_pdf_file(PdfRestFileID.generate())],
             output_type="PDF/A-2b",
         )
+
+
+@pytest.mark.asyncio
+async def test_async_convert_to_pdfa_validation(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.delenv("PDFREST_API_KEY", raising=False)
+    pdf_file = make_pdf_file(PdfRestFileID.generate(1))
+    png_file = PdfRestFile.model_validate(
+        build_file_info_payload(
+            PdfRestFileID.generate(),
+            "example.png",
+            "image/png",
+        )
+    )
+    transport = httpx.MockTransport(lambda request: (_ for _ in ()).throw(RuntimeError))
+
+    async with AsyncPdfRestClient(api_key=ASYNC_API_KEY, transport=transport) as client:
+        with pytest.raises(
+            ValidationError,
+            match=(
+                "Input should be 'PDF/A-1b', 'PDF/A-2b', 'PDF/A-2u', "
+                "'PDF/A-3b' or 'PDF/A-3u'"
+            ),
+        ):
+            await client.convert_to_pdfa(
+                pdf_file,
+                output_type=None,  # type: ignore[arg-type]
+            )
+
+    async with AsyncPdfRestClient(api_key=ASYNC_API_KEY, transport=transport) as client:
+        with pytest.raises(ValidationError, match="Must be a PDF file"):
+            await client.convert_to_pdfa(png_file, output_type="PDF/A-2b")
+
+    async with AsyncPdfRestClient(api_key=ASYNC_API_KEY, transport=transport) as client:
+        with pytest.raises(ValidationError, match="PDF/A-1b"):
+            await client.convert_to_pdfa(
+                pdf_file,
+                output_type="PDF/A-4",  # type: ignore[arg-type]
+            )
+
+    async with AsyncPdfRestClient(api_key=ASYNC_API_KEY, transport=transport) as client:
+        with pytest.raises(
+            ValidationError, match="List should have at most 1 item after validation"
+        ):
+            await client.convert_to_pdfa(
+                [pdf_file, make_pdf_file(PdfRestFileID.generate())],
+                output_type="PDF/A-2b",
+            )

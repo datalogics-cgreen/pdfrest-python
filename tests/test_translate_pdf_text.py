@@ -106,6 +106,28 @@ def test_translate_payload_accepts_valid_output_language(
     assert payload.output_language == output_language
 
 
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "output_language",
+    [
+        pytest.param("en", id="language-2-letter"),
+        pytest.param("fra", id="language-3-letter"),
+        pytest.param("zh-Hant", id="script"),
+        pytest.param("eng-US", id="alpha-region"),
+        pytest.param("es-419", id="numeric-region"),
+    ],
+)
+async def test_async_translate_payload_accepts_valid_output_language(
+    output_language: str,
+) -> None:
+    file_repr = make_pdf_file(PdfRestFileID.generate(1))
+    payload = TranslatePdfTextPayload.model_validate(
+        {"files": [file_repr], "output_language": output_language}
+    )
+
+    assert payload.output_language == output_language
+
+
 @pytest.mark.parametrize(
     "output_language",
     [
@@ -204,6 +226,60 @@ def test_translate_pdf_text_json_success(monkeypatch: pytest.MonkeyPatch) -> Non
     transport = httpx.MockTransport(handler)
     with PdfRestClient(api_key=VALID_API_KEY, transport=transport) as client:
         response = client.translate_pdf_text(
+            input_file,
+            output_language="fr",
+            pages=["1-2"],
+            output_format="plaintext",
+            output="translation",
+        )
+
+    assert seen == {"post": 1}
+    assert isinstance(response, TranslatePdfTextResponse)
+    assert response.translated_text == "Bonjour"
+    assert response.source_languages == ["en"]
+    assert response.output_language == "fr"
+    assert response.input_id == input_file.id
+
+
+@pytest.mark.asyncio
+async def test_async_translate_pdf_text_json_success(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.delenv("PDFREST_API_KEY", raising=False)
+    input_file = _make_markdown_file(str(PdfRestFileID.generate(1)))
+    payload_dump = TranslatePdfTextPayload.model_validate(
+        {
+            "files": [input_file],
+            "output_language": "fr",
+            "pages": ["1-2"],
+            "output_format": "plaintext",
+            "output_type": "json",
+            "output": "translation",
+        }
+    ).model_dump(mode="json", by_alias=True, exclude_none=True, exclude_unset=True)
+
+    seen: dict[str, int] = {"post": 0}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.method == "POST" and request.url.path == "/translated-pdf-text":
+            seen["post"] += 1
+            payload = json.loads(request.content.decode("utf-8"))
+            assert payload == payload_dump
+            return httpx.Response(
+                200,
+                json={
+                    "translated_text": "Bonjour",
+                    "inputId": str(input_file.id),
+                    "source_languages": ["en"],
+                    "output_language": "fr",
+                },
+            )
+        msg = f"Unexpected request {request.method} {request.url}"
+        raise AssertionError(msg)
+
+    transport = httpx.MockTransport(handler)
+    async with AsyncPdfRestClient(api_key=ASYNC_API_KEY, transport=transport) as client:
+        response = await client.translate_pdf_text(
             input_file,
             output_language="fr",
             pages=["1-2"],

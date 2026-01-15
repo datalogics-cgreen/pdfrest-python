@@ -79,7 +79,29 @@ def test_ocr_payload_languages() -> None:
     )
 
 
+@pytest.mark.asyncio
+async def test_async_ocr_payload_languages() -> None:
+    file_repr = make_pdf_file(PdfRestFileID.generate(1))
+    payload = OcrPdfPayload.model_validate(
+        {"files": [file_repr], "languages": ["English", "German"]}
+    )
+    assert payload.languages == ["English", "German"]
+    assert (
+        payload.model_dump(
+            mode="json", by_alias=True, exclude_none=True, exclude_unset=True
+        )["languages"]
+        == "English,German"
+    )
+
+
 def test_ocr_payload_invalid_language() -> None:
+    file_repr = make_pdf_file(PdfRestFileID.generate(1))
+    with pytest.raises(ValidationError, match="ChineseSimplified"):
+        OcrPdfPayload.model_validate({"files": [file_repr], "languages": ["Klingon"]})
+
+
+@pytest.mark.asyncio
+async def test_async_ocr_payload_invalid_language() -> None:
     file_repr = make_pdf_file(PdfRestFileID.generate(1))
     with pytest.raises(ValidationError, match="ChineseSimplified"):
         OcrPdfPayload.model_validate({"files": [file_repr], "languages": ["Klingon"]})

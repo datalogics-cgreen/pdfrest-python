@@ -146,6 +146,58 @@ def test_summarize_text_json_success(monkeypatch: pytest.MonkeyPatch) -> None:
     assert response.input_id == input_file.id
 
 
+@pytest.mark.asyncio
+async def test_async_summarize_text_json_success(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.delenv("PDFREST_API_KEY", raising=False)
+    input_file = _make_text_file(str(PdfRestFileID.generate(1)))
+    payload_dump = SummarizePdfTextPayload.model_validate(
+        {
+            "files": [input_file],
+            "target_word_count": 120,
+            "summary_format": "bullet_points",
+            "pages": ["1-3"],
+            "output_format": "plaintext",
+            "output_type": "json",
+            "output": "summary",
+        }
+    ).model_dump(mode="json", by_alias=True, exclude_none=True, exclude_unset=True)
+
+    seen: dict[str, int] = {"post": 0}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.method == "POST" and request.url.path == "/summarized-pdf-text":
+            seen["post"] += 1
+            payload = json.loads(request.content.decode("utf-8"))
+            assert payload == payload_dump
+            return httpx.Response(
+                200,
+                json={
+                    "summary": "Async key points...",
+                    "inputId": str(input_file.id),
+                },
+            )
+        msg = f"Unexpected request {request.method} {request.url}"
+        raise AssertionError(msg)
+
+    transport = httpx.MockTransport(handler)
+    async with AsyncPdfRestClient(api_key=ASYNC_API_KEY, transport=transport) as client:
+        response = await client.summarize_text(
+            input_file,
+            target_word_count=120,
+            summary_format="bullet_points",
+            pages=["1-3"],
+            output_format="plaintext",
+            output="summary",
+        )
+
+    assert seen == {"post": 1}
+    assert isinstance(response, SummarizePdfTextResponse)
+    assert response.summary == "Async key points..."
+    assert response.input_id == input_file.id
+
+
 def test_summarize_text_to_file_success(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
