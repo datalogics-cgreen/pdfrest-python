@@ -60,22 +60,37 @@ def test_live_convert_to_powerpoint_success(
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "output_name",
+    [
+        pytest.param(None, id="default-output"),
+        pytest.param("async-powerpoint", id="custom-output"),
+    ],
+)
 async def test_live_async_convert_to_powerpoint_success(
     pdfrest_api_key: str,
     pdfrest_live_base_url: str,
     uploaded_pdf_for_powerpoint: PdfRestFile,
+    output_name: str | None,
 ) -> None:
+    kwargs: dict[str, str] = {}
+    if output_name is not None:
+        kwargs["output"] = output_name
+
     async with AsyncPdfRestClient(
         api_key=pdfrest_api_key,
         base_url=pdfrest_live_base_url,
     ) as client:
         response = await client.convert_to_powerpoint(
-            uploaded_pdf_for_powerpoint, output="async"
+            uploaded_pdf_for_powerpoint, **kwargs
         )
 
     assert response.output_files
     output_file = response.output_file
-    assert output_file.name.startswith("async")
+    if output_name is not None:
+        assert output_file.name.startswith(output_name)
+    else:
+        assert output_file.name.endswith(".pptx")
     assert (
         output_file.type
         == "application/vnd.openxmlformats-officedocument.presentationml.presentation"

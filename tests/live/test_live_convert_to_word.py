@@ -58,23 +58,38 @@ def test_live_convert_to_word_success(
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "output_name",
+    [
+        pytest.param(None, id="default-output"),
+        pytest.param("async-word", id="custom-output"),
+    ],
+)
 async def test_live_async_convert_to_word_success(
     pdfrest_api_key: str,
     pdfrest_live_base_url: str,
     uploaded_pdf_for_word: PdfRestFile,
+    output_name: str | None,
 ) -> None:
+    kwargs: dict[str, str] = {}
+    if output_name is not None:
+        kwargs["output"] = output_name
+
     async with AsyncPdfRestClient(
         api_key=pdfrest_api_key,
         base_url=pdfrest_live_base_url,
     ) as client:
         response = await client.convert_to_word(
             uploaded_pdf_for_word,
-            output="async-word",
+            **kwargs,
         )
 
     assert response.output_files
     output_file = response.output_file
-    assert output_file.name.startswith("async-word")
+    if output_name is not None:
+        assert output_file.name.startswith(output_name)
+    else:
+        assert output_file.name.endswith(".docx")
     assert (
         output_file.type
         == "application/vnd.openxmlformats-officedocument.wordprocessingml.document"

@@ -130,10 +130,19 @@ def test_live_convert_to_pdfa_invalid_output_type(
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "invalid_output_type",
+    [
+        pytest.param("PDF/A-0", id="pdfa-0"),
+        pytest.param("PDF/A-99", id="pdfa-99"),
+        pytest.param("pdf/a-2b", id="lowercase"),
+    ],
+)
 async def test_live_async_convert_to_pdfa_invalid_output_type(
     pdfrest_api_key: str,
     pdfrest_live_base_url: str,
     uploaded_pdf_for_pdfa: PdfRestFile,
+    invalid_output_type: str,
 ) -> None:
     async with AsyncPdfRestClient(
         api_key=pdfrest_api_key,
@@ -143,5 +152,5 @@ async def test_live_async_convert_to_pdfa_invalid_output_type(
             await client.convert_to_pdfa(
                 uploaded_pdf_for_pdfa,
                 output_type="PDF/A-1b",
-                extra_body={"output_type": "PDF/A-0"},
+                extra_body={"output_type": invalid_output_type},
             )

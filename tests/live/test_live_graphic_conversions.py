@@ -121,6 +121,27 @@ def uploaded_20_page_pdf(
         return client.files.create_from_paths([resource])[0]
 
 
+def test_live_convert_to_png_success(
+    pdfrest_api_key: str,
+    pdfrest_live_base_url: str,
+) -> None:
+    resource = get_test_resource_path("report.pdf")
+    with PdfRestClient(
+        api_key=pdfrest_api_key,
+        base_url=pdfrest_live_base_url,
+    ) as client:
+        uploaded = client.files.create_from_paths([resource])[0]
+        response = client.convert_to_png(
+            uploaded,
+            output_prefix="live-png",
+            resolution=150,
+        )
+
+    assert response.output_files
+    assert all(file_info.type == "image/png" for file_info in response.output_files)
+    assert str(response.input_id) == str(uploaded.id)
+
+
 @pytest.mark.asyncio
 async def test_live_async_convert_to_png_success(
     pdfrest_api_key: str,
@@ -292,9 +313,16 @@ def test_live_graphic_invalid_smoothing(
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("_endpoint_label", "spec", "invalid_smoothing"),
+    _invalid_smoothing_cases(),
+)
 async def test_live_async_graphic_invalid_smoothing(
     pdfrest_api_key: str,
     pdfrest_live_base_url: str,
+    _endpoint_label: str,
+    spec: _GraphicEndpointSpec,
+    invalid_smoothing: Any,
 ) -> None:
     resource = get_test_resource_path("report.pdf")
     async with AsyncPdfRestClient(
@@ -302,11 +330,12 @@ async def test_live_async_graphic_invalid_smoothing(
         base_url=pdfrest_live_base_url,
     ) as client:
         uploaded = (await client.files.create_from_paths([resource]))[0]
+        client_method = getattr(client, spec.method_name)
         with pytest.raises(PdfRestApiError, match=r"(?i)smooth"):
-            await client.convert_to_png(
+            await client_method(
                 uploaded,
                 smoothing="none",
-                extra_body={"smoothing": "super-smooth"},
+                extra_body={"smoothing": invalid_smoothing},
             )
 
 
