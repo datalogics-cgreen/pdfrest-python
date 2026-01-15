@@ -295,3 +295,38 @@ def test_flatten_transparencies_validation(monkeypatch: pytest.MonkeyPatch) -> N
         ),
     ):
         client.flatten_transparencies(pdf_file, quality="ultra")  # type: ignore[arg-type]
+
+
+@pytest.mark.asyncio
+async def test_async_flatten_transparencies_validation(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.delenv("PDFREST_API_KEY", raising=False)
+    pdf_file = make_pdf_file(PdfRestFileID.generate(1))
+    png_file = PdfRestFile.model_validate(
+        build_file_info_payload(
+            PdfRestFileID.generate(),
+            "example.png",
+            "image/png",
+        )
+    )
+    transport = httpx.MockTransport(lambda request: (_ for _ in ()).throw(RuntimeError))
+
+    async with AsyncPdfRestClient(api_key=ASYNC_API_KEY, transport=transport) as client:
+        with pytest.raises(ValidationError, match="Must be a PDF file"):
+            await client.flatten_transparencies(png_file)
+
+        with pytest.raises(
+            ValidationError, match="List should have at most 1 item after validation"
+        ):
+            await client.flatten_transparencies(
+                [pdf_file, make_pdf_file(PdfRestFileID.generate())]
+            )
+
+        with pytest.raises(
+            ValidationError, match="Input should be 'low', 'medium' or 'high'"
+        ):
+            await client.flatten_transparencies(
+                pdf_file,
+                quality="ultra",  # type: ignore[arg-type]
+            )
