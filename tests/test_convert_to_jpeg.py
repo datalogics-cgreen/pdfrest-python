@@ -244,8 +244,16 @@ def test_convert_to_jpeg_invalid_quality(monkeypatch: pytest.MonkeyPatch) -> Non
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "color_model",
+    [
+        pytest.param("rgb", id="rgb"),
+        pytest.param("cmyk", id="cmyk"),
+        pytest.param("gray", id="gray"),
+    ],
+)
 async def test_async_convert_to_jpeg_success(
-    monkeypatch: pytest.MonkeyPatch,
+    monkeypatch: pytest.MonkeyPatch, color_model: str
 ) -> None:
     monkeypatch.delenv("PDFREST_API_KEY", raising=False)
     input_file = make_pdf_file(PdfRestFileID.generate(1))
@@ -257,7 +265,7 @@ async def test_async_convert_to_jpeg_success(
             "output_prefix": "async-output",
             "page_range": "1-2",
             "resolution": 500,
-            "color_model": "gray",
+            "color_model": color_model,
             "jpeg_quality": 85,
             "smoothing": ["all"],
         }
@@ -295,7 +303,7 @@ async def test_async_convert_to_jpeg_success(
             output_prefix="async-output",
             page_range="1-2",
             resolution=500,
-            color_model="gray",
+            color_model=color_model,
             smoothing=["all"],
             jpeg_quality=85,
         )

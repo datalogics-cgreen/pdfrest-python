@@ -90,11 +90,11 @@ def test_convert_to_pdfa_success(
 @pytest.mark.parametrize(
     "output_type",
     [
-        pytest.param("PDF/A-1b", id="async-pdfa-1b"),
-        pytest.param("PDF/A-2b", id="async-pdfa-2b"),
-        pytest.param("PDF/A-2u", id="async-pdfa-2u"),
-        pytest.param("PDF/A-3b", id="async-pdfa-3b"),
-        pytest.param("PDF/A-3u", id="async-pdfa-3u"),
+        pytest.param("PDF/A-1b", id="pdfa-1b"),
+        pytest.param("PDF/A-2b", id="pdfa-2b"),
+        pytest.param("PDF/A-2u", id="pdfa-2u"),
+        pytest.param("PDF/A-3b", id="pdfa-3b"),
+        pytest.param("PDF/A-3u", id="pdfa-3u"),
     ],
 )
 async def test_async_convert_to_pdfa_success(
