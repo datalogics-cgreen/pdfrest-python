@@ -26,6 +26,7 @@ from ..types import (
     OcrLanguage,
     PdfAType,
     PdfInfoQuery,
+    PdfRestriction,
     PdfXType,
     SummaryFormat,
     SummaryOutputFormat,
@@ -1135,6 +1136,102 @@ class PdfFlattenAnnotationsPayload(BaseModel):
         ),
         PlainSerializer(_serialize_as_first_file_id),
     ]
+    output: Annotated[
+        str | None,
+        Field(serialization_alias="output", min_length=1, default=None),
+        AfterValidator(_validate_output_prefix),
+    ] = None
+
+
+class PdfRestrictPayload(BaseModel):
+    """Adapt caller options into a pdfRest-ready restrict-PDF request payload."""
+
+    files: Annotated[
+        list[PdfRestFile],
+        Field(
+            min_length=1,
+            max_length=1,
+            validation_alias=AliasChoices("file", "files"),
+            serialization_alias="id",
+        ),
+        BeforeValidator(_ensure_list),
+        AfterValidator(
+            _allowed_mime_types("application/pdf", error_msg="Must be a PDF file")
+        ),
+        PlainSerializer(_serialize_as_first_file_id),
+    ]
+    new_permissions_password: Annotated[
+        str,
+        Field(
+            serialization_alias="new_permissions_password",
+            min_length=6,
+            max_length=128,
+        ),
+    ]
+    restrictions: Annotated[
+        list[PdfRestriction] | None,
+        Field(serialization_alias="restrictions", min_length=1, default=None),
+        BeforeValidator(_ensure_list),
+    ] = None
+    current_permissions_password: Annotated[
+        str | None,
+        Field(
+            serialization_alias="current_permissions_password",
+            min_length=1,
+            max_length=128,
+            default=None,
+        ),
+    ] = None
+    current_open_password: Annotated[
+        str | None,
+        Field(
+            serialization_alias="current_open_password",
+            min_length=1,
+            max_length=128,
+            default=None,
+        ),
+    ] = None
+    output: Annotated[
+        str | None,
+        Field(serialization_alias="output", min_length=1, default=None),
+        AfterValidator(_validate_output_prefix),
+    ] = None
+
+
+class PdfUnrestrictPayload(BaseModel):
+    """Adapt caller options into a pdfRest-ready unrestrict-PDF request payload."""
+
+    files: Annotated[
+        list[PdfRestFile],
+        Field(
+            min_length=1,
+            max_length=1,
+            validation_alias=AliasChoices("file", "files"),
+            serialization_alias="id",
+        ),
+        BeforeValidator(_ensure_list),
+        AfterValidator(
+            _allowed_mime_types("application/pdf", error_msg="Must be a PDF file")
+        ),
+        PlainSerializer(_serialize_as_first_file_id),
+    ]
+    current_permissions_password: Annotated[
+        str,
+        Field(
+            serialization_alias="current_permissions_password",
+            min_length=1,
+            max_length=128,
+        ),
+    ]
+    current_open_password: Annotated[
+        str | None,
+        Field(
+            serialization_alias="current_open_password",
+            min_length=1,
+            max_length=128,
+            default=None,
+        ),
+    ] = None
     output: Annotated[
         str | None,
         Field(serialization_alias="output", min_length=1, default=None),
