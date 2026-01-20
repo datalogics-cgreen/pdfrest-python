@@ -48,6 +48,10 @@ __all__ = (
     "PdfRedactionPreset",
     "PdfRedactionType",
     "PdfRestriction",
+    "PdfSignatureConfiguration",
+    "PdfSignatureCredentials",
+    "PdfSignatureDisplay",
+    "PdfSignatureLocation",
     "PdfTextColor",
     "PdfXType",
     "PngColorModel",
@@ -162,6 +166,48 @@ PdfConversionLocale = Literal["US", "Germany"]
 HtmlPageSize = Literal["letter", "legal", "ledger", "A3", "A4", "A5"]
 HtmlPageOrientation = Literal["portrait", "landscape"]
 HtmlWebLayout = Literal["desktop", "tablet", "mobile"]
+
+
+class PdfSignaturePoint(TypedDict):
+    x: str | int | float
+    y: str | int | float
+
+
+class PdfSignatureLocation(TypedDict):
+    bottom_left: Required[PdfSignaturePoint]
+    top_right: Required[PdfSignaturePoint]
+    page: Required[str | int]
+
+
+class PdfSignatureDisplay(TypedDict, total=False):
+    include_distinguished_name: bool
+    include_datetime: bool
+    contact: str
+    location: str
+    name: str
+    reason: str
+
+
+class PdfSignatureConfiguration(TypedDict, total=False):
+    type: Required[Literal["new"]]
+    name: str
+    logo_opacity: float
+    location: PdfSignatureLocation
+    display: PdfSignatureDisplay
+
+
+class PdfPfxCredentials(TypedDict):
+    pfx: Required[PdfRestFile]
+    passphrase: Required[PdfRestFile]
+
+
+class PdfPemCredentials(TypedDict):
+    certificate: Required[PdfRestFile]
+    private_key: Required[PdfRestFile]
+
+
+PdfSignatureCredentials = PdfPfxCredentials | PdfPemCredentials
+
 PdfAType = Literal["PDF/A-1b", "PDF/A-2b", "PDF/A-2u", "PDF/A-3b", "PDF/A-3u"]
 PdfXType = Literal["PDF/X-1a", "PDF/X-3", "PDF/X-4", "PDF/X-6"]
 ExtractTextGranularity = Literal["off", "by_page", "document"]
