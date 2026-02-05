@@ -46,6 +46,7 @@ awk '
 {
   line = $0;
   sub(/^\[[^]]+\][[:space:]]+/, "", line);
+  sub(/[[:space:]]+\[[^]]+\]$/, "", line);
   if (line ~ /^(PASSED|FAILED|SKIPPED|XFAIL|XPASS|ERROR)[[:space:]]+tests\/.*::/) {
     sub(/^(PASSED|FAILED|SKIPPED|XFAIL|XPASS|ERROR)[[:space:]]+/, "", line);
     print line;
