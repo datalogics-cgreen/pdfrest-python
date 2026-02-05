@@ -282,6 +282,57 @@ async def test_async_ocr_pdf_request_customization(
 
 
 @pytest.mark.asyncio
+async def test_async_ocr_pdf_includes_pages(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("PDFREST_API_KEY", raising=False)
+    input_file = make_pdf_file(PdfRestFileID.generate(2))
+    payload_dump = OcrPdfPayload.model_validate(
+        {
+            "files": [input_file],
+            "pages": ["1-2"],
+            "languages": ["English"],
+        }
+    ).model_dump(mode="json", by_alias=True, exclude_none=True, exclude_unset=True)
+    output_id = str(PdfRestFileID.generate())
+
+    seen: dict[str, int] = {"post": 0, "get": 0}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.method == "POST" and request.url.path == "/pdf-with-ocr-text":
+            seen["post"] += 1
+            payload = json.loads(request.content.decode("utf-8"))
+            assert payload == payload_dump
+            return httpx.Response(
+                200,
+                json={
+                    "inputId": str(input_file.id),
+                    "outputId": output_id,
+                },
+            )
+        if request.method == "GET" and request.url.path == f"/resource/{output_id}":
+            seen["get"] += 1
+            return httpx.Response(
+                200,
+                json=make_pdf_file(output_id, "async-ocr.pdf").model_dump(
+                    mode="json", by_alias=True
+                ),
+            )
+        msg = f"Unexpected request {request.method} {request.url}"
+        raise AssertionError(msg)
+
+    transport = httpx.MockTransport(handler)
+    async with AsyncPdfRestClient(api_key=ASYNC_API_KEY, transport=transport) as client:
+        response = await client.ocr_pdf(
+            input_file,
+            pages=["1-2"],
+            languages=["English"],
+        )
+
+    assert seen == {"post": 1, "get": 1}
+    assert isinstance(response, PdfRestFileBasedResponse)
+    assert response.output_file.id == output_id
+
+
+@pytest.mark.asyncio
 async def test_async_ocr_pdf_success(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

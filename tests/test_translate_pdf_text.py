@@ -368,6 +368,67 @@ def test_translate_pdf_text_request_customization(
         assert timeout_value == pytest.approx(0.3)
 
 
+def test_translate_pdf_text_to_file_includes_pages_and_output(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.delenv("PDFREST_API_KEY", raising=False)
+    input_file = make_pdf_file(PdfRestFileID.generate(1))
+    payload_dump = TranslatePdfTextPayload.model_validate(
+        {
+            "files": [input_file],
+            "output_language": "fr",
+            "output_type": "file",
+            "output_format": "markdown",
+            "pages": ["1-2"],
+            "output": "translated",
+        }
+    ).model_dump(mode="json", by_alias=True, exclude_none=True, exclude_unset=True)
+    output_id = str(PdfRestFileID.generate())
+
+    seen: dict[str, int] = {"post": 0, "get": 0}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.method == "POST" and request.url.path == "/translated-pdf-text":
+            seen["post"] += 1
+            payload = json.loads(request.content.decode("utf-8"))
+            assert payload == payload_dump
+            return httpx.Response(
+                200,
+                json={
+                    "outputUrl": f"https://api.pdfrest.com/resource/{output_id}?format=file",
+                    "outputId": output_id,
+                    "inputId": str(input_file.id),
+                    "source_languages": ["en"],
+                    "output_language": "fr",
+                },
+            )
+        if request.method == "GET" and request.url.path == f"/resource/{output_id}":
+            seen["get"] += 1
+            assert request.url.params["format"] == "info"
+            return httpx.Response(
+                200,
+                json=_make_markdown_file(output_id).model_dump(
+                    mode="json", by_alias=True
+                ),
+            )
+        msg = f"Unexpected request {request.method} {request.url}"
+        raise AssertionError(msg)
+
+    transport = httpx.MockTransport(handler)
+    with PdfRestClient(api_key=VALID_API_KEY, transport=transport) as client:
+        response = client.translate_pdf_text_to_file(
+            input_file,
+            output_language="fr",
+            pages=["1-2"],
+            output="translated",
+        )
+
+    assert seen == {"post": 1, "get": 1}
+    assert isinstance(response, TranslatePdfTextFileResponse)
+    assert response.output_file.id == output_id
+    assert response.output_file.name == "notes.md"
+
+
 @pytest.mark.asyncio
 async def test_async_translate_pdf_text_request_customization(
     monkeypatch: pytest.MonkeyPatch,
@@ -440,6 +501,68 @@ async def test_async_translate_pdf_text_request_customization(
         )
     else:
         assert timeout_value == pytest.approx(0.3)
+
+
+@pytest.mark.asyncio
+async def test_async_translate_pdf_text_to_file_includes_pages_and_output(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.delenv("PDFREST_API_KEY", raising=False)
+    input_file = make_pdf_file(PdfRestFileID.generate(2))
+    payload_dump = TranslatePdfTextPayload.model_validate(
+        {
+            "files": [input_file],
+            "output_language": "it",
+            "output_type": "file",
+            "output_format": "markdown",
+            "pages": ["3-4"],
+            "output": "async-translate",
+        }
+    ).model_dump(mode="json", by_alias=True, exclude_none=True, exclude_unset=True)
+    output_id = str(PdfRestFileID.generate())
+
+    seen: dict[str, int] = {"post": 0, "get": 0}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.method == "POST" and request.url.path == "/translated-pdf-text":
+            seen["post"] += 1
+            payload = json.loads(request.content.decode("utf-8"))
+            assert payload == payload_dump
+            return httpx.Response(
+                200,
+                json={
+                    "outputUrl": f"https://api.pdfrest.com/resource/{output_id}?format=file",
+                    "outputId": output_id,
+                    "inputId": str(input_file.id),
+                    "source_languages": ["en"],
+                    "output_language": "it",
+                },
+            )
+        if request.method == "GET" and request.url.path == f"/resource/{output_id}":
+            seen["get"] += 1
+            assert request.url.params["format"] == "info"
+            return httpx.Response(
+                200,
+                json=_make_markdown_file(output_id).model_dump(
+                    mode="json", by_alias=True
+                ),
+            )
+        msg = f"Unexpected request {request.method} {request.url}"
+        raise AssertionError(msg)
+
+    transport = httpx.MockTransport(handler)
+    async with AsyncPdfRestClient(api_key=ASYNC_API_KEY, transport=transport) as client:
+        response = await client.translate_pdf_text_to_file(
+            input_file,
+            output_language="it",
+            pages=["3-4"],
+            output="async-translate",
+        )
+
+    assert seen == {"post": 1, "get": 1}
+    assert isinstance(response, TranslatePdfTextFileResponse)
+    assert response.output_file.id == output_id
+    assert response.output_file.name == "notes.md"
 
 
 def test_translate_pdf_text_success(monkeypatch: pytest.MonkeyPatch) -> None:

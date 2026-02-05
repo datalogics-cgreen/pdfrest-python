@@ -402,6 +402,65 @@ async def test_async_summarize_text_to_file_request_customization(
         assert timeout_value == pytest.approx(0.25)
 
 
+@pytest.mark.asyncio
+async def test_async_summarize_text_to_file_includes_pages_and_output(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.delenv("PDFREST_API_KEY", raising=False)
+    input_file = make_pdf_file(PdfRestFileID.generate(2))
+    payload_dump = SummarizePdfTextPayload.model_validate(
+        {
+            "files": [input_file],
+            "output_type": "file",
+            "output_format": "markdown",
+            "summary_format": "overview",
+            "target_word_count": 400,
+            "pages": ["1-3"],
+            "output": "async-summary",
+        }
+    ).model_dump(mode="json", by_alias=True, exclude_none=True, exclude_unset=True)
+    output_id = str(PdfRestFileID.generate())
+
+    seen: dict[str, int] = {"post": 0, "get": 0}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.method == "POST" and request.url.path == "/summarized-pdf-text":
+            seen["post"] += 1
+            payload = json.loads(request.content.decode("utf-8"))
+            assert payload == payload_dump
+            return httpx.Response(
+                200,
+                json={
+                    "outputId": output_id,
+                    "inputId": str(input_file.id),
+                },
+            )
+        if request.method == "GET" and request.url.path == f"/resource/{output_id}":
+            seen["get"] += 1
+            assert request.url.params["format"] == "info"
+            return httpx.Response(
+                200,
+                json=build_file_info_payload(
+                    output_id, "async-summary.md", "text/markdown"
+                ),
+            )
+        msg = f"Unexpected request {request.method} {request.url}"
+        raise AssertionError(msg)
+
+    transport = httpx.MockTransport(handler)
+    async with AsyncPdfRestClient(api_key=ASYNC_API_KEY, transport=transport) as client:
+        response = await client.summarize_text_to_file(
+            input_file,
+            pages=["1-3"],
+            output="async-summary",
+        )
+
+    assert seen == {"post": 1, "get": 1}
+    assert isinstance(response, PdfRestFileBasedResponse)
+    assert response.output_file.id == output_id
+    assert response.output_file.name == "async-summary.md"
+
+
 def test_summarize_text_success(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.delenv("PDFREST_API_KEY", raising=False)
     input_file = make_pdf_file(PdfRestFileID.generate(2))
