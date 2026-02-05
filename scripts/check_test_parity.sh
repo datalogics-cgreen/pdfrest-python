@@ -21,7 +21,7 @@ while IFS= read -r file; do
         test_files+=("$file")
     fi
 done < <(
-    git diff --name-only "$base_ref..$head_ref" -- tests | grep -E '\.py$' || true
+    git diff --name-only --diff-filter=d "$base_ref..$head_ref" -- tests | grep -E '\.py$' || true
 )
 
 if [[ ${#test_files[@]} -eq 0 ]]; then
