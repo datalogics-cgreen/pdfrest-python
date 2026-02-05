@@ -189,10 +189,18 @@ def tests(session: nox.Session) -> None:
         f"--python={session.virtualenv.location}",
         env={"UV_PROJECT_ENVIRONMENT": session.virtualenv.location},
     )
+    coverage_dir = PROJECT_ROOT / "coverage" / f"py{session.python}"
+    coverage_dir.mkdir(parents=True, exist_ok=True)
+    htmlcov_dir = coverage_dir / "html"
+    xml_report = coverage_dir / "coverage.xml"
+    md_report = coverage_dir / "coverage.md"
     _ = session.run(
         "pytest",
         "--cov=pdfrest",
         "--cov-report=term-missing",
+        f"--cov-report=html:{htmlcov_dir}",
+        f"--cov-report=xml:{xml_report}",
+        f"--cov-report=markdown:{md_report}",
         *pytest_args,
     )
 

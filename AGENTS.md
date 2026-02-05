@@ -28,6 +28,10 @@
 - `nox` executes pytest sessions with built-in parallelism; when invoking pytest
   directly use `pytest -n 8 --maxschedchunk 2` to mirror the parallel test
   scheduling and keep runtimes predictable.
+- Coverage reports (XML/Markdown/HTML) are produced by the nox `tests` session
+  and stored under `coverage/py<version>/` (for example,
+  `coverage/py3.12/coverage.xml`, `coverage/py3.12/coverage.md`,
+  `coverage/py3.12/html/`).
 
 ## Coding Style & Naming Conventions
 
@@ -137,6 +141,13 @@
   endpoint cannot be exercised live, call that out explicitly in the PR
   description with the reason and the follow-up plan; otherwise reviewers should
   block the change. Treat this as a release gate on par with unit tests.
+
+- **Client coverage criteria:** `PdfRestClient` and `AsyncPdfRestClient` are
+  customer-facing entry points and must retain high coverage. Every public
+  client method must have at least one unit test that exercises the REST call
+  path (MockTransport + request assertions), with distinct sync and async tests.
+  Optional payload branches (`pages`, `output`, `rgb_color`, etc.) need explicit
+  coverage so serialization regressions are caught.
 
 - Write pytest tests: files named `test_*.py`, test functions `test_*`, fixtures
   in `conftest.py` where shared.

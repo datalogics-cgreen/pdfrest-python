@@ -453,3 +453,4 @@ $RECYCLE.BIN/
 *.speedscope.json
 
 !pyrightconfig.json
+/coverage/

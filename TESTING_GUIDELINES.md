@@ -13,6 +13,12 @@ iteration required.
   request customization, validation failures, file helpers, and live calls. Do
   not hide the transport behind a parameter; the test name itself should reveal
   which client is under test.
+- **Maintain high client coverage.** `PdfRestClient` and `AsyncPdfRestClient`
+  are the primary customer-facing entry points. Every public client method must
+  have at least one unit test that exercises the REST call path (MockTransport
+  asserting method/path/headers/body). Optional payload branches (for example,
+  `pages`, `output`, `rgb_color`, and output-prefix fields) require explicit
+  tests so serialization differences are caught early.
 - **Check parity regularly.** Run `scripts/check_test_parity.sh` (defaults to
   `upstream/main..HEAD`) to spot missing sync/async counterparts, keeping
   parameterized test IDs aligned between transports.
@@ -20,6 +26,10 @@ iteration required.
   `httpx.MockTransport`) validate serialization and local validation. Live
   suites prove the server behaves the same way, including invalid literal
   handling.
+- **Know where coverage lands.** The nox `tests` session writes coverage reports
+  to `coverage/py<version>/` (XML, Markdown, and HTML). Example:
+  `coverage/py3.12/coverage.xml`, `coverage/py3.12/coverage.md`,
+  `coverage/py3.12/html/`.
 - **Reset global state per test.** Use
   `monkeypatch.delenv("PDFREST_API_KEY", raising=False)` (or `setenv`) so
   clients never inherit accidental API keys. Patch `importlib.metadata.version`
