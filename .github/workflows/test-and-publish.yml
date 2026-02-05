@@ -40,14 +40,14 @@ jobs:
           PDFREST_API_KEY: ${{ secrets.PDFREST_API_KEY }}
       - name: Fetch base branch for diff-cover
         if: github.event_name == 'pull_request'
-        run: git fetch origin ${{ github.base_ref }} --depth=1
+        run: git fetch origin ${{ github.base_ref }} --depth=0
       - name: Run diff-cover (new code must be >= 90%)
         if: github.event_name == 'pull_request'
         run: >
           uv run diff-cover coverage/py${{ matrix.python-version }}/coverage.xml
           --compare-branch origin/${{ github.base_ref }}
           --fail-under 90
-          --markdown-report coverage/py${{ matrix.python-version }}/diff-cover.md
+          --format markdown:coverage/py${{ matrix.python-version }}/diff-cover.md
       - name: Check client class function coverage
         run: >
           uv run python scripts/check_class_function_coverage.py
