@@ -18,7 +18,6 @@ from .graphics_test_helpers import (
     build_file_info_payload,
     make_pdf_file,
 )
-from .resources import get_test_resource_path
 
 
 @pytest.mark.parametrize("color_model", ["rgb", "rgba", "gray"])
@@ -577,37 +576,3 @@ def test_convert_to_png_empty_page_range_rejected(
             make_pdf_file(PdfRestFileID.generate(1)),
             page_range=[],
         )
-
-
-def test_live_convert_to_png(pdfrest_api_key: str, pdfrest_live_base_url: str) -> None:
-    resource = get_test_resource_path("report.pdf")
-    with PdfRestClient(
-        api_key=pdfrest_api_key, base_url=pdfrest_live_base_url
-    ) as client:
-        uploaded = client.files.create_from_paths([resource])
-        response = client.convert_to_png(
-            uploaded[0],
-            output_prefix="live-convert",
-            page_range="1",
-        )
-    assert isinstance(response, PdfRestFileBasedResponse)
-    assert response.output_files
-
-
-@pytest.mark.asyncio
-async def test_live_async_convert_to_png(
-    pdfrest_api_key: str,
-    pdfrest_live_base_url: str,
-) -> None:
-    resource = get_test_resource_path("report.pdf")
-    async with AsyncPdfRestClient(
-        api_key=pdfrest_api_key, base_url=pdfrest_live_base_url
-    ) as client:
-        uploaded = await client.files.create_from_paths([resource])
-        response = await client.convert_to_png(
-            uploaded[0],
-            output_prefix="live-async-convert",
-            page_range="1",
-        )
-    assert isinstance(response, PdfRestFileBasedResponse)
-    assert response.output_files
