@@ -40,7 +40,12 @@ jobs:
           PDFREST_API_KEY: ${{ secrets.PDFREST_API_KEY }}
       - name: Fetch base branch for diff-cover
         if: github.event_name == 'pull_request'
-        run: git fetch origin ${{ github.base_ref }} --depth=0
+        run: |
+          if git rev-parse --is-shallow-repository | grep -q true; then
+            git fetch --no-tags --prune origin ${{ github.base_ref }} --unshallow
+          else
+            git fetch --no-tags --prune origin ${{ github.base_ref }}
+          fi
       - name: Run diff-cover (new code must be >= 90%)
         if: github.event_name == 'pull_request'
         run: >
