@@ -38,6 +38,12 @@ jobs:
         run: uvx nox --python ${{ matrix.python-version }} --session tests -- --no-parallel
         env:
           PDFREST_API_KEY: ${{ secrets.PDFREST_API_KEY }}
+      - name: Upload coverage reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-${{ matrix.python-version }}
+          path: coverage/py${{ matrix.python-version }}
 
   examples:
     name: Examples (Python ${{ matrix.python-version }})
