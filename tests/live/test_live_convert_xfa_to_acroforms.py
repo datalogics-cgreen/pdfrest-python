@@ -7,17 +7,13 @@ from pdfrest.models import PdfRestFile
 
 from ..resources import get_test_resource_path
 
-WARNING_NO_XFA_FORMS = (
-    "No XFA forms were detected in the input PDF. No output was produced."
-)
-
 
 @pytest.fixture(scope="module")
 def uploaded_pdf_for_acroforms(
     pdfrest_api_key: str,
     pdfrest_live_base_url: str,
 ) -> PdfRestFile:
-    resource = get_test_resource_path("report.pdf")
+    resource = get_test_resource_path("xfa.pdf")
     with PdfRestClient(
         api_key=pdfrest_api_key,
         base_url=pdfrest_live_base_url,
@@ -49,11 +45,7 @@ def test_live_convert_xfa_to_acroforms_success(
         response = client.convert_xfa_to_acroforms(uploaded_pdf_for_acroforms, **kwargs)
 
     assert str(response.input_id) == str(uploaded_pdf_for_acroforms.id)
-    if response.warning is not None:
-        assert response.warning == WARNING_NO_XFA_FORMS
-        assert response.output_files == []
-        return
-
+    assert response.warning is None
     assert response.output_files
     output_file = response.output_file
     assert output_file.type == "application/pdf"
@@ -109,11 +101,7 @@ async def test_live_async_convert_xfa_to_acroforms_success(
         )
 
     assert str(response.input_id) == str(uploaded_pdf_for_acroforms.id)
-    if response.warning is not None:
-        assert response.warning == WARNING_NO_XFA_FORMS
-        assert response.output_files == []
-        return
-
+    assert response.warning is None
     assert response.output_files
     output_file = response.output_file
     if output_name is not None:
