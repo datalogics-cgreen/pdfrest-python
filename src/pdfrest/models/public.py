@@ -26,6 +26,9 @@ __all__ = (
     "PdfRestFileBasedResponse",
     "PdfRestFileID",
     "PdfRestInfoResponse",
+    "SummarizePdfTextResponse",
+    "TranslatePdfTextFileResponse",
+    "TranslatePdfTextResponse",
     "UpResponse",
 )
 
@@ -310,6 +313,93 @@ class PdfRestDeletionResponse(BaseModel):
             min_length=1,
         ),
     ]
+
+
+class SummarizePdfTextResponse(BaseModel):
+    """Response returned by the summarize-pdf-text tool."""
+
+    model_config = ConfigDict(extra="allow")
+
+    summary: Annotated[
+        str | None,
+        Field(
+            description="Summary content",
+            default=None,
+        ),
+    ] = None
+    input_id: Annotated[
+        PdfRestFileID,
+        Field(
+            validation_alias=AliasChoices("input_id", "inputId"),
+            description="The id of the input file.",
+        ),
+    ]
+
+
+class TranslatePdfTextResponse(BaseModel):
+    """Response returned by the translated-pdf-text tool."""
+
+    model_config = ConfigDict(extra="allow")
+
+    source_languages: Annotated[
+        list[str] | None,
+        Field(
+            alias="source_languages",
+            validation_alias=AliasChoices("source_languages", "sourceLanguages"),
+            description="Languages detected in the source content.",
+            default=None,
+        ),
+    ] = None
+    output_language: Annotated[
+        str | None,
+        Field(
+            alias="output_language",
+            validation_alias=AliasChoices("output_language", "outputLanguage"),
+            description="Target language used for the translation.",
+            default=None,
+        ),
+    ] = None
+    translated_text: Annotated[
+        str | None,
+        Field(
+            alias="translated_text",
+            validation_alias=AliasChoices("translated_text", "translatedText"),
+            description="Inline translation content when output_type is json.",
+            default=None,
+        ),
+    ] = None
+    input_id: Annotated[
+        PdfRestFileID,
+        Field(
+            validation_alias=AliasChoices("input_id", "inputId"),
+            description="The id of the input file.",
+        ),
+    ]
+
+
+class TranslatePdfTextFileResponse(PdfRestFileBasedResponse):
+    """File-based response returned by the translated-pdf-text tool."""
+
+    model_config = ConfigDict(extra="allow")
+
+    source_languages: Annotated[
+        list[str] | None,
+        Field(
+            alias="source_languages",
+            validation_alias=AliasChoices("source_languages", "sourceLanguages"),
+            description="Languages detected in the source content.",
+            default=None,
+        ),
+    ] = None
+    output_language: Annotated[
+        str | None,
+        Field(
+            alias="output_language",
+            validation_alias=AliasChoices("output_language", "outputLanguage"),
+            description="Target language used for the translation.",
+            default=None,
+        ),
+    ] = None
 
 
 class PdfRestInfoResponse(BaseModel):

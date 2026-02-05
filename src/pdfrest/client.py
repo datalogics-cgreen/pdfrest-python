@@ -66,40 +66,71 @@ from .models import (
     PdfRestFileBasedResponse,
     PdfRestFileID,
     PdfRestInfoResponse,
+    SummarizePdfTextResponse,
+    TranslatePdfTextFileResponse,
+    TranslatePdfTextResponse,
     UpResponse,
 )
-
-__all__ = ("AsyncPdfRestClient", "PdfRestClient")
-
 from .models._internal import (
     BasePdfRestGraphicPayload,
     BmpPdfRestPayload,
+    ConvertToMarkdownPayload,
     DeletePayload,
+    ExtractImagesPayload,
+    ExtractTextPayload,
     GifPdfRestPayload,
     JpegPdfRestPayload,
+    OcrPdfPayload,
     PdfCompressPayload,
+    PdfFlattenAnnotationsPayload,
     PdfFlattenFormsPayload,
+    PdfFlattenTransparenciesPayload,
     PdfInfoPayload,
+    PdfLinearizePayload,
     PdfMergePayload,
+    PdfRasterizePayload,
     PdfRedactionApplyPayload,
     PdfRedactionPreviewPayload,
     PdfRestRawFileResponse,
     PdfSplitPayload,
+    PdfToExcelPayload,
+    PdfToPdfaPayload,
     PdfToPdfxPayload,
+    PdfToPowerpointPayload,
     PdfToWordPayload,
+    PdfXfaToAcroformsPayload,
     PngPdfRestPayload,
+    SummarizePdfTextPayload,
     TiffPdfRestPayload,
+    TranslatePdfTextPayload,
     UploadURLs,
 )
 from .types import (
     ALL_PDF_INFO_QUERIES,
+    BmpColorModel,
+    CompressionLevel,
+    ExtractTextGranularity,
+    FlattenQuality,
+    GifColorModel,
+    GraphicSmoothing,
+    JpegColorModel,
+    OcrLanguage,
+    PdfAType,
     PdfInfoQuery,
     PdfMergeInput,
     PdfPageSelection,
     PdfRedactionInstruction,
     PdfRGBColor,
     PdfXType,
+    PngColorModel,
+    SummaryFormat,
+    SummaryOutputFormat,
+    TiffColorModel,
+    TranslateOutputFormat,
 )
+
+__all__ = ("AsyncPdfRestClient", "PdfRestClient")
+FileResponseModel = TypeVar("FileResponseModel", bound=PdfRestFileBasedResponse)
 
 DEFAULT_BASE_URL = "https://api.pdfrest.com"
 API_KEY_ENV_VAR = "PDFREST_API_KEY"
@@ -965,11 +996,12 @@ class _SyncApiClient(_BaseApiClient[httpx.Client]):
         endpoint: str,
         payload: dict[str, Any],
         payload_model: type[BaseModel],
+        response_model: type[FileResponseModel] = PdfRestFileBasedResponse,
         extra_query: Query | None = None,
         extra_headers: AnyMapping | None = None,
         extra_body: Body | None = None,
         timeout: TimeoutTypes | None = None,
-    ) -> PdfRestFileBasedResponse:
+    ) -> FileResponseModel:
         job_options = payload_model.model_validate(payload)
         json_body = job_options.model_dump(
             mode="json", by_alias=True, exclude_none=True, exclude_unset=True
@@ -997,15 +1029,17 @@ class _SyncApiClient(_BaseApiClient[httpx.Client]):
             for file_id in output_ids
         ]
 
-        return PdfRestFileBasedResponse.model_validate(
-            {
-                "input_id": [str(file_id) for file_id in raw_response.input_id],
-                "output_file": [
-                    file.model_dump(mode="json", by_alias=True) for file in output_files
-                ],
-                "warning": raw_response.warning,
-            }
-        )
+        response_payload: dict[str, Any] = {
+            "input_id": [str(file_id) for file_id in raw_response.input_id],
+            "output_file": [
+                file.model_dump(mode="json", by_alias=True) for file in output_files
+            ],
+            "warning": raw_response.warning,
+        }
+        if raw_response.model_extra:
+            response_payload.update(raw_response.model_extra)
+
+        return response_model.model_validate(response_payload)
 
     def send_request(self, request: _RequestModel) -> Any:
         return self._send_request(request)
@@ -1229,11 +1263,12 @@ class _AsyncApiClient(_BaseApiClient[httpx.AsyncClient]):
         endpoint: str,
         payload: dict[str, Any],
         payload_model: type[BaseModel],
+        response_model: type[FileResponseModel] = PdfRestFileBasedResponse,
         extra_query: Query | None = None,
         extra_headers: AnyMapping | None = None,
         extra_body: Body | None = None,
         timeout: TimeoutTypes | None = None,
-    ) -> PdfRestFileBasedResponse:
+    ) -> FileResponseModel:
         job_options = payload_model.model_validate(payload)
         request = self.prepare_request(
             "POST",
@@ -1269,15 +1304,17 @@ class _AsyncApiClient(_BaseApiClient[httpx.AsyncClient]):
                 )
             )
 
-        return PdfRestFileBasedResponse.model_validate(
-            {
-                "input_id": [str(file_id) for file_id in raw_response.input_id],
-                "output_file": [
-                    file.model_dump(mode="json", by_alias=True) for file in output_files
-                ],
-                "warning": raw_response.warning,
-            }
-        )
+        response_payload: dict[str, Any] = {
+            "input_id": [str(file_id) for file_id in raw_response.input_id],
+            "output_file": [
+                file.model_dump(mode="json", by_alias=True) for file in output_files
+            ],
+            "warning": raw_response.warning,
+        }
+        if raw_response.model_extra:
+            response_payload.update(raw_response.model_extra)
+
+        return response_model.model_validate(response_payload)
 
     async def send_request(self, request: _RequestModel) -> Any:
         return await self._send_request(request)
@@ -2105,6 +2142,302 @@ class PdfRestClient(_SyncApiClient):
         raw_payload = self._send_request(request)
         return PdfRestInfoResponse.model_validate(raw_payload)
 
+    def summarize_text(
+        self,
+        file: PdfRestFile | Sequence[PdfRestFile],
+        *,
+        target_word_count: int = 400,
+        summary_format: SummaryFormat = "overview",
+        pages: PdfPageSelection | None = None,
+        output_format: SummaryOutputFormat = "markdown",
+        output: str | None = None,
+        extra_query: Query | None = None,
+        extra_headers: AnyMapping | None = None,
+        extra_body: Body | None = None,
+        timeout: TimeoutTypes | None = None,
+    ) -> SummarizePdfTextResponse:
+        """Summarize the textual content of a PDF, Markdown, or text document.
+
+        Always requests JSON output and returns the inline summary response defined in
+        the pdfRest API reference.
+        """
+
+        payload: dict[str, Any] = {
+            "files": file,
+            "target_word_count": target_word_count,
+            "summary_format": summary_format,
+            "output_format": output_format,
+            "output_type": "json",
+        }
+        if pages is not None:
+            payload["pages"] = pages
+        if output is not None:
+            payload["output"] = output
+
+        validated_payload = SummarizePdfTextPayload.model_validate(payload)
+        request = self.prepare_request(
+            "POST",
+            "/summarized-pdf-text",
+            json_body=validated_payload.model_dump(
+                mode="json", by_alias=True, exclude_none=True, exclude_unset=True
+            ),
+            extra_query=extra_query,
+            extra_headers=extra_headers,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
+        raw_payload = self._send_request(request)
+        return SummarizePdfTextResponse.model_validate(raw_payload)
+
+    def summarize_text_to_file(
+        self,
+        file: PdfRestFile | Sequence[PdfRestFile],
+        *,
+        target_word_count: int = 400,
+        summary_format: SummaryFormat = "overview",
+        pages: PdfPageSelection | None = None,
+        output_format: SummaryOutputFormat = "markdown",
+        output: str | None = None,
+        extra_query: Query | None = None,
+        extra_headers: AnyMapping | None = None,
+        extra_body: Body | None = None,
+        timeout: TimeoutTypes | None = None,
+    ) -> PdfRestFileBasedResponse:
+        """Summarize a document and return the result as a downloadable file."""
+
+        payload: dict[str, Any] = {
+            "files": file,
+            "target_word_count": target_word_count,
+            "summary_format": summary_format,
+            "output_format": output_format,
+            "output_type": "file",
+        }
+        if pages is not None:
+            payload["pages"] = pages
+        if output is not None:
+            payload["output"] = output
+
+        return self._post_file_operation(
+            endpoint="/summarized-pdf-text",
+            payload=payload,
+            payload_model=SummarizePdfTextPayload,
+            extra_query=extra_query,
+            extra_headers=extra_headers,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
+
+    def convert_to_markdown(
+        self,
+        file: PdfRestFile | Sequence[PdfRestFile],
+        *,
+        pages: PdfPageSelection | None = None,
+        page_break_comments: bool = False,
+        output: str | None = None,
+        extra_query: Query | None = None,
+        extra_headers: AnyMapping | None = None,
+        extra_body: Body | None = None,
+        timeout: TimeoutTypes | None = None,
+    ) -> PdfRestFileBasedResponse:
+        """Convert a PDF to Markdown and return a file-based response."""
+
+        payload: dict[str, Any] = {
+            "files": file,
+            "output_type": "file",
+            "page_break_comments": page_break_comments,
+        }
+        if pages is not None:
+            payload["pages"] = pages
+        if output is not None:
+            payload["output"] = output
+
+        return self._post_file_operation(
+            endpoint="/markdown",
+            payload=payload,
+            payload_model=ConvertToMarkdownPayload,
+            extra_query=extra_query,
+            extra_headers=extra_headers,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
+
+    def ocr_pdf(
+        self,
+        file: PdfRestFile | Sequence[PdfRestFile],
+        *,
+        languages: OcrLanguage | Sequence[OcrLanguage] = "English",
+        pages: PdfPageSelection | None = None,
+        output: str | None = None,
+        extra_query: Query | None = None,
+        extra_headers: AnyMapping | None = None,
+        extra_body: Body | None = None,
+        timeout: TimeoutTypes | None = None,
+    ) -> PdfRestFileBasedResponse:
+        """Perform OCR on a PDF to make text searchable and extractable."""
+
+        payload: dict[str, Any] = {"files": file, "languages": languages}
+        if pages is not None:
+            payload["pages"] = pages
+        if output is not None:
+            payload["output"] = output
+
+        return self._post_file_operation(
+            endpoint="/pdf-with-ocr-text",
+            payload=payload,
+            payload_model=OcrPdfPayload,
+            extra_query=extra_query,
+            extra_headers=extra_headers,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
+
+    def translate_pdf_text(
+        self,
+        file: PdfRestFile | Sequence[PdfRestFile],
+        *,
+        output_language: str,
+        pages: PdfPageSelection | None = None,
+        output_format: TranslateOutputFormat = "markdown",
+        output: str | None = None,
+        extra_query: Query | None = None,
+        extra_headers: AnyMapping | None = None,
+        extra_body: Body | None = None,
+        timeout: TimeoutTypes | None = None,
+    ) -> TranslatePdfTextResponse:
+        """Translate the textual content of a PDF, Markdown, or text document (JSON)."""
+
+        payload: dict[str, Any] = {
+            "files": file,
+            "output_language": output_language,
+            "output_format": output_format,
+            "output_type": "json",
+        }
+        if pages is not None:
+            payload["pages"] = pages
+        if output is not None:
+            payload["output"] = output
+
+        validated_payload = TranslatePdfTextPayload.model_validate(payload)
+        request = self.prepare_request(
+            "POST",
+            "/translated-pdf-text",
+            json_body=validated_payload.model_dump(
+                mode="json", by_alias=True, exclude_none=True, exclude_unset=True
+            ),
+            extra_query=extra_query,
+            extra_headers=extra_headers,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
+        raw_payload = self._send_request(request)
+        return TranslatePdfTextResponse.model_validate(raw_payload)
+
+    def translate_pdf_text_to_file(
+        self,
+        file: PdfRestFile | Sequence[PdfRestFile],
+        *,
+        output_language: str,
+        pages: PdfPageSelection | None = None,
+        output_format: TranslateOutputFormat = "markdown",
+        output: str | None = None,
+        extra_query: Query | None = None,
+        extra_headers: AnyMapping | None = None,
+        extra_body: Body | None = None,
+        timeout: TimeoutTypes | None = None,
+    ) -> TranslatePdfTextFileResponse:
+        """Translate textual content and receive a file-based response."""
+
+        payload: dict[str, Any] = {
+            "files": file,
+            "output_language": output_language,
+            "output_format": output_format,
+            "output_type": "file",
+        }
+        if pages is not None:
+            payload["pages"] = pages
+        if output is not None:
+            payload["output"] = output
+
+        return self._post_file_operation(
+            endpoint="/translated-pdf-text",
+            payload=payload,
+            payload_model=TranslatePdfTextPayload,
+            extra_query=extra_query,
+            extra_headers=extra_headers,
+            extra_body=extra_body,
+            timeout=timeout,
+            response_model=TranslatePdfTextFileResponse,
+        )
+
+    def extract_images(
+        self,
+        file: PdfRestFile | Sequence[PdfRestFile],
+        *,
+        pages: PdfPageSelection | None = None,
+        output: str | None = None,
+        extra_query: Query | None = None,
+        extra_headers: AnyMapping | None = None,
+        extra_body: Body | None = None,
+        timeout: TimeoutTypes | None = None,
+    ) -> PdfRestFileBasedResponse:
+        """Extract embedded images from a PDF."""
+
+        payload: dict[str, Any] = {"files": file}
+        if pages is not None:
+            payload["pages"] = pages
+        if output is not None:
+            payload["output"] = output
+
+        return self._post_file_operation(
+            endpoint="/extracted-images",
+            payload=payload,
+            payload_model=ExtractImagesPayload,
+            extra_query=extra_query,
+            extra_headers=extra_headers,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
+
+    def extract_pdf_text_to_file(
+        self,
+        file: PdfRestFile | Sequence[PdfRestFile],
+        *,
+        pages: PdfPageSelection | None = None,
+        full_text: ExtractTextGranularity = "document",
+        preserve_line_breaks: bool = False,
+        word_style: bool = False,
+        word_coordinates: bool = False,
+        output: str | None = None,
+        extra_query: Query | None = None,
+        extra_headers: AnyMapping | None = None,
+        extra_body: Body | None = None,
+        timeout: TimeoutTypes | None = None,
+    ) -> PdfRestFileBasedResponse:
+        """Extract text content from a PDF and return a file-based response."""
+
+        payload: dict[str, Any] = {
+            "files": file,
+            "full_text": full_text,
+            "preserve_line_breaks": preserve_line_breaks,
+            "word_style": word_style,
+            "word_coordinates": word_coordinates,
+            "output_type": "file",
+        }
+        if pages is not None:
+            payload["pages"] = pages
+        if output is not None:
+            payload["output"] = output
+
+        return self._post_file_operation(
+            endpoint="/extracted-text",
+            payload=payload,
+            payload_model=ExtractTextPayload,
+            extra_query=extra_query,
+            extra_headers=extra_headers,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
+
     def preview_redactions(
         self,
         file: PdfRestFile | Sequence[PdfRestFile],
@@ -2221,6 +2554,84 @@ class PdfRestClient(_SyncApiClient):
             timeout=timeout,
         )
 
+    def convert_to_excel(
+        self,
+        file: PdfRestFile | Sequence[PdfRestFile],
+        *,
+        output: str | None = None,
+        extra_query: Query | None = None,
+        extra_headers: AnyMapping | None = None,
+        extra_body: Body | None = None,
+        timeout: TimeoutTypes | None = None,
+    ) -> PdfRestFileBasedResponse:
+        """Convert a PDF to an Excel spreadsheet."""
+
+        payload: dict[str, Any] = {"files": file}
+        if output is not None:
+            payload["output"] = output
+
+        return self._post_file_operation(
+            endpoint="/excel",
+            payload=payload,
+            payload_model=PdfToExcelPayload,
+            extra_query=extra_query,
+            extra_headers=extra_headers,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
+
+    def convert_to_powerpoint(
+        self,
+        file: PdfRestFile | Sequence[PdfRestFile],
+        *,
+        output: str | None = None,
+        extra_query: Query | None = None,
+        extra_headers: AnyMapping | None = None,
+        extra_body: Body | None = None,
+        timeout: TimeoutTypes | None = None,
+    ) -> PdfRestFileBasedResponse:
+        """Convert a PDF to a PowerPoint presentation."""
+
+        payload: dict[str, Any] = {"files": file}
+        if output is not None:
+            payload["output"] = output
+
+        return self._post_file_operation(
+            endpoint="/powerpoint",
+            payload=payload,
+            payload_model=PdfToPowerpointPayload,
+            extra_query=extra_query,
+            extra_headers=extra_headers,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
+
+    def convert_xfa_to_acroforms(
+        self,
+        file: PdfRestFile | Sequence[PdfRestFile],
+        *,
+        output: str | None = None,
+        extra_query: Query | None = None,
+        extra_headers: AnyMapping | None = None,
+        extra_body: Body | None = None,
+        timeout: TimeoutTypes | None = None,
+    ) -> PdfRestFileBasedResponse:
+        """Convert an XFA PDF to an AcroForm-enabled PDF."""
+
+        payload: dict[str, Any] = {"files": file}
+        if output is not None:
+            payload["output"] = output
+
+        return self._post_file_operation(
+            endpoint="/pdf-with-acroforms",
+            payload=payload,
+            payload_model=PdfXfaToAcroformsPayload,
+            extra_query=extra_query,
+            extra_headers=extra_headers,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
+
     def convert_to_word(
         self,
         file: PdfRestFile | Sequence[PdfRestFile],
@@ -2277,7 +2688,7 @@ class PdfRestClient(_SyncApiClient):
         self,
         file: PdfRestFile | Sequence[PdfRestFile],
         *,
-        compression_level: Literal["low", "medium", "high", "custom"],
+        compression_level: CompressionLevel,
         profile: PdfRestFile | Sequence[PdfRestFile] | None = None,
         output: str | None = None,
         extra_query: Query | None = None,
@@ -2300,6 +2711,142 @@ class PdfRestClient(_SyncApiClient):
             endpoint="/compressed-pdf",
             payload=payload,
             payload_model=PdfCompressPayload,
+            extra_query=extra_query,
+            extra_headers=extra_headers,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
+
+    def flatten_transparencies(
+        self,
+        file: PdfRestFile | Sequence[PdfRestFile],
+        *,
+        output: str | None = None,
+        quality: FlattenQuality = "medium",
+        extra_query: Query | None = None,
+        extra_headers: AnyMapping | None = None,
+        extra_body: Body | None = None,
+        timeout: TimeoutTypes | None = None,
+    ) -> PdfRestFileBasedResponse:
+        """Flatten transparent objects in a PDF."""
+
+        payload: dict[str, Any] = {"files": file, "quality": quality}
+        if output is not None:
+            payload["output"] = output
+
+        return self._post_file_operation(
+            endpoint="/flattened-transparencies-pdf",
+            payload=payload,
+            payload_model=PdfFlattenTransparenciesPayload,
+            extra_query=extra_query,
+            extra_headers=extra_headers,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
+
+    def linearize_pdf(
+        self,
+        file: PdfRestFile | Sequence[PdfRestFile],
+        *,
+        output: str | None = None,
+        extra_query: Query | None = None,
+        extra_headers: AnyMapping | None = None,
+        extra_body: Body | None = None,
+        timeout: TimeoutTypes | None = None,
+    ) -> PdfRestFileBasedResponse:
+        """Linearize a PDF for optimized fast web view."""
+
+        payload: dict[str, Any] = {"files": file}
+        if output is not None:
+            payload["output"] = output
+
+        return self._post_file_operation(
+            endpoint="/linearized-pdf",
+            payload=payload,
+            payload_model=PdfLinearizePayload,
+            extra_query=extra_query,
+            extra_headers=extra_headers,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
+
+    def flatten_annotations(
+        self,
+        file: PdfRestFile | Sequence[PdfRestFile],
+        *,
+        output: str | None = None,
+        extra_query: Query | None = None,
+        extra_headers: AnyMapping | None = None,
+        extra_body: Body | None = None,
+        timeout: TimeoutTypes | None = None,
+    ) -> PdfRestFileBasedResponse:
+        """Flatten annotations into the PDF content."""
+
+        payload: dict[str, Any] = {"files": file}
+        if output is not None:
+            payload["output"] = output
+
+        return self._post_file_operation(
+            endpoint="/flattened-annotations-pdf",
+            payload=payload,
+            payload_model=PdfFlattenAnnotationsPayload,
+            extra_query=extra_query,
+            extra_headers=extra_headers,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
+
+    def rasterize_pdf(
+        self,
+        file: PdfRestFile | Sequence[PdfRestFile],
+        *,
+        output: str | None = None,
+        extra_query: Query | None = None,
+        extra_headers: AnyMapping | None = None,
+        extra_body: Body | None = None,
+        timeout: TimeoutTypes | None = None,
+    ) -> PdfRestFileBasedResponse:
+        """Rasterize a PDF into a flattened bitmap-based PDF."""
+
+        payload: dict[str, Any] = {"files": file}
+        if output is not None:
+            payload["output"] = output
+
+        return self._post_file_operation(
+            endpoint="/rasterized-pdf",
+            payload=payload,
+            payload_model=PdfRasterizePayload,
+            extra_query=extra_query,
+            extra_headers=extra_headers,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
+
+    def convert_to_pdfa(
+        self,
+        file: PdfRestFile | Sequence[PdfRestFile],
+        *,
+        output_type: PdfAType,
+        output: str | None = None,
+        rasterize_if_errors_encountered: bool = False,
+        extra_query: Query | None = None,
+        extra_headers: AnyMapping | None = None,
+        extra_body: Body | None = None,
+        timeout: TimeoutTypes | None = None,
+    ) -> PdfRestFileBasedResponse:
+        """Convert a PDF to a specified PDF/A version."""
+
+        payload: dict[str, Any] = {
+            "files": file,
+            "output_type": output_type,
+            "rasterize_if_errors_encountered": rasterize_if_errors_encountered,
+        }
+        if output is not None:
+            payload["output"] = output
+        return self._post_file_operation(
+            endpoint="/pdfa",
+            payload=payload,
+            payload_model=PdfToPdfaPayload,
             extra_query=extra_query,
             extra_headers=extra_headers,
             extra_body=extra_body,
@@ -2340,10 +2887,8 @@ class PdfRestClient(_SyncApiClient):
         output_prefix: str | None = None,
         page_range: str | Sequence[str] | None = None,
         resolution: int = 300,
-        color_model: Literal["rgb", "rgba", "gray"] = "rgb",
-        smoothing: Literal["none", "all", "text", "line", "image"]
-        | Sequence[Literal["none", "all", "text", "line", "image"]]
-        | None = None,
+        color_model: PngColorModel = "rgb",
+        smoothing: GraphicSmoothing | Sequence[GraphicSmoothing] = "none",
         extra_query: Query | None = None,
         extra_headers: AnyMapping | None = None,
         extra_body: Body | None = None,
@@ -2355,13 +2900,12 @@ class PdfRestClient(_SyncApiClient):
             "files": files,
             "resolution": resolution,
             "color_model": color_model,
+            "smoothing": smoothing,
         }
         if output_prefix is not None:
             payload["output_prefix"] = output_prefix
         if page_range is not None:
             payload["page_range"] = page_range
-        if smoothing is not None:
-            payload["smoothing"] = smoothing
 
         return self._convert_to_graphic(
             endpoint="/png",
@@ -2380,10 +2924,8 @@ class PdfRestClient(_SyncApiClient):
         output_prefix: str | None = None,
         page_range: str | Sequence[str] | None = None,
         resolution: int = 300,
-        color_model: Literal["rgb", "gray"] = "rgb",
-        smoothing: Literal["none", "all", "text", "line", "image"]
-        | Sequence[Literal["none", "all", "text", "line", "image"]]
-        | None = None,
+        color_model: BmpColorModel = "rgb",
+        smoothing: GraphicSmoothing | Sequence[GraphicSmoothing] = "none",
         extra_query: Query | None = None,
         extra_headers: AnyMapping | None = None,
         extra_body: Body | None = None,
@@ -2395,13 +2937,12 @@ class PdfRestClient(_SyncApiClient):
             "files": files,
             "resolution": resolution,
             "color_model": color_model,
+            "smoothing": smoothing,
         }
         if output_prefix is not None:
             payload["output_prefix"] = output_prefix
         if page_range is not None:
             payload["page_range"] = page_range
-        if smoothing is not None:
-            payload["smoothing"] = smoothing
 
         return self._convert_to_graphic(
             endpoint="/bmp",
@@ -2420,10 +2961,8 @@ class PdfRestClient(_SyncApiClient):
         output_prefix: str | None = None,
         page_range: str | Sequence[str] | None = None,
         resolution: int = 300,
-        color_model: Literal["rgb", "gray"] = "rgb",
-        smoothing: Literal["none", "all", "text", "line", "image"]
-        | Sequence[Literal["none", "all", "text", "line", "image"]]
-        | None = None,
+        color_model: GifColorModel = "rgb",
+        smoothing: GraphicSmoothing | Sequence[GraphicSmoothing] = "none",
         extra_query: Query | None = None,
         extra_headers: AnyMapping | None = None,
         extra_body: Body | None = None,
@@ -2435,13 +2974,12 @@ class PdfRestClient(_SyncApiClient):
             "files": files,
             "resolution": resolution,
             "color_model": color_model,
+            "smoothing": smoothing,
         }
         if output_prefix is not None:
             payload["output_prefix"] = output_prefix
         if page_range is not None:
             payload["page_range"] = page_range
-        if smoothing is not None:
-            payload["smoothing"] = smoothing
 
         return self._convert_to_graphic(
             endpoint="/gif",
@@ -2460,11 +2998,9 @@ class PdfRestClient(_SyncApiClient):
         output_prefix: str | None = None,
         page_range: str | Sequence[str] | None = None,
         resolution: int = 300,
-        color_model: Literal["rgb", "cmyk", "gray"] = "rgb",
-        smoothing: Literal["none", "all", "text", "line", "image"]
-        | Sequence[Literal["none", "all", "text", "line", "image"]]
-        | None = None,
-        jpeg_quality: int | None = None,
+        color_model: JpegColorModel = "rgb",
+        smoothing: GraphicSmoothing | Sequence[GraphicSmoothing] = "none",
+        jpeg_quality: int = 75,
         extra_query: Query | None = None,
         extra_headers: AnyMapping | None = None,
         extra_body: Body | None = None,
@@ -2476,15 +3012,13 @@ class PdfRestClient(_SyncApiClient):
             "files": files,
             "resolution": resolution,
             "color_model": color_model,
+            "smoothing": smoothing,
+            "jpeg_quality": jpeg_quality,
         }
         if output_prefix is not None:
             payload["output_prefix"] = output_prefix
         if page_range is not None:
             payload["page_range"] = page_range
-        if smoothing is not None:
-            payload["smoothing"] = smoothing
-        if jpeg_quality is not None:
-            payload["jpeg_quality"] = jpeg_quality
 
         return self._convert_to_graphic(
             endpoint="/jpg",
@@ -2503,10 +3037,8 @@ class PdfRestClient(_SyncApiClient):
         output_prefix: str | None = None,
         page_range: str | Sequence[str] | None = None,
         resolution: int = 300,
-        color_model: Literal["rgb", "rgba", "cmyk", "lab", "gray"] = "rgb",
-        smoothing: Literal["none", "all", "text", "line", "image"]
-        | Sequence[Literal["none", "all", "text", "line", "image"]]
-        | None = None,
+        color_model: TiffColorModel = "rgb",
+        smoothing: GraphicSmoothing | Sequence[GraphicSmoothing] = "none",
         extra_query: Query | None = None,
         extra_headers: AnyMapping | None = None,
         extra_body: Body | None = None,
@@ -2518,13 +3050,12 @@ class PdfRestClient(_SyncApiClient):
             "files": files,
             "resolution": resolution,
             "color_model": color_model,
+            "smoothing": smoothing,
         }
         if output_prefix is not None:
             payload["output_prefix"] = output_prefix
         if page_range is not None:
             payload["page_range"] = page_range
-        if smoothing is not None:
-            payload["smoothing"] = smoothing
 
         return self._convert_to_graphic(
             endpoint="/tif",
@@ -2605,6 +3136,302 @@ class AsyncPdfRestClient(_AsyncApiClient):
         )
         raw_payload = await self._send_request(request)
         return PdfRestInfoResponse.model_validate(raw_payload)
+
+    async def summarize_text(
+        self,
+        file: PdfRestFile | Sequence[PdfRestFile],
+        *,
+        target_word_count: int = 400,
+        summary_format: SummaryFormat = "overview",
+        pages: PdfPageSelection | None = None,
+        output_format: SummaryOutputFormat = "markdown",
+        output: str | None = None,
+        extra_query: Query | None = None,
+        extra_headers: AnyMapping | None = None,
+        extra_body: Body | None = None,
+        timeout: TimeoutTypes | None = None,
+    ) -> SummarizePdfTextResponse:
+        """Summarize the textual content of a PDF, Markdown, or text document.
+
+        Always requests JSON output and returns the inline summary response defined in
+        the pdfRest API reference.
+        """
+
+        payload: dict[str, Any] = {
+            "files": file,
+            "target_word_count": target_word_count,
+            "summary_format": summary_format,
+            "output_format": output_format,
+            "output_type": "json",
+        }
+        if pages is not None:
+            payload["pages"] = pages
+        if output is not None:
+            payload["output"] = output
+
+        validated_payload = SummarizePdfTextPayload.model_validate(payload)
+        request = self.prepare_request(
+            "POST",
+            "/summarized-pdf-text",
+            json_body=validated_payload.model_dump(
+                mode="json", by_alias=True, exclude_none=True, exclude_unset=True
+            ),
+            extra_query=extra_query,
+            extra_headers=extra_headers,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
+        raw_payload = await self._send_request(request)
+        return SummarizePdfTextResponse.model_validate(raw_payload)
+
+    async def summarize_text_to_file(
+        self,
+        file: PdfRestFile | Sequence[PdfRestFile],
+        *,
+        target_word_count: int = 400,
+        summary_format: SummaryFormat = "overview",
+        pages: PdfPageSelection | None = None,
+        output_format: SummaryOutputFormat = "markdown",
+        output: str | None = None,
+        extra_query: Query | None = None,
+        extra_headers: AnyMapping | None = None,
+        extra_body: Body | None = None,
+        timeout: TimeoutTypes | None = None,
+    ) -> PdfRestFileBasedResponse:
+        """Summarize a document and return the result as a downloadable file."""
+
+        payload: dict[str, Any] = {
+            "files": file,
+            "target_word_count": target_word_count,
+            "summary_format": summary_format,
+            "output_format": output_format,
+            "output_type": "file",
+        }
+        if pages is not None:
+            payload["pages"] = pages
+        if output is not None:
+            payload["output"] = output
+
+        return await self._post_file_operation(
+            endpoint="/summarized-pdf-text",
+            payload=payload,
+            payload_model=SummarizePdfTextPayload,
+            extra_query=extra_query,
+            extra_headers=extra_headers,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
+
+    async def convert_to_markdown(
+        self,
+        file: PdfRestFile | Sequence[PdfRestFile],
+        *,
+        pages: PdfPageSelection | None = None,
+        page_break_comments: bool = False,
+        output: str | None = None,
+        extra_query: Query | None = None,
+        extra_headers: AnyMapping | None = None,
+        extra_body: Body | None = None,
+        timeout: TimeoutTypes | None = None,
+    ) -> PdfRestFileBasedResponse:
+        """Convert a PDF to Markdown and return a file-based response."""
+
+        payload: dict[str, Any] = {
+            "files": file,
+            "output_type": "file",
+            "page_break_comments": page_break_comments,
+        }
+        if pages is not None:
+            payload["pages"] = pages
+        if output is not None:
+            payload["output"] = output
+
+        return await self._post_file_operation(
+            endpoint="/markdown",
+            payload=payload,
+            payload_model=ConvertToMarkdownPayload,
+            extra_query=extra_query,
+            extra_headers=extra_headers,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
+
+    async def ocr_pdf(
+        self,
+        file: PdfRestFile | Sequence[PdfRestFile],
+        *,
+        languages: OcrLanguage | Sequence[OcrLanguage] = "English",
+        pages: PdfPageSelection | None = None,
+        output: str | None = None,
+        extra_query: Query | None = None,
+        extra_headers: AnyMapping | None = None,
+        extra_body: Body | None = None,
+        timeout: TimeoutTypes | None = None,
+    ) -> PdfRestFileBasedResponse:
+        """Perform OCR on a PDF to make text searchable and extractable."""
+
+        payload: dict[str, Any] = {"files": file, "languages": languages}
+        if pages is not None:
+            payload["pages"] = pages
+        if output is not None:
+            payload["output"] = output
+
+        return await self._post_file_operation(
+            endpoint="/pdf-with-ocr-text",
+            payload=payload,
+            payload_model=OcrPdfPayload,
+            extra_query=extra_query,
+            extra_headers=extra_headers,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
+
+    async def translate_pdf_text(
+        self,
+        file: PdfRestFile | Sequence[PdfRestFile],
+        *,
+        output_language: str,
+        pages: PdfPageSelection | None = None,
+        output_format: TranslateOutputFormat = "markdown",
+        output: str | None = None,
+        extra_query: Query | None = None,
+        extra_headers: AnyMapping | None = None,
+        extra_body: Body | None = None,
+        timeout: TimeoutTypes | None = None,
+    ) -> TranslatePdfTextResponse:
+        """Translate the textual content of a PDF, Markdown, or text document (JSON)."""
+
+        payload: dict[str, Any] = {
+            "files": file,
+            "output_language": output_language,
+            "output_format": output_format,
+            "output_type": "json",
+        }
+        if pages is not None:
+            payload["pages"] = pages
+        if output is not None:
+            payload["output"] = output
+
+        validated_payload = TranslatePdfTextPayload.model_validate(payload)
+        request = self.prepare_request(
+            "POST",
+            "/translated-pdf-text",
+            json_body=validated_payload.model_dump(
+                mode="json", by_alias=True, exclude_none=True, exclude_unset=True
+            ),
+            extra_query=extra_query,
+            extra_headers=extra_headers,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
+        raw_payload = await self._send_request(request)
+        return TranslatePdfTextResponse.model_validate(raw_payload)
+
+    async def translate_pdf_text_to_file(
+        self,
+        file: PdfRestFile | Sequence[PdfRestFile],
+        *,
+        output_language: str,
+        pages: PdfPageSelection | None = None,
+        output_format: TranslateOutputFormat = "markdown",
+        output: str | None = None,
+        extra_query: Query | None = None,
+        extra_headers: AnyMapping | None = None,
+        extra_body: Body | None = None,
+        timeout: TimeoutTypes | None = None,
+    ) -> TranslatePdfTextFileResponse:
+        """Translate textual content and receive a file-based response."""
+
+        payload: dict[str, Any] = {
+            "files": file,
+            "output_language": output_language,
+            "output_format": output_format,
+            "output_type": "file",
+        }
+        if pages is not None:
+            payload["pages"] = pages
+        if output is not None:
+            payload["output"] = output
+
+        return await self._post_file_operation(
+            endpoint="/translated-pdf-text",
+            payload=payload,
+            payload_model=TranslatePdfTextPayload,
+            extra_query=extra_query,
+            extra_headers=extra_headers,
+            extra_body=extra_body,
+            timeout=timeout,
+            response_model=TranslatePdfTextFileResponse,
+        )
+
+    async def extract_images(
+        self,
+        file: PdfRestFile | Sequence[PdfRestFile],
+        *,
+        pages: PdfPageSelection | None = None,
+        output: str | None = None,
+        extra_query: Query | None = None,
+        extra_headers: AnyMapping | None = None,
+        extra_body: Body | None = None,
+        timeout: TimeoutTypes | None = None,
+    ) -> PdfRestFileBasedResponse:
+        """Extract embedded images from a PDF."""
+
+        payload: dict[str, Any] = {"files": file}
+        if pages is not None:
+            payload["pages"] = pages
+        if output is not None:
+            payload["output"] = output
+
+        return await self._post_file_operation(
+            endpoint="/extracted-images",
+            payload=payload,
+            payload_model=ExtractImagesPayload,
+            extra_query=extra_query,
+            extra_headers=extra_headers,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
+
+    async def extract_pdf_text_to_file(
+        self,
+        file: PdfRestFile | Sequence[PdfRestFile],
+        *,
+        pages: PdfPageSelection | None = None,
+        full_text: ExtractTextGranularity = "document",
+        preserve_line_breaks: bool = False,
+        word_style: bool = False,
+        word_coordinates: bool = False,
+        output: str | None = None,
+        extra_query: Query | None = None,
+        extra_headers: AnyMapping | None = None,
+        extra_body: Body | None = None,
+        timeout: TimeoutTypes | None = None,
+    ) -> PdfRestFileBasedResponse:
+        """Extract text content from a PDF and return a file-based response."""
+
+        payload: dict[str, Any] = {
+            "files": file,
+            "full_text": full_text,
+            "preserve_line_breaks": preserve_line_breaks,
+            "word_style": word_style,
+            "word_coordinates": word_coordinates,
+            "output_type": "file",
+        }
+        if pages is not None:
+            payload["pages"] = pages
+        if output is not None:
+            payload["output"] = output
+
+        return await self._post_file_operation(
+            endpoint="/extracted-text",
+            payload=payload,
+            payload_model=ExtractTextPayload,
+            extra_query=extra_query,
+            extra_headers=extra_headers,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
 
     async def preview_redactions(
         self,
@@ -2764,6 +3591,84 @@ class AsyncPdfRestClient(_AsyncApiClient):
             timeout=timeout,
         )
 
+    async def convert_to_excel(
+        self,
+        file: PdfRestFile | Sequence[PdfRestFile],
+        *,
+        output: str | None = None,
+        extra_query: Query | None = None,
+        extra_headers: AnyMapping | None = None,
+        extra_body: Body | None = None,
+        timeout: TimeoutTypes | None = None,
+    ) -> PdfRestFileBasedResponse:
+        """Asynchronously convert a PDF to an Excel spreadsheet."""
+
+        payload: dict[str, Any] = {"files": file}
+        if output is not None:
+            payload["output"] = output
+
+        return await self._post_file_operation(
+            endpoint="/excel",
+            payload=payload,
+            payload_model=PdfToExcelPayload,
+            extra_query=extra_query,
+            extra_headers=extra_headers,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
+
+    async def convert_to_powerpoint(
+        self,
+        file: PdfRestFile | Sequence[PdfRestFile],
+        *,
+        output: str | None = None,
+        extra_query: Query | None = None,
+        extra_headers: AnyMapping | None = None,
+        extra_body: Body | None = None,
+        timeout: TimeoutTypes | None = None,
+    ) -> PdfRestFileBasedResponse:
+        """Asynchronously convert a PDF to a PowerPoint presentation."""
+
+        payload: dict[str, Any] = {"files": file}
+        if output is not None:
+            payload["output"] = output
+
+        return await self._post_file_operation(
+            endpoint="/powerpoint",
+            payload=payload,
+            payload_model=PdfToPowerpointPayload,
+            extra_query=extra_query,
+            extra_headers=extra_headers,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
+
+    async def convert_xfa_to_acroforms(
+        self,
+        file: PdfRestFile | Sequence[PdfRestFile],
+        *,
+        output: str | None = None,
+        extra_query: Query | None = None,
+        extra_headers: AnyMapping | None = None,
+        extra_body: Body | None = None,
+        timeout: TimeoutTypes | None = None,
+    ) -> PdfRestFileBasedResponse:
+        """Asynchronously convert an XFA PDF to an AcroForm-enabled PDF."""
+
+        payload: dict[str, Any] = {"files": file}
+        if output is not None:
+            payload["output"] = output
+
+        return await self._post_file_operation(
+            endpoint="/pdf-with-acroforms",
+            payload=payload,
+            payload_model=PdfXfaToAcroformsPayload,
+            extra_query=extra_query,
+            extra_headers=extra_headers,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
+
     async def convert_to_word(
         self,
         file: PdfRestFile | Sequence[PdfRestFile],
@@ -2820,7 +3725,7 @@ class AsyncPdfRestClient(_AsyncApiClient):
         self,
         file: PdfRestFile | Sequence[PdfRestFile],
         *,
-        compression_level: Literal["low", "medium", "high", "custom"],
+        compression_level: CompressionLevel,
         profile: PdfRestFile | Sequence[PdfRestFile] | None = None,
         output: str | None = None,
         extra_query: Query | None = None,
@@ -2843,6 +3748,143 @@ class AsyncPdfRestClient(_AsyncApiClient):
             endpoint="/compressed-pdf",
             payload=payload,
             payload_model=PdfCompressPayload,
+            extra_query=extra_query,
+            extra_headers=extra_headers,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
+
+    async def flatten_transparencies(
+        self,
+        file: PdfRestFile | Sequence[PdfRestFile],
+        *,
+        output: str | None = None,
+        quality: FlattenQuality = "medium",
+        extra_query: Query | None = None,
+        extra_headers: AnyMapping | None = None,
+        extra_body: Body | None = None,
+        timeout: TimeoutTypes | None = None,
+    ) -> PdfRestFileBasedResponse:
+        """Asynchronously flatten transparent objects in a PDF."""
+
+        payload: dict[str, Any] = {"files": file, "quality": quality}
+        if output is not None:
+            payload["output"] = output
+
+        return await self._post_file_operation(
+            endpoint="/flattened-transparencies-pdf",
+            payload=payload,
+            payload_model=PdfFlattenTransparenciesPayload,
+            extra_query=extra_query,
+            extra_headers=extra_headers,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
+
+    async def linearize_pdf(
+        self,
+        file: PdfRestFile | Sequence[PdfRestFile],
+        *,
+        output: str | None = None,
+        extra_query: Query | None = None,
+        extra_headers: AnyMapping | None = None,
+        extra_body: Body | None = None,
+        timeout: TimeoutTypes | None = None,
+    ) -> PdfRestFileBasedResponse:
+        """Asynchronously linearize a PDF for optimized fast web view."""
+
+        payload: dict[str, Any] = {"files": file}
+        if output is not None:
+            payload["output"] = output
+
+        return await self._post_file_operation(
+            endpoint="/linearized-pdf",
+            payload=payload,
+            payload_model=PdfLinearizePayload,
+            extra_query=extra_query,
+            extra_headers=extra_headers,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
+
+    async def flatten_annotations(
+        self,
+        file: PdfRestFile | Sequence[PdfRestFile],
+        *,
+        output: str | None = None,
+        extra_query: Query | None = None,
+        extra_headers: AnyMapping | None = None,
+        extra_body: Body | None = None,
+        timeout: TimeoutTypes | None = None,
+    ) -> PdfRestFileBasedResponse:
+        """Asynchronously flatten annotations into the PDF content."""
+
+        payload: dict[str, Any] = {"files": file}
+        if output is not None:
+            payload["output"] = output
+
+        return await self._post_file_operation(
+            endpoint="/flattened-annotations-pdf",
+            payload=payload,
+            payload_model=PdfFlattenAnnotationsPayload,
+            extra_query=extra_query,
+            extra_headers=extra_headers,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
+
+    async def rasterize_pdf(
+        self,
+        file: PdfRestFile | Sequence[PdfRestFile],
+        *,
+        output: str | None = None,
+        extra_query: Query | None = None,
+        extra_headers: AnyMapping | None = None,
+        extra_body: Body | None = None,
+        timeout: TimeoutTypes | None = None,
+    ) -> PdfRestFileBasedResponse:
+        """Asynchronously rasterize a PDF into a flattened bitmap-based PDF."""
+
+        payload: dict[str, Any] = {"files": file}
+        if output is not None:
+            payload["output"] = output
+
+        return await self._post_file_operation(
+            endpoint="/rasterized-pdf",
+            payload=payload,
+            payload_model=PdfRasterizePayload,
+            extra_query=extra_query,
+            extra_headers=extra_headers,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
+
+    async def convert_to_pdfa(
+        self,
+        file: PdfRestFile | Sequence[PdfRestFile],
+        *,
+        output_type: PdfAType,
+        output: str | None = None,
+        rasterize_if_errors_encountered: bool = False,
+        extra_query: Query | None = None,
+        extra_headers: AnyMapping | None = None,
+        extra_body: Body | None = None,
+        timeout: TimeoutTypes | None = None,
+    ) -> PdfRestFileBasedResponse:
+        """Asynchronously convert a PDF to a specified PDF/A version."""
+
+        payload: dict[str, Any] = {
+            "files": file,
+            "output_type": output_type,
+            "rasterize_if_errors_encountered": rasterize_if_errors_encountered,
+        }
+        if output is not None:
+            payload["output"] = output
+
+        return await self._post_file_operation(
+            endpoint="/pdfa",
+            payload=payload,
+            payload_model=PdfToPdfaPayload,
             extra_query=extra_query,
             extra_headers=extra_headers,
             extra_body=extra_body,
@@ -2883,10 +3925,8 @@ class AsyncPdfRestClient(_AsyncApiClient):
         output_prefix: str | None = None,
         page_range: str | Sequence[str] | None = None,
         resolution: int = 300,
-        color_model: Literal["rgb", "rgba", "gray"] = "rgb",
-        smoothing: Literal["none", "all", "text", "line", "image"]
-        | Sequence[Literal["none", "all", "text", "line", "image"]]
-        | None = None,
+        color_model: PngColorModel = "rgb",
+        smoothing: GraphicSmoothing | Sequence[GraphicSmoothing] = "none",
         extra_query: Query | None = None,
         extra_headers: AnyMapping | None = None,
         extra_body: Body | None = None,
@@ -2898,13 +3938,12 @@ class AsyncPdfRestClient(_AsyncApiClient):
             "files": files,
             "resolution": resolution,
             "color_model": color_model,
+            "smoothing": smoothing,
         }
         if output_prefix is not None:
             payload["output_prefix"] = output_prefix
         if page_range is not None:
             payload["page_range"] = page_range
-        if smoothing is not None:
-            payload["smoothing"] = smoothing
 
         return await self._convert_to_graphic(
             endpoint="/png",
@@ -2923,10 +3962,8 @@ class AsyncPdfRestClient(_AsyncApiClient):
         output_prefix: str | None = None,
         page_range: str | Sequence[str] | None = None,
         resolution: int = 300,
-        color_model: Literal["rgb", "gray"] = "rgb",
-        smoothing: Literal["none", "all", "text", "line", "image"]
-        | Sequence[Literal["none", "all", "text", "line", "image"]]
-        | None = None,
+        color_model: BmpColorModel = "rgb",
+        smoothing: GraphicSmoothing | Sequence[GraphicSmoothing] = "none",
         extra_query: Query | None = None,
         extra_headers: AnyMapping | None = None,
         extra_body: Body | None = None,
@@ -2938,13 +3975,12 @@ class AsyncPdfRestClient(_AsyncApiClient):
             "files": files,
             "resolution": resolution,
             "color_model": color_model,
+            "smoothing": smoothing,
         }
         if output_prefix is not None:
             payload["output_prefix"] = output_prefix
         if page_range is not None:
             payload["page_range"] = page_range
-        if smoothing is not None:
-            payload["smoothing"] = smoothing
 
         return await self._convert_to_graphic(
             endpoint="/bmp",
@@ -2963,10 +3999,8 @@ class AsyncPdfRestClient(_AsyncApiClient):
         output_prefix: str | None = None,
         page_range: str | Sequence[str] | None = None,
         resolution: int = 300,
-        color_model: Literal["rgb", "gray"] = "rgb",
-        smoothing: Literal["none", "all", "text", "line", "image"]
-        | Sequence[Literal["none", "all", "text", "line", "image"]]
-        | None = None,
+        color_model: GifColorModel = "rgb",
+        smoothing: GraphicSmoothing | Sequence[GraphicSmoothing] = "none",
         extra_query: Query | None = None,
         extra_headers: AnyMapping | None = None,
         extra_body: Body | None = None,
@@ -2978,13 +4012,12 @@ class AsyncPdfRestClient(_AsyncApiClient):
             "files": files,
             "resolution": resolution,
             "color_model": color_model,
+            "smoothing": smoothing,
         }
         if output_prefix is not None:
             payload["output_prefix"] = output_prefix
         if page_range is not None:
             payload["page_range"] = page_range
-        if smoothing is not None:
-            payload["smoothing"] = smoothing
 
         return await self._convert_to_graphic(
             endpoint="/gif",
@@ -3003,11 +4036,9 @@ class AsyncPdfRestClient(_AsyncApiClient):
         output_prefix: str | None = None,
         page_range: str | Sequence[str] | None = None,
         resolution: int = 300,
-        color_model: Literal["rgb", "cmyk", "gray"] = "rgb",
-        smoothing: Literal["none", "all", "text", "line", "image"]
-        | Sequence[Literal["none", "all", "text", "line", "image"]]
-        | None = None,
-        jpeg_quality: int | None = None,
+        color_model: JpegColorModel = "rgb",
+        smoothing: GraphicSmoothing | Sequence[GraphicSmoothing] = "none",
+        jpeg_quality: int = 75,
         extra_query: Query | None = None,
         extra_headers: AnyMapping | None = None,
         extra_body: Body | None = None,
@@ -3019,15 +4050,13 @@ class AsyncPdfRestClient(_AsyncApiClient):
             "files": files,
             "resolution": resolution,
             "color_model": color_model,
+            "smoothing": smoothing,
+            "jpeg_quality": jpeg_quality,
         }
         if output_prefix is not None:
             payload["output_prefix"] = output_prefix
         if page_range is not None:
             payload["page_range"] = page_range
-        if smoothing is not None:
-            payload["smoothing"] = smoothing
-        if jpeg_quality is not None:
-            payload["jpeg_quality"] = jpeg_quality
 
         return await self._convert_to_graphic(
             endpoint="/jpg",
@@ -3046,10 +4075,8 @@ class AsyncPdfRestClient(_AsyncApiClient):
         output_prefix: str | None = None,
         page_range: str | Sequence[str] | None = None,
         resolution: int = 300,
-        color_model: Literal["rgb", "rgba", "cmyk", "lab", "gray"] = "rgb",
-        smoothing: Literal["none", "all", "text", "line", "image"]
-        | Sequence[Literal["none", "all", "text", "line", "image"]]
-        | None = None,
+        color_model: TiffColorModel = "rgb",
+        smoothing: GraphicSmoothing | Sequence[GraphicSmoothing] = "none",
         extra_query: Query | None = None,
         extra_headers: AnyMapping | None = None,
         extra_body: Body | None = None,
@@ -3061,13 +4088,12 @@ class AsyncPdfRestClient(_AsyncApiClient):
             "files": files,
             "resolution": resolution,
             "color_model": color_model,
+            "smoothing": smoothing,
         }
         if output_prefix is not None:
             payload["output_prefix"] = output_prefix
         if page_range is not None:
             payload["page_range"] = page_range
-        if smoothing is not None:
-            payload["smoothing"] = smoothing
 
         return await self._convert_to_graphic(
             endpoint="/tif",

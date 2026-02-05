@@ -158,7 +158,7 @@ def test_live_compress_pdf_invalid_level(
             api_key=pdfrest_api_key,
             base_url=pdfrest_live_base_url,
         ) as client,
-        pytest.raises(PdfRestApiError),
+        pytest.raises(PdfRestApiError, match=r"(?i)compression"),
     ):
         client.compress_pdf(
             uploaded_pdf_for_compression,
@@ -177,7 +177,7 @@ async def test_live_async_compress_pdf_invalid_level(
         api_key=pdfrest_api_key,
         base_url=pdfrest_live_base_url,
     ) as client:
-        with pytest.raises(PdfRestApiError):
+        with pytest.raises(PdfRestApiError, match=r"(?i)compression"):
             await client.compress_pdf(
                 uploaded_pdf_for_compression,
                 compression_level="low",

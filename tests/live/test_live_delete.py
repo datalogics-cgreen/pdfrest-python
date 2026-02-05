@@ -57,7 +57,7 @@ def test_live_delete_files_invalid_id(
         base_url=pdfrest_live_base_url,
     ) as client:
         uploaded = client.files.create_from_paths([resource])[0]
-        with pytest.raises(ValidationError):
+        with pytest.raises(ValidationError, match=r"(?i)ids?"):
             client.files.delete(uploaded, extra_body={"ids": token_urlsafe(16)})
 
 
@@ -72,7 +72,7 @@ async def test_live_async_delete_files_invalid_id(
         base_url=pdfrest_live_base_url,
     ) as client:
         uploaded = (await client.files.create_from_paths([resource]))[0]
-        with pytest.raises(ValidationError):
+        with pytest.raises(ValidationError, match=r"(?i)ids?"):
             await client.files.delete(uploaded, extra_body={"ids": token_urlsafe(16)})
 
 

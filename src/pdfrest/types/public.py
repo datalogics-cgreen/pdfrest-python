@@ -13,7 +13,17 @@ else:  # pragma: no cover - used only for typing at runtime
     PdfRestFile = Any
 
 __all__ = (
+    "ALL_OCR_LANGUAGES",
     "ALL_PDF_INFO_QUERIES",
+    "BmpColorModel",
+    "CompressionLevel",
+    "ExtractTextGranularity",
+    "FlattenQuality",
+    "GifColorModel",
+    "GraphicSmoothing",
+    "JpegColorModel",
+    "OcrLanguage",
+    "PdfAType",
     "PdfInfoQuery",
     "PdfMergeInput",
     "PdfMergeSource",
@@ -23,6 +33,12 @@ __all__ = (
     "PdfRedactionPreset",
     "PdfRedactionType",
     "PdfXType",
+    "PngColorModel",
+    "SummaryFormat",
+    "SummaryOutputFormat",
+    "SummaryOutputType",
+    "TiffColorModel",
+    "TranslateOutputFormat",
 )
 
 PdfInfoQuery = Literal[
@@ -98,4 +114,49 @@ class PdfMergeSource(TypedDict, total=False):
 
 PdfMergeInput = PdfRestFile | PdfMergeSource | tuple[PdfRestFile, PdfPageSelection]
 
+PdfAType = Literal["PDF/A-1b", "PDF/A-2b", "PDF/A-2u", "PDF/A-3b", "PDF/A-3u"]
 PdfXType = Literal["PDF/X-1a", "PDF/X-3", "PDF/X-4", "PDF/X-6"]
+ExtractTextGranularity = Literal["off", "by_page", "document"]
+CompressionLevel = Literal["low", "medium", "high", "custom"]
+FlattenQuality = Literal["low", "medium", "high"]
+PngColorModel = Literal["rgb", "rgba", "gray"]
+BmpColorModel = Literal["rgb", "gray"]
+GifColorModel = Literal["rgb", "gray"]
+JpegColorModel = Literal["rgb", "cmyk", "gray"]
+TiffColorModel = Literal["rgb", "rgba", "cmyk", "lab", "gray"]
+GraphicSmoothing = Literal["none", "all", "text", "line", "image"]
+
+SummaryFormat = Literal[
+    "overview",
+    "highlight",
+    "abstract",
+    "bullet_points",
+    "numbered_list",
+    "table_of_contents",
+    "outline",
+    "question_answer",
+    "action_items",
+]
+
+SummaryOutputFormat = Literal["plaintext", "markdown"]
+SummaryOutputType = Literal["json", "file"]
+
+TranslateOutputFormat = Literal["plaintext", "markdown"]
+
+OcrLanguage = Literal[
+    "ChineseSimplified",
+    "ChineseTraditional",
+    "Dutch",
+    "English",
+    "French",
+    "German",
+    "Italian",
+    "Japanese",
+    "Korean",
+    "Portuguese",
+    "Spanish",
+]
+
+ALL_OCR_LANGUAGES: tuple[OcrLanguage, ...] = cast(
+    tuple[OcrLanguage, ...], get_args(OcrLanguage)
+)

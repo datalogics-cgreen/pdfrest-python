@@ -93,6 +93,27 @@ def test_live_pdf_info_queries(
     _assert_expected_value(query_name, value)
 
 
+@pytest.mark.asyncio
+@pytest.mark.parametrize("query_name", ALLOWED_QUERIES, ids=list(ALLOWED_QUERIES))
+async def test_live_async_pdf_info_queries(
+    pdfrest_api_key: str,
+    pdfrest_live_base_url: str,
+    uploaded_pdf: PdfRestFile,
+    query_name: PdfInfoQuery,
+) -> None:
+    async with AsyncPdfRestClient(
+        api_key=pdfrest_api_key, base_url=pdfrest_live_base_url
+    ) as client:
+        response = await client.query_pdf_info(uploaded_pdf, queries=query_name)
+
+    assert isinstance(response, PdfRestInfoResponse)
+    assert str(response.input_id) == str(uploaded_pdf.id)
+    assert response.all_queries_processed is True
+
+    value = getattr(response, query_name)
+    _assert_expected_value(query_name, value)
+
+
 @pytest.mark.parametrize(
     "invalid_query",
     [
@@ -111,13 +132,39 @@ def test_live_pdf_info_invalid_query(
         PdfRestClient(
             api_key=pdfrest_api_key, base_url=pdfrest_live_base_url
         ) as client,
-        pytest.raises(PdfRestApiError),
+        pytest.raises(PdfRestApiError, match=r"(?i)quer"),
     ):
         client.query_pdf_info(
             uploaded_pdf,
             queries="tagged",
             extra_body={"queries": invalid_query},
         )
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "invalid_query",
+    [
+        pytest.param("invalid_query", id="invalid-query"),
+        pytest.param("tagged,!!invalid!!", id="mixed-invalid"),
+        pytest.param("🚫", id="emoji"),
+    ],
+)
+async def test_live_async_pdf_info_invalid_query(
+    pdfrest_api_key: str,
+    pdfrest_live_base_url: str,
+    uploaded_pdf: PdfRestFile,
+    invalid_query: str,
+) -> None:
+    async with AsyncPdfRestClient(
+        api_key=pdfrest_api_key, base_url=pdfrest_live_base_url
+    ) as client:
+        with pytest.raises(PdfRestApiError, match=r"(?i)quer"):
+            await client.query_pdf_info(
+                uploaded_pdf,
+                queries="tagged",
+                extra_body={"queries": invalid_query},
+            )
 
 
 @pytest.mark.parametrize(
@@ -146,7 +193,50 @@ def test_live_pdf_info_multiple_queries(
 
 
 @pytest.mark.asyncio
-async def test_live_pdf_info_async_all_queries(
+@pytest.mark.parametrize(
+    "query_group",
+    [
+        pytest.param(("tagged", "filename"), id="two-values"),
+        pytest.param(("page_count", "file_size", "pdf_version"), id="three-values"),
+    ],
+)
+async def test_live_async_pdf_info_multiple_queries(
+    pdfrest_api_key: str,
+    pdfrest_live_base_url: str,
+    uploaded_pdf: PdfRestFile,
+    query_group: tuple[PdfInfoQuery, ...],
+) -> None:
+    async with AsyncPdfRestClient(
+        api_key=pdfrest_api_key, base_url=pdfrest_live_base_url
+    ) as client:
+        response = await client.query_pdf_info(uploaded_pdf, queries=query_group)
+
+    assert isinstance(response, PdfRestInfoResponse)
+    assert str(response.input_id) == str(uploaded_pdf.id)
+    assert response.all_queries_processed is True
+    for item in query_group:
+        _assert_expected_value(item, getattr(response, item))
+
+
+def test_live_pdf_info_all_queries(
+    pdfrest_api_key: str,
+    pdfrest_live_base_url: str,
+    uploaded_pdf: PdfRestFile,
+) -> None:
+    with PdfRestClient(
+        api_key=pdfrest_api_key, base_url=pdfrest_live_base_url
+    ) as client:
+        response = client.query_pdf_info(uploaded_pdf, queries=ALLOWED_QUERIES)
+
+    assert isinstance(response, PdfRestInfoResponse)
+    assert str(response.input_id) == str(uploaded_pdf.id)
+    assert response.all_queries_processed is True
+    for query in ALLOWED_QUERIES:
+        _assert_expected_value(query, getattr(response, query))
+
+
+@pytest.mark.asyncio
+async def test_live_async_pdf_info_all_queries(
     pdfrest_api_key: str,
     pdfrest_live_base_url: str,
     uploaded_pdf: PdfRestFile,

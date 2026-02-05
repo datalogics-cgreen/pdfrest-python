@@ -9,11 +9,11 @@ from ..resources import get_test_resource_path
 
 
 @pytest.fixture(scope="module")
-def uploaded_pdf_with_forms(
+def uploaded_pdf_for_acroforms(
     pdfrest_api_key: str,
     pdfrest_live_base_url: str,
 ) -> PdfRestFile:
-    resource = get_test_resource_path("form_with_data.pdf")
+    resource = get_test_resource_path("xfa.pdf")
     with PdfRestClient(
         api_key=pdfrest_api_key,
         base_url=pdfrest_live_base_url,
@@ -25,13 +25,13 @@ def uploaded_pdf_with_forms(
     "output_name",
     [
         pytest.param(None, id="default-output"),
-        pytest.param("flattened-live", id="custom-output"),
+        pytest.param("live-acroforms", id="custom-output"),
     ],
 )
-def test_live_flatten_pdf_forms(
+def test_live_convert_xfa_to_acroforms_success(
     pdfrest_api_key: str,
     pdfrest_live_base_url: str,
-    uploaded_pdf_with_forms: PdfRestFile,
+    uploaded_pdf_for_acroforms: PdfRestFile,
     output_name: str | None,
 ) -> None:
     kwargs: dict[str, str] = {}
@@ -42,16 +42,36 @@ def test_live_flatten_pdf_forms(
         api_key=pdfrest_api_key,
         base_url=pdfrest_live_base_url,
     ) as client:
-        response = client.flatten_pdf_forms(uploaded_pdf_with_forms, **kwargs)
+        response = client.convert_xfa_to_acroforms(uploaded_pdf_for_acroforms, **kwargs)
 
+    assert str(response.input_id) == str(uploaded_pdf_for_acroforms.id)
+    assert response.warning is None
     assert response.output_files
     output_file = response.output_file
     assert output_file.type == "application/pdf"
-    assert str(response.input_id) == str(uploaded_pdf_with_forms.id)
+    assert output_file.size > 0
     if output_name is not None:
         assert output_file.name.startswith(output_name)
     else:
         assert output_file.name.endswith(".pdf")
+
+
+def test_live_convert_xfa_to_acroforms_invalid_file_id(
+    pdfrest_api_key: str,
+    pdfrest_live_base_url: str,
+    uploaded_pdf_for_acroforms: PdfRestFile,
+) -> None:
+    with (
+        PdfRestClient(
+            api_key=pdfrest_api_key,
+            base_url=pdfrest_live_base_url,
+        ) as client,
+        pytest.raises(PdfRestApiError, match=r"(?i)(id|file)"),
+    ):
+        client.convert_xfa_to_acroforms(
+            uploaded_pdf_for_acroforms,
+            extra_body={"id": "00000000-0000-0000-0000-000000000000"},
+        )
 
 
 @pytest.mark.asyncio
@@ -59,13 +79,13 @@ def test_live_flatten_pdf_forms(
     "output_name",
     [
         pytest.param(None, id="default-output"),
-        pytest.param("flattened-live", id="custom-output"),
+        pytest.param("async-acroforms", id="custom-output"),
     ],
 )
-async def test_live_async_flatten_pdf_forms(
+async def test_live_async_convert_xfa_to_acroforms_success(
     pdfrest_api_key: str,
     pdfrest_live_base_url: str,
-    uploaded_pdf_with_forms: PdfRestFile,
+    uploaded_pdf_for_acroforms: PdfRestFile,
     output_name: str | None,
 ) -> None:
     kwargs: dict[str, str] = {}
@@ -76,11 +96,12 @@ async def test_live_async_flatten_pdf_forms(
         api_key=pdfrest_api_key,
         base_url=pdfrest_live_base_url,
     ) as client:
-        response = await client.flatten_pdf_forms(
-            uploaded_pdf_with_forms,
-            **kwargs,
+        response = await client.convert_xfa_to_acroforms(
+            uploaded_pdf_for_acroforms, **kwargs
         )
 
+    assert str(response.input_id) == str(uploaded_pdf_for_acroforms.id)
+    assert response.warning is None
     assert response.output_files
     output_file = response.output_file
     if output_name is not None:
@@ -88,39 +109,21 @@ async def test_live_async_flatten_pdf_forms(
     else:
         assert output_file.name.endswith(".pdf")
     assert output_file.type == "application/pdf"
-    assert str(response.input_id) == str(uploaded_pdf_with_forms.id)
-
-
-def test_live_flatten_pdf_forms_invalid_file_id(
-    pdfrest_api_key: str,
-    pdfrest_live_base_url: str,
-    uploaded_pdf_with_forms: PdfRestFile,
-) -> None:
-    with (
-        PdfRestClient(
-            api_key=pdfrest_api_key,
-            base_url=pdfrest_live_base_url,
-        ) as client,
-        pytest.raises(PdfRestApiError, match=r"(?i)(id|file)"),
-    ):
-        client.flatten_pdf_forms(
-            uploaded_pdf_with_forms,
-            extra_body={"id": "ffffffff-ffff-ffff-ffff-ffffffffffff"},
-        )
+    assert output_file.size > 0
 
 
 @pytest.mark.asyncio
-async def test_live_async_flatten_pdf_forms_invalid_file_id(
+async def test_live_async_convert_xfa_to_acroforms_invalid_file_id(
     pdfrest_api_key: str,
     pdfrest_live_base_url: str,
-    uploaded_pdf_with_forms: PdfRestFile,
+    uploaded_pdf_for_acroforms: PdfRestFile,
 ) -> None:
     async with AsyncPdfRestClient(
         api_key=pdfrest_api_key,
         base_url=pdfrest_live_base_url,
     ) as client:
         with pytest.raises(PdfRestApiError, match=r"(?i)(id|file)"):
-            await client.flatten_pdf_forms(
-                uploaded_pdf_with_forms,
-                extra_body={"id": "00000000-0000-0000-0000-000000000000"},
+            await client.convert_xfa_to_acroforms(
+                uploaded_pdf_for_acroforms,
+                extra_body={"id": "ffffffff-ffff-ffff-ffff-ffffffffffff"},
             )

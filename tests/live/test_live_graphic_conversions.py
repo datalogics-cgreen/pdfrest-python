@@ -5,7 +5,7 @@ from typing import Any, NamedTuple, get_args
 
 import pytest
 
-from pdfrest import PdfRestApiError, PdfRestClient
+from pdfrest import AsyncPdfRestClient, PdfRestApiError, PdfRestClient
 from pdfrest.models import PdfRestFile
 from pdfrest.models._internal import (
     BasePdfRestGraphicPayload,
@@ -34,6 +34,14 @@ PAYLOAD_MODELS: dict[str, _GraphicEndpointSpec] = {
     "gif": _GraphicEndpointSpec("convert_to_gif", GifPdfRestPayload),
     "jpeg": _GraphicEndpointSpec("convert_to_jpeg", JpegPdfRestPayload),
     "tiff": _GraphicEndpointSpec("convert_to_tiff", TiffPdfRestPayload),
+}
+
+_EXPECTED_FILE_FORMATS: dict[str, tuple[str, str]] = {
+    "png": ("image/png", ".png"),
+    "bmp": ("image/bmp", ".bmp"),
+    "gif": ("image/gif", ".gif"),
+    "jpeg": ("image/jpeg", ".jpg"),
+    "tiff": ("image/tiff", ".tif"),
 }
 
 
@@ -108,6 +116,22 @@ def _invalid_smoothing_cases() -> list[Any]:
     return cases
 
 
+def _expected_file_format(label: str) -> tuple[str, str]:
+    return _EXPECTED_FILE_FORMATS[label]
+
+
+def _assert_output_files(
+    output_files: Sequence[PdfRestFile],
+    *,
+    expected_mime: str,
+    expected_suffix: str,
+) -> None:
+    assert output_files
+    assert all(file_info.name.endswith(expected_suffix) for file_info in output_files)
+    assert all(file_info.type == expected_mime for file_info in output_files)
+    assert all(file_info.size > 0 for file_info in output_files)
+
+
 @pytest.fixture(scope="module")
 def uploaded_20_page_pdf(
     pdfrest_api_key: str,
@@ -119,6 +143,55 @@ def uploaded_20_page_pdf(
         base_url=pdfrest_live_base_url,
     ) as client:
         return client.files.create_from_paths([resource])[0]
+
+
+def test_live_convert_to_png_success(
+    pdfrest_api_key: str,
+    pdfrest_live_base_url: str,
+) -> None:
+    resource = get_test_resource_path("report.pdf")
+    with PdfRestClient(
+        api_key=pdfrest_api_key,
+        base_url=pdfrest_live_base_url,
+    ) as client:
+        uploaded = client.files.create_from_paths([resource])[0]
+        response = client.convert_to_png(
+            uploaded,
+            output_prefix="live-png",
+            resolution=150,
+        )
+
+    _assert_output_files(
+        response.output_files,
+        expected_mime="image/png",
+        expected_suffix=".png",
+    )
+    assert str(response.input_id) == str(uploaded.id)
+
+
+@pytest.mark.asyncio
+async def test_live_async_convert_to_png_success(
+    pdfrest_api_key: str,
+    pdfrest_live_base_url: str,
+) -> None:
+    resource = get_test_resource_path("report.pdf")
+    async with AsyncPdfRestClient(
+        api_key=pdfrest_api_key,
+        base_url=pdfrest_live_base_url,
+    ) as client:
+        uploaded = (await client.files.create_from_paths([resource]))[0]
+        response = await client.convert_to_png(
+            uploaded,
+            output_prefix="async-png",
+            resolution=150,
+        )
+
+    _assert_output_files(
+        response.output_files,
+        expected_mime="image/png",
+        expected_suffix=".png",
+    )
+    assert str(response.input_id) == str(uploaded.id)
 
 
 @pytest.mark.parametrize(
@@ -140,12 +213,51 @@ def test_live_graphic_valid_color_models(
     ) as client:
         uploaded = client.files.create_from_paths([resource])[0]
         client_method = getattr(client, spec.method_name)
+        expected_mime, expected_suffix = _expected_file_format(_endpoint_label)
         response = client_method(
             uploaded,
             color_model=color_model,
             resolution=resolution,
         )
-        assert response.output_files
+        _assert_output_files(
+            response.output_files,
+            expected_mime=expected_mime,
+            expected_suffix=expected_suffix,
+        )
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("_endpoint_label", "spec", "color_model"),
+    _valid_color_cases(),
+)
+async def test_live_async_graphic_valid_color_models(
+    pdfrest_api_key: str,
+    pdfrest_live_base_url: str,
+    _endpoint_label: str,
+    spec: _GraphicEndpointSpec,
+    color_model: str,
+) -> None:
+    resource = get_test_resource_path("report.pdf")
+    payload_model = spec.payload_model
+    resolution = _resolution_bounds(payload_model)[0]
+    async with AsyncPdfRestClient(
+        api_key=pdfrest_api_key,
+        base_url=pdfrest_live_base_url,
+    ) as client:
+        uploaded = (await client.files.create_from_paths([resource]))[0]
+        client_method = getattr(client, spec.method_name)
+        expected_mime, expected_suffix = _expected_file_format(_endpoint_label)
+        response = await client_method(
+            uploaded,
+            color_model=color_model,
+            resolution=resolution,
+        )
+        _assert_output_files(
+            response.output_files,
+            expected_mime=expected_mime,
+            expected_suffix=expected_suffix,
+        )
 
 
 @pytest.mark.parametrize(
@@ -168,8 +280,37 @@ def test_live_graphic_invalid_color_model(
         uploaded = client.files.create_from_paths([resource])[0]
         client_method = getattr(client, spec.method_name)
         resolution = _resolution_bounds(payload_model)[0]
-        with pytest.raises(PdfRestApiError):
+        with pytest.raises(PdfRestApiError, match=r"(?i)color"):
             client_method(
+                uploaded,
+                resolution=resolution,
+                extra_body={"color_model": invalid_color},
+            )
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("_endpoint_label", "spec", "invalid_color"),
+    _invalid_color_cases(),
+)
+async def test_live_async_graphic_invalid_color_model(
+    pdfrest_api_key: str,
+    pdfrest_live_base_url: str,
+    _endpoint_label: str,
+    spec: _GraphicEndpointSpec,
+    invalid_color: str,
+) -> None:
+    payload_model = spec.payload_model
+
+    resource = get_test_resource_path("report.pdf")
+    async with AsyncPdfRestClient(
+        api_key=pdfrest_api_key, base_url=pdfrest_live_base_url
+    ) as client:
+        uploaded = (await client.files.create_from_paths([resource]))[0]
+        client_method = getattr(client, spec.method_name)
+        resolution = _resolution_bounds(payload_model)[0]
+        with pytest.raises(PdfRestApiError, match=r"(?i)color"):
+            await client_method(
                 uploaded,
                 resolution=resolution,
                 extra_body={"color_model": invalid_color},
@@ -213,11 +354,64 @@ def test_live_graphic_resolution_bounds(
 
         if should_raise:
             call_kwargs["extra_body"] = {"resolution": base_resolution + offset}
-            with pytest.raises(PdfRestApiError):
+            with pytest.raises(PdfRestApiError, match=r"(?i)resolution"):
                 client_method(uploaded, **call_kwargs)
         else:
             response = client_method(uploaded, **call_kwargs)
-            assert response.output_files
+            _assert_output_files(
+                response.output_files,
+                expected_mime="image/png",
+                expected_suffix=".png",
+            )
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("_endpoint_label", "spec"),
+    PNG_PAYLOAD_ONLY.items(),
+    ids=list(PNG_PAYLOAD_ONLY),
+)
+@pytest.mark.parametrize(
+    ("bound", "offset", "should_raise"),
+    [
+        pytest.param("min", 0, False, id="min"),
+        pytest.param("max", 0, False, id="max"),
+        pytest.param("min", -1, True, id="below-min"),
+        pytest.param("max", 1, True, id="above-max"),
+    ],
+)
+async def test_live_async_graphic_resolution_bounds(
+    pdfrest_api_key: str,
+    pdfrest_live_base_url: str,
+    _endpoint_label: str,
+    spec: _GraphicEndpointSpec,
+    bound: str,
+    offset: int,
+    should_raise: bool,
+) -> None:
+    payload_model = spec.payload_model
+    min_res, max_res = _resolution_bounds(payload_model)
+    resource = get_test_resource_path("report.pdf")
+
+    async with AsyncPdfRestClient(
+        api_key=pdfrest_api_key, base_url=pdfrest_live_base_url
+    ) as client:
+        uploaded = (await client.files.create_from_paths([resource]))[0]
+        client_method = getattr(client, spec.method_name)
+        base_resolution = min_res if bound == "min" else max_res
+        call_kwargs: dict[str, Any] = {"resolution": base_resolution}
+
+        if should_raise:
+            call_kwargs["extra_body"] = {"resolution": base_resolution + offset}
+            with pytest.raises(PdfRestApiError, match=r"(?i)resolution"):
+                await client_method(uploaded, **call_kwargs)
+        else:
+            response = await client_method(uploaded, **call_kwargs)
+            _assert_output_files(
+                response.output_files,
+                expected_mime="image/png",
+                expected_suffix=".png",
+            )
 
 
 @pytest.mark.parametrize(
@@ -237,11 +431,46 @@ def test_live_graphic_valid_smoothing(
     ) as client:
         uploaded = client.files.create_from_paths([resource])[0]
         client_method = getattr(client, spec.method_name)
+        expected_mime, expected_suffix = _expected_file_format(_endpoint_label)
         response = client_method(
             uploaded,
             smoothing=smoothing_value,
         )
-        assert response.output_files
+        _assert_output_files(
+            response.output_files,
+            expected_mime=expected_mime,
+            expected_suffix=expected_suffix,
+        )
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("_endpoint_label", "spec", "smoothing_value"),
+    _valid_smoothing_cases(),
+)
+async def test_live_async_graphic_valid_smoothing(
+    pdfrest_api_key: str,
+    pdfrest_live_base_url: str,
+    _endpoint_label: str,
+    spec: _GraphicEndpointSpec,
+    smoothing_value: str,
+) -> None:
+    resource = get_test_resource_path("report.pdf")
+    async with AsyncPdfRestClient(
+        api_key=pdfrest_api_key, base_url=pdfrest_live_base_url
+    ) as client:
+        uploaded = (await client.files.create_from_paths([resource]))[0]
+        client_method = getattr(client, spec.method_name)
+        expected_mime, expected_suffix = _expected_file_format(_endpoint_label)
+        response = await client_method(
+            uploaded,
+            smoothing=smoothing_value,
+        )
+        _assert_output_files(
+            response.output_files,
+            expected_mime=expected_mime,
+            expected_suffix=expected_suffix,
+        )
 
 
 @pytest.mark.parametrize(
@@ -261,8 +490,34 @@ def test_live_graphic_invalid_smoothing(
     ) as client:
         uploaded = client.files.create_from_paths([resource])[0]
         client_method = getattr(client, spec.method_name)
-        with pytest.raises(PdfRestApiError):
+        with pytest.raises(PdfRestApiError, match=r"(?i)smooth"):
             client_method(
+                uploaded,
+                smoothing="none",
+                extra_body={"smoothing": invalid_smoothing},
+            )
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("_endpoint_label", "spec", "invalid_smoothing"),
+    _invalid_smoothing_cases(),
+)
+async def test_live_async_graphic_invalid_smoothing(
+    pdfrest_api_key: str,
+    pdfrest_live_base_url: str,
+    _endpoint_label: str,
+    spec: _GraphicEndpointSpec,
+    invalid_smoothing: Any,
+) -> None:
+    resource = get_test_resource_path("report.pdf")
+    async with AsyncPdfRestClient(
+        api_key=pdfrest_api_key, base_url=pdfrest_live_base_url
+    ) as client:
+        uploaded = (await client.files.create_from_paths([resource]))[0]
+        client_method = getattr(client, spec.method_name)
+        with pytest.raises(PdfRestApiError, match=r"(?i)smooth"):
+            await client_method(
                 uploaded,
                 smoothing="none",
                 extra_body={"smoothing": invalid_smoothing},
@@ -307,19 +562,71 @@ def test_live_png_page_range_variants(
 
             expected_pages = _expand_page_selection(page_range, total_pages=20)
             assert len(response.output_files) == len(expected_pages)
-            assert any(
-                file_info.name.endswith(".png") for file_info in response.output_files
-            )
-            assert all(
-                file_info.type == "image/png" and file_info.size > 0
-                for file_info in response.output_files
+            _assert_output_files(
+                response.output_files,
+                expected_mime="image/png",
+                expected_suffix=".png",
             )
             assert str(response.input_id) == str(uploaded_20_page_pdf.id)
         else:
-            with pytest.raises(PdfRestApiError):
+            with pytest.raises(PdfRestApiError, match=r"(?i)page"):
                 client.convert_to_png(
                     uploaded_20_page_pdf,
                     output_prefix=f"live-range-{case_id}",
+                    extra_body={"page_range": page_range},
+                )
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("page_range", "expect_success"),
+    [
+        pytest.param("5", True, id="single"),
+        pytest.param("3-7", True, id="ascending-range"),
+        pytest.param("last", True, id="last"),
+        pytest.param("1-last", True, id="entire-document"),
+        pytest.param(["1", "3", "5-7"], True, id="list-mixed"),
+    ],
+)
+async def test_live_async_png_page_range_variants(
+    pdfrest_api_key: str,
+    pdfrest_live_base_url: str,
+    uploaded_20_page_pdf: PdfRestFile,
+    page_range: Any,
+    expect_success: bool,
+    request: pytest.FixtureRequest,
+) -> None:
+    case_id = request.node.callspec.id
+    async with AsyncPdfRestClient(
+        api_key=pdfrest_api_key,
+        base_url=pdfrest_live_base_url,
+    ) as client:
+        info = await client.query_pdf_info(uploaded_20_page_pdf)
+
+        assert info.page_count == 20
+        assert str(info.input_id) == str(uploaded_20_page_pdf.id)
+        assert info.filename is None or info.filename.endswith(".pdf")
+
+        if expect_success:
+            response = await client.convert_to_png(
+                uploaded_20_page_pdf,
+                output_prefix=f"live-async-range-{case_id}",
+                page_range=page_range,
+            )
+
+            expected_pages = _expand_page_selection(page_range, total_pages=20)
+            assert len(response.output_files) == len(expected_pages)
+            _assert_output_files(
+                response.output_files,
+                expected_mime="image/png",
+                expected_suffix=".png",
+            )
+            assert str(response.input_id) == str(uploaded_20_page_pdf.id)
+        else:
+            with pytest.raises(PdfRestApiError, match=r"(?i)page"):
+                await client.convert_to_png(
+                    uploaded_20_page_pdf,
+                    output_prefix=f"live-async-range-{case_id}",
                     extra_body={"page_range": page_range},
                 )
 
@@ -348,7 +655,10 @@ def test_live_png_page_range_invalid_overrides(
             api_key=pdfrest_api_key,
             base_url=pdfrest_live_base_url,
         ) as client,
-        pytest.raises(PdfRestApiError),
+        pytest.raises(
+            PdfRestApiError,
+            match=r"There was an issue processing your file\. Validate all fields and try again\.",
+        ),
     ):
         client.convert_to_png(
             uploaded_20_page_pdf,
@@ -356,6 +666,42 @@ def test_live_png_page_range_invalid_overrides(
             page_range="1",
             extra_body={"pages": page_override},
         )
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "page_override",
+    [
+        pytest.param("0", id="zero"),
+        pytest.param("last-0", id="range-with-zero"),
+        pytest.param("7-3", id="descending-range"),
+        pytest.param("even", id="even"),
+        pytest.param("odd", id="odd"),
+        pytest.param("odd,even", id="odd-even"),
+    ],
+)
+async def test_live_async_png_page_range_invalid_overrides(
+    pdfrest_api_key: str,
+    pdfrest_live_base_url: str,
+    uploaded_20_page_pdf: PdfRestFile,
+    page_override: str,
+    request: pytest.FixtureRequest,
+) -> None:
+    case_id = request.node.callspec.id
+    async with AsyncPdfRestClient(
+        api_key=pdfrest_api_key,
+        base_url=pdfrest_live_base_url,
+    ) as client:
+        with pytest.raises(
+            PdfRestApiError,
+            match=r"There was an issue processing your file\. Validate all fields and try again\.",
+        ):
+            await client.convert_to_png(
+                uploaded_20_page_pdf,
+                output_prefix=f"live-async-range-invalid-{case_id}",
+                page_range="1",
+                extra_body={"pages": page_override},
+            )
 
 
 def _expand_page_selection(

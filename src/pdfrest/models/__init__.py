@@ -5,6 +5,9 @@ from .public import (
     PdfRestFileBasedResponse,
     PdfRestFileID,
     PdfRestInfoResponse,
+    SummarizePdfTextResponse,
+    TranslatePdfTextFileResponse,
+    TranslatePdfTextResponse,
     UpResponse,
 )
 
@@ -15,5 +18,8 @@ __all__ = [
     "PdfRestFileBasedResponse",
     "PdfRestFileID",
     "PdfRestInfoResponse",
+    "SummarizePdfTextResponse",
+    "TranslatePdfTextFileResponse",
+    "TranslatePdfTextResponse",
     "UpResponse",
 ]

@@ -83,7 +83,7 @@ def test_convert_to_jpeg_success(
     assert str(output_file.url).endswith(output_id)
 
 
-def test_convert_to_jpeg_defaults_excluded(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_convert_to_jpeg_defaults_included(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.delenv("PDFREST_API_KEY", raising=False)
     input_file = make_pdf_file(PdfRestFileID.generate(1))
     output_id = "8e9f0011-2222-4bcd-9f00-abcdefabcdef"
@@ -98,7 +98,9 @@ def test_convert_to_jpeg_defaults_excluded(monkeypatch: pytest.MonkeyPatch) -> N
             assert_conversion_payload(
                 payload, request_payload, allowed_extras={"jpeg_quality"}
             )
-            assert "jpeg_quality" not in payload
+            assert payload["jpeg_quality"] == 75
+            assert payload["resolution"] == 300
+            assert payload["color_model"] == "rgb"
             return httpx.Response(
                 200,
                 json={"inputId": [input_file.id], "outputId": [output_id]},
@@ -116,6 +118,50 @@ def test_convert_to_jpeg_defaults_excluded(monkeypatch: pytest.MonkeyPatch) -> N
     transport = httpx.MockTransport(handler)
     with PdfRestClient(api_key=VALID_API_KEY, transport=transport) as client:
         response = client.convert_to_jpeg(input_file)
+
+    output_file = response.output_files[0]
+    assert output_file.name == "example-001.jpg"
+    assert output_file.type == "image/jpeg"
+
+
+@pytest.mark.asyncio
+async def test_async_convert_to_jpeg_defaults_included(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.delenv("PDFREST_API_KEY", raising=False)
+    input_file = make_pdf_file(PdfRestFileID.generate(1))
+    output_id = "8e9f0011-2222-4bcd-9f00-abcdefabcdef"
+
+    request_payload = JpegPdfRestPayload.model_validate(
+        {"files": input_file}
+    ).model_dump(mode="json", by_alias=True, exclude_none=True, exclude_defaults=True)
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.method == "POST" and request.url.path == "/jpg":
+            payload = json.loads(request.content.decode("utf-8"))
+            assert_conversion_payload(
+                payload, request_payload, allowed_extras={"jpeg_quality"}
+            )
+            assert payload["jpeg_quality"] == 75
+            assert payload["resolution"] == 300
+            assert payload["color_model"] == "rgb"
+            return httpx.Response(
+                200,
+                json={"inputId": [input_file.id], "outputId": [output_id]},
+            )
+        if request.method == "GET" and request.url.path == f"/resource/{output_id}":
+            return httpx.Response(
+                200,
+                json=build_file_info_payload(
+                    output_id, "example-001.jpg", "image/jpeg"
+                ),
+            )
+        msg = f"Unexpected request {request.method} {request.url}"
+        raise AssertionError(msg)
+
+    transport = httpx.MockTransport(handler)
+    async with AsyncPdfRestClient(api_key=ASYNC_API_KEY, transport=transport) as client:
+        response = await client.convert_to_jpeg(input_file)
 
     output_file = response.output_files[0]
     assert output_file.name == "example-001.jpg"
@@ -172,6 +218,57 @@ def test_convert_to_jpeg_resolution_limits(
     assert response.output_files[0].name == f"example-resolution-{resolution}.jpg"
 
 
+@pytest.mark.asyncio
+@pytest.mark.parametrize("resolution", [12, 2400])
+async def test_async_convert_to_jpeg_resolution_limits(
+    monkeypatch: pytest.MonkeyPatch, resolution: int
+) -> None:
+    monkeypatch.delenv("PDFREST_API_KEY", raising=False)
+    input_file = make_pdf_file(PdfRestFileID.generate(1))
+    output_id = str(PdfRestFileID.generate())
+
+    request_payload = JpegPdfRestPayload.model_validate(
+        {
+            "files": [input_file],
+            "resolution": resolution,
+        }
+    ).model_dump(mode="json", by_alias=True, exclude_none=True, exclude_defaults=True)
+
+    seen: dict[str, int] = {"post": 0, "get": 0}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.method == "POST" and request.url.path == "/jpg":
+            seen["post"] += 1
+            payload = json.loads(request.content.decode("utf-8"))
+            assert_conversion_payload(
+                payload, request_payload, allowed_extras={"jpeg_quality"}
+            )
+            return httpx.Response(
+                200,
+                json={"inputId": [input_file.id], "outputId": [output_id]},
+            )
+        if request.method == "GET" and request.url.path == f"/resource/{output_id}":
+            seen["get"] += 1
+            return httpx.Response(
+                200,
+                json=build_file_info_payload(
+                    output_id, f"example-resolution-{resolution}.jpg", "image/jpeg"
+                ),
+            )
+        msg = f"Unexpected request {request.method} {request.url}"
+        raise AssertionError(msg)
+
+    transport = httpx.MockTransport(handler)
+    async with AsyncPdfRestClient(api_key=ASYNC_API_KEY, transport=transport) as client:
+        response = await client.convert_to_jpeg(
+            input_file,
+            resolution=resolution,
+        )
+
+    assert seen == {"post": 1, "get": 1}
+    assert response.output_files[0].name == f"example-resolution-{resolution}.jpg"
+
+
 @pytest.mark.parametrize("invalid_resolution", [11, 2401])
 def test_convert_to_jpeg_resolution_out_of_bounds(
     monkeypatch: pytest.MonkeyPatch, invalid_resolution: int
@@ -193,6 +290,28 @@ def test_convert_to_jpeg_resolution_out_of_bounds(
             make_pdf_file(PdfRestFileID.generate(1)),
             resolution=invalid_resolution,
         )
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("invalid_resolution", [11, 2401])
+async def test_async_convert_to_jpeg_resolution_out_of_bounds(
+    monkeypatch: pytest.MonkeyPatch, invalid_resolution: int
+) -> None:
+    monkeypatch.delenv("PDFREST_API_KEY", raising=False)
+
+    def handler(_: httpx.Request) -> httpx.Response:
+        pytest.fail("Request should not be sent when validation fails.")
+
+    transport = httpx.MockTransport(handler)
+    async with AsyncPdfRestClient(api_key=ASYNC_API_KEY, transport=transport) as client:
+        with pytest.raises(
+            ValidationError,
+            match=r"less than or equal to 2400|greater than or equal to 12",
+        ):
+            await client.convert_to_jpeg(
+                make_pdf_file(PdfRestFileID.generate(1)),
+                resolution=invalid_resolution,
+            )
 
 
 @pytest.mark.parametrize(
@@ -221,6 +340,31 @@ def test_convert_to_jpeg_invalid_color_model(
         )
 
 
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "invalid_color",
+    [pytest.param("rgba", id="rgba"), pytest.param("lab", id="lab")],
+)
+async def test_async_convert_to_jpeg_invalid_color_model(
+    monkeypatch: pytest.MonkeyPatch, invalid_color: str
+) -> None:
+    monkeypatch.delenv("PDFREST_API_KEY", raising=False)
+
+    def handler(_: httpx.Request) -> httpx.Response:
+        pytest.fail("Request should not be sent when validation fails.")
+
+    transport = httpx.MockTransport(handler)
+    async with AsyncPdfRestClient(api_key=ASYNC_API_KEY, transport=transport) as client:
+        with pytest.raises(
+            ValidationError,
+            match=re.escape("Input should be 'rgb', 'cmyk' or 'gray'"),
+        ):
+            await client.convert_to_jpeg(
+                make_pdf_file(PdfRestFileID.generate(1)),
+                color_model=invalid_color,  # type: ignore[arg-type]
+            )
+
+
 def test_convert_to_jpeg_invalid_quality(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.delenv("PDFREST_API_KEY", raising=False)
 
@@ -242,8 +386,37 @@ def test_convert_to_jpeg_invalid_quality(monkeypatch: pytest.MonkeyPatch) -> Non
 
 
 @pytest.mark.asyncio
-async def test_async_convert_to_jpeg_success(
+async def test_async_convert_to_jpeg_invalid_quality(
     monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.delenv("PDFREST_API_KEY", raising=False)
+
+    def handler(_: httpx.Request) -> httpx.Response:
+        pytest.fail("Request should not be sent when validation fails.")
+
+    transport = httpx.MockTransport(handler)
+    async with AsyncPdfRestClient(api_key=ASYNC_API_KEY, transport=transport) as client:
+        with pytest.raises(
+            ValidationError,
+            match=re.escape("Input should be greater than or equal to 1"),
+        ):
+            await client.convert_to_jpeg(
+                make_pdf_file(PdfRestFileID.generate(1)),
+                jpeg_quality=0,
+            )
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "color_model",
+    [
+        pytest.param("rgb", id="rgb"),
+        pytest.param("cmyk", id="cmyk"),
+        pytest.param("gray", id="gray"),
+    ],
+)
+async def test_async_convert_to_jpeg_success(
+    monkeypatch: pytest.MonkeyPatch, color_model: str
 ) -> None:
     monkeypatch.delenv("PDFREST_API_KEY", raising=False)
     input_file = make_pdf_file(PdfRestFileID.generate(1))
@@ -255,7 +428,7 @@ async def test_async_convert_to_jpeg_success(
             "output_prefix": "async-output",
             "page_range": "1-2",
             "resolution": 500,
-            "color_model": "gray",
+            "color_model": color_model,
             "jpeg_quality": 85,
             "smoothing": ["all"],
         }
@@ -293,7 +466,7 @@ async def test_async_convert_to_jpeg_success(
             output_prefix="async-output",
             page_range="1-2",
             resolution=500,
-            color_model="gray",
+            color_model=color_model,
             smoothing=["all"],
             jpeg_quality=85,
         )
@@ -381,6 +554,27 @@ def test_convert_to_jpeg_validation_error(monkeypatch: pytest.MonkeyPatch) -> No
         )
 
 
+@pytest.mark.asyncio
+async def test_async_convert_to_jpeg_validation_error(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.delenv("PDFREST_API_KEY", raising=False)
+
+    def handler(_: httpx.Request) -> httpx.Response:
+        pytest.fail("Request should not be sent when validation fails.")
+
+    transport = httpx.MockTransport(handler)
+    async with AsyncPdfRestClient(api_key=ASYNC_API_KEY, transport=transport) as client:
+        with pytest.raises(
+            ValidationError,
+            match="less than or equal to 2400",
+        ):
+            await client.convert_to_jpeg(
+                make_pdf_file(PdfRestFileID.generate(1)),
+                resolution=5000,
+            )
+
+
 def test_convert_to_jpeg_invalid_smoothing_value(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -403,6 +597,27 @@ def test_convert_to_jpeg_invalid_smoothing_value(
         )
 
 
+@pytest.mark.asyncio
+async def test_async_convert_to_jpeg_invalid_smoothing_value(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.delenv("PDFREST_API_KEY", raising=False)
+
+    def handler(_: httpx.Request) -> httpx.Response:
+        pytest.fail("Request should not be sent when validation fails.")
+
+    transport = httpx.MockTransport(handler)
+    async with AsyncPdfRestClient(api_key=ASYNC_API_KEY, transport=transport) as client:
+        with pytest.raises(
+            ValidationError,
+            match=re.escape("Input should be 'none', 'all', 'text', 'line' or 'image'"),
+        ):
+            await client.convert_to_jpeg(
+                make_pdf_file(PdfRestFileID.generate(1)),
+                smoothing="invalid",  # type: ignore[arg-type]
+            )
+
+
 def test_convert_to_jpeg_multiple_files_rejected(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -422,6 +637,26 @@ def test_convert_to_jpeg_multiple_files_rejected(
         ),
     ):
         client.convert_to_jpeg([first, second])
+
+
+@pytest.mark.asyncio
+async def test_async_convert_to_jpeg_multiple_files_rejected(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.delenv("PDFREST_API_KEY", raising=False)
+
+    def handler(_: httpx.Request) -> httpx.Response:
+        pytest.fail("Request should not be sent when validation fails.")
+
+    first = make_pdf_file(PdfRestFileID.generate(1))
+    second = make_pdf_file(PdfRestFileID.generate(1))
+    transport = httpx.MockTransport(handler)
+    async with AsyncPdfRestClient(api_key=ASYNC_API_KEY, transport=transport) as client:
+        with pytest.raises(
+            ValidationError,
+            match=re.escape("List should have at most 1 item after validation"),
+        ):
+            await client.convert_to_jpeg([first, second])
 
 
 def test_convert_to_jpeg_empty_page_range_rejected(
@@ -446,6 +681,27 @@ def test_convert_to_jpeg_empty_page_range_rejected(
         )
 
 
+@pytest.mark.asyncio
+async def test_async_convert_to_jpeg_empty_page_range_rejected(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.delenv("PDFREST_API_KEY", raising=False)
+
+    def handler(_: httpx.Request) -> httpx.Response:
+        pytest.fail("Request should not be sent when validation fails.")
+
+    transport = httpx.MockTransport(handler)
+    async with AsyncPdfRestClient(api_key=ASYNC_API_KEY, transport=transport) as client:
+        with pytest.raises(
+            ValidationError,
+            match=re.escape("List should have at least 1 item after validation"),
+        ):
+            await client.convert_to_jpeg(
+                make_pdf_file(PdfRestFileID.generate(1)),
+                page_range=[],
+            )
+
+
 def test_convert_to_jpeg_sequence_arguments(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.delenv("PDFREST_API_KEY", raising=False)
     input_file = make_pdf_file(PdfRestFileID.generate(1))
@@ -457,7 +713,7 @@ def test_convert_to_jpeg_sequence_arguments(monkeypatch: pytest.MonkeyPatch) -> 
             "page_range": "1, 3",
             "smoothing": "text",
         }
-    ).model_dump(mode="json", by_alias=True, exclude_none=True, exclude_defaults=True)
+    ).model_dump(mode="json", by_alias=True, exclude_none=True)
 
     seen: dict[str, int] = {"post": 0, "get": 0}
 
@@ -491,6 +747,56 @@ def test_convert_to_jpeg_sequence_arguments(monkeypatch: pytest.MonkeyPatch) -> 
 
     assert seen == {"post": 1, "get": 1}
     assert response.output_files[0].name == "example-001.jpg"
+
+
+@pytest.mark.asyncio
+async def test_async_convert_to_jpeg_sequence_arguments(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.delenv("PDFREST_API_KEY", raising=False)
+    input_file = make_pdf_file(PdfRestFileID.generate(1))
+    output_id = "cdef0123-7777-4ab0-9123-aaaaaaaabbbb"
+
+    request_payload = JpegPdfRestPayload.model_validate(
+        {
+            "files": [input_file],
+            "page_range": "1, 3",
+            "smoothing": "text",
+        }
+    ).model_dump(mode="json", by_alias=True, exclude_none=True)
+
+    seen: dict[str, int] = {"post": 0, "get": 0}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.method == "POST" and request.url.path == "/jpg":
+            seen["post"] += 1
+            payload = json.loads(request.content.decode("utf-8"))
+            assert_conversion_payload(payload, request_payload, allowed_extras=set())
+            return httpx.Response(
+                200,
+                json={"inputId": [input_file.id], "outputId": [output_id]},
+            )
+        if request.method == "GET" and request.url.path == f"/resource/{output_id}":
+            seen["get"] += 1
+            return httpx.Response(
+                200,
+                json=build_file_info_payload(
+                    output_id, "example-async-001.jpg", "image/jpeg"
+                ),
+            )
+        msg = f"Unexpected request {request.method} {request.url}"
+        raise AssertionError(msg)
+
+    transport = httpx.MockTransport(handler)
+    async with AsyncPdfRestClient(api_key=ASYNC_API_KEY, transport=transport) as client:
+        response = await client.convert_to_jpeg(
+            [input_file],
+            page_range="1, 3",
+            smoothing="text",
+        )
+
+    assert seen == {"post": 1, "get": 1}
+    assert response.output_files[0].name == "example-async-001.jpg"
 
 
 @pytest.mark.asyncio

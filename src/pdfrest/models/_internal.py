@@ -6,6 +6,7 @@ from collections.abc import Callable, Sequence
 from pathlib import PurePath
 from typing import Annotated, Any, Generic, Literal, TypeVar
 
+from langcodes import tag_is_valid
 from pydantic import (
     AfterValidator,
     AliasChoices,
@@ -21,7 +22,16 @@ from pydantic import (
 
 from pdfrest.types.public import PdfRedactionPreset
 
-from ..types import PdfInfoQuery, PdfXType
+from ..types import (
+    OcrLanguage,
+    PdfAType,
+    PdfInfoQuery,
+    PdfXType,
+    SummaryFormat,
+    SummaryOutputFormat,
+    SummaryOutputType,
+    TranslateOutputFormat,
+)
 from . import PdfRestFile
 from .public import PdfRestFileID
 
@@ -112,6 +122,12 @@ def _serialize_file_ids(value: list[PdfRestFile]) -> str:
     return ",".join(str(file.id) for file in value)
 
 
+def _bool_to_on_off(value: Any) -> Any:
+    if isinstance(value, bool):
+        return "on" if value else "off"
+    return value
+
+
 def _serialize_page_ranges(value: list[str | int | tuple[str | int, ...]]) -> str:
     def join_tuple(value: str | int | tuple[str | int, ...]) -> str:
         if isinstance(value, tuple):
@@ -158,6 +174,45 @@ def _int_to_string(value: Any) -> Any:
     if isinstance(value, list):
         return [_int_to_string(item) for item in value]  # pyright: ignore[reportUnknownVariableType]
     return value
+
+
+_OUTPUT_LANGUAGE_ERROR = (
+    "The provided 'output_language' language tag is invalid. Format 'output_language' as "
+    "a valid 2-3 character ISO 639 language code (e.g., 'en', 'es', 'fra'), optionally "
+    "with a script, alphabetic region, or numeric region (e.g., 'zh-Hant', 'eng-US', "
+    "'es-419'). See documentation for recommended formats."
+)
+
+
+def _validate_output_language(value: str) -> str:
+    if not value:
+        raise ValueError(_OUTPUT_LANGUAGE_ERROR)
+
+    trimmed = value.strip()
+    if not trimmed:
+        raise ValueError(_OUTPUT_LANGUAGE_ERROR)
+
+    segments = trimmed.split("-")
+    if len(segments) > 2:
+        raise ValueError(_OUTPUT_LANGUAGE_ERROR)
+
+    language = segments[0]
+    if not re.fullmatch(r"[A-Za-z]{2,3}", language):
+        raise ValueError(_OUTPUT_LANGUAGE_ERROR)
+
+    if len(segments) == 2:
+        subtag = segments[1]
+        if not (
+            re.fullmatch(r"[A-Za-z]{4}", subtag)
+            or re.fullmatch(r"[A-Za-z]{2}", subtag)
+            or re.fullmatch(r"[0-9]{3}", subtag)
+        ):
+            raise ValueError(_OUTPUT_LANGUAGE_ERROR)
+
+    if not tag_is_valid(trimmed):
+        raise ValueError(_OUTPUT_LANGUAGE_ERROR)
+
+    return trimmed
 
 
 class UploadURLs(BaseModel):
@@ -246,6 +301,265 @@ class PdfInfoPayload(BaseModel):
         BeforeValidator(_split_comma_list),
         PlainSerializer(_serialize_as_comma_separated_string),
     ]
+
+
+class SummarizePdfTextPayload(BaseModel):
+    """Adapt caller options into a pdfRest-ready summarize request payload."""
+
+    files: Annotated[
+        list[PdfRestFile],
+        Field(
+            min_length=1,
+            max_length=1,
+            validation_alias=AliasChoices("file", "files"),
+            serialization_alias="id",
+        ),
+        BeforeValidator(_ensure_list),
+        AfterValidator(
+            _allowed_mime_types(
+                "application/pdf",
+                "text/markdown",
+                "text/plain",
+                error_msg="Must be a PDF, Markdown, or plain text file",
+            )
+        ),
+        PlainSerializer(_serialize_as_first_file_id),
+    ]
+    target_word_count: Annotated[
+        int | None, Field(serialization_alias="target_word_count", ge=1, default=400)
+    ] = 400
+    summary_format: Annotated[
+        SummaryFormat, Field(serialization_alias="summary_format", default="overview")
+    ] = "overview"
+    pages: Annotated[
+        list[AscendingPageRange] | None,
+        Field(serialization_alias="pages", min_length=1, default=None),
+        BeforeValidator(_ensure_list),
+        BeforeValidator(_split_comma_list),
+        BeforeValidator(_int_to_string),
+        PlainSerializer(_serialize_page_ranges),
+    ] = None
+    output_format: Annotated[
+        SummaryOutputFormat,
+        Field(serialization_alias="output_format", default="markdown"),
+    ] = "markdown"
+    output_type: Annotated[
+        SummaryOutputType, Field(serialization_alias="output_type", default="json")
+    ] = "json"
+    output: Annotated[
+        str | None,
+        Field(serialization_alias="output", min_length=1, default=None),
+        AfterValidator(_validate_output_prefix),
+    ] = None
+
+
+class OcrPdfPayload(BaseModel):
+    """Adapt caller options into a pdfRest-ready OCR request payload."""
+
+    files: Annotated[
+        list[PdfRestFile],
+        Field(
+            min_length=1,
+            max_length=1,
+            validation_alias=AliasChoices("file", "files"),
+            serialization_alias="id",
+        ),
+        BeforeValidator(_ensure_list),
+        AfterValidator(
+            _allowed_mime_types("application/pdf", error_msg="Must be a PDF file")
+        ),
+        PlainSerializer(_serialize_as_first_file_id),
+    ]
+    languages: Annotated[
+        list[OcrLanguage],
+        Field(
+            serialization_alias="languages",
+            validation_alias=AliasChoices("languages", "language"),
+            min_length=1,
+            default_factory=lambda: ["English"],
+        ),
+        BeforeValidator(_ensure_list),
+        BeforeValidator(_split_comma_list),
+        PlainSerializer(_serialize_as_comma_separated_string),
+    ]
+    pages: Annotated[
+        list[AscendingPageRange] | None,
+        Field(serialization_alias="pages", min_length=1, default=None),
+        BeforeValidator(_ensure_list),
+        BeforeValidator(_split_comma_list),
+        BeforeValidator(_int_to_string),
+        PlainSerializer(_serialize_page_ranges),
+    ] = None
+    output: Annotated[
+        str | None,
+        Field(serialization_alias="output", min_length=1, default=None),
+        AfterValidator(_validate_output_prefix),
+    ] = None
+
+
+class ExtractTextPayload(BaseModel):
+    """Adapt caller options into a pdfRest-ready extract text request payload."""
+
+    files: Annotated[
+        list[PdfRestFile],
+        Field(
+            min_length=1,
+            max_length=1,
+            validation_alias=AliasChoices("file", "files"),
+            serialization_alias="id",
+        ),
+        BeforeValidator(_ensure_list),
+        AfterValidator(
+            _allowed_mime_types("application/pdf", error_msg="Must be a PDF file")
+        ),
+        PlainSerializer(_serialize_as_first_file_id),
+    ]
+    pages: Annotated[
+        list[AscendingPageRange] | None,
+        Field(serialization_alias="pages", min_length=1, default=None),
+        BeforeValidator(_ensure_list),
+        BeforeValidator(_split_comma_list),
+        BeforeValidator(_int_to_string),
+        PlainSerializer(_serialize_page_ranges),
+    ] = None
+    full_text: Literal["off", "by_page", "document"] = "document"
+    preserve_line_breaks: Annotated[
+        Literal["off", "on"], BeforeValidator(_bool_to_on_off)
+    ] = "off"
+    word_style: Annotated[Literal["off", "on"], BeforeValidator(_bool_to_on_off)] = (
+        "off"
+    )
+    word_coordinates: Annotated[
+        Literal["off", "on"], BeforeValidator(_bool_to_on_off)
+    ] = "off"
+    output_type: Literal["json", "file"] = "json"
+    output: Annotated[
+        str | None,
+        Field(serialization_alias="output", min_length=1, default=None),
+        AfterValidator(_validate_output_prefix),
+    ] = None
+
+
+class ConvertToMarkdownPayload(BaseModel):
+    """Adapt caller options into a pdfRest-ready markdown conversion payload."""
+
+    files: Annotated[
+        list[PdfRestFile],
+        Field(
+            min_length=1,
+            max_length=1,
+            validation_alias=AliasChoices("file", "files"),
+            serialization_alias="id",
+        ),
+        BeforeValidator(_ensure_list),
+        AfterValidator(
+            _allowed_mime_types("application/pdf", error_msg="Must be a PDF file")
+        ),
+        PlainSerializer(_serialize_as_first_file_id),
+    ]
+    pages: Annotated[
+        list[AscendingPageRange] | None,
+        Field(serialization_alias="pages", min_length=1, default=None),
+        BeforeValidator(_ensure_list),
+        BeforeValidator(_split_comma_list),
+        BeforeValidator(_int_to_string),
+        PlainSerializer(_serialize_page_ranges),
+    ] = None
+    output_type: Annotated[
+        SummaryOutputType, Field(serialization_alias="output_type", default="json")
+    ] = "json"
+    page_break_comments: Annotated[
+        Literal["on", "off"] | None,
+        Field(serialization_alias="page_break_comments", default=None),
+        BeforeValidator(_bool_to_on_off),
+    ] = None
+    output: Annotated[
+        str | None,
+        Field(serialization_alias="output", min_length=1, default=None),
+        AfterValidator(_validate_output_prefix),
+    ] = None
+
+
+class TranslatePdfTextPayload(BaseModel):
+    """Adapt caller options into a pdfRest-ready translate request payload."""
+
+    files: Annotated[
+        list[PdfRestFile],
+        Field(
+            min_length=1,
+            max_length=1,
+            validation_alias=AliasChoices("file", "files"),
+            serialization_alias="id",
+        ),
+        BeforeValidator(_ensure_list),
+        AfterValidator(
+            _allowed_mime_types(
+                "application/pdf",
+                "text/markdown",
+                "text/plain",
+                error_msg="Must be a PDF, Markdown, or plain text file",
+            )
+        ),
+        PlainSerializer(_serialize_as_first_file_id),
+    ]
+    output_language: Annotated[
+        str,
+        Field(serialization_alias="output_language"),
+        AfterValidator(_validate_output_language),
+    ]
+    pages: Annotated[
+        list[AscendingPageRange] | None,
+        Field(serialization_alias="pages", min_length=1, default=None),
+        BeforeValidator(_ensure_list),
+        BeforeValidator(_split_comma_list),
+        BeforeValidator(_int_to_string),
+        PlainSerializer(_serialize_page_ranges),
+    ] = None
+    output_format: Annotated[
+        TranslateOutputFormat,
+        Field(serialization_alias="output_format", default="markdown"),
+    ] = "markdown"
+    output_type: Annotated[
+        Literal["json", "file"],
+        Field(serialization_alias="output_type", default="json"),
+    ] = "json"
+    output: Annotated[
+        str | None,
+        Field(serialization_alias="output", min_length=1, default=None),
+        AfterValidator(_validate_output_prefix),
+    ] = None
+
+
+class ExtractImagesPayload(BaseModel):
+    """Adapt caller options into a pdfRest-ready extract images request payload."""
+
+    files: Annotated[
+        list[PdfRestFile],
+        Field(
+            min_length=1,
+            max_length=1,
+            validation_alias=AliasChoices("file", "files"),
+            serialization_alias="id",
+        ),
+        BeforeValidator(_ensure_list),
+        AfterValidator(
+            _allowed_mime_types("application/pdf", error_msg="Must be a PDF file")
+        ),
+        PlainSerializer(_serialize_as_first_file_id),
+    ]
+    pages: Annotated[
+        list[AscendingPageRange] | None,
+        Field(serialization_alias="pages", min_length=1, default=None),
+        BeforeValidator(_ensure_list),
+        BeforeValidator(_split_comma_list),
+        BeforeValidator(_int_to_string),
+        PlainSerializer(_serialize_page_ranges),
+    ] = None
+    output: Annotated[
+        str | None,
+        Field(serialization_alias="output", min_length=1, default=None),
+        AfterValidator(_validate_output_prefix),
+    ] = None
 
 
 RgbChannel = Annotated[int, Field(ge=0, le=255)]
@@ -519,6 +833,87 @@ class PdfToWordPayload(BaseModel):
     ] = None
 
 
+class PdfToExcelPayload(BaseModel):
+    """Adapt caller options into a pdfRest-ready Excel request payload."""
+
+    files: Annotated[
+        list[PdfRestFile],
+        Field(
+            min_length=1,
+            max_length=1,
+            validation_alias=AliasChoices("file", "files"),
+            serialization_alias="id",
+        ),
+        BeforeValidator(_ensure_list),
+        AfterValidator(
+            _allowed_mime_types("application/pdf", error_msg="Must be a PDF file")
+        ),
+        PlainSerializer(_serialize_as_first_file_id),
+    ]
+    output: Annotated[
+        str | None,
+        Field(serialization_alias="output", min_length=1, default=None),
+        AfterValidator(_validate_output_prefix),
+    ] = None
+
+
+class PdfToPowerpointPayload(BaseModel):
+    """Adapt caller options into a pdfRest-ready PowerPoint request payload."""
+
+    files: Annotated[
+        list[PdfRestFile],
+        Field(
+            min_length=1,
+            max_length=1,
+            validation_alias=AliasChoices("file", "files"),
+            serialization_alias="id",
+        ),
+        BeforeValidator(_ensure_list),
+        AfterValidator(
+            _allowed_mime_types("application/pdf", error_msg="Must be a PDF file")
+        ),
+        PlainSerializer(_serialize_as_first_file_id),
+    ]
+    output: Annotated[
+        str | None,
+        Field(serialization_alias="output", min_length=1, default=None),
+        AfterValidator(_validate_output_prefix),
+    ] = None
+
+
+class PdfToPdfaPayload(BaseModel):
+    """Adapt caller options into a pdfRest-ready PDF/A request payload."""
+
+    files: Annotated[
+        list[PdfRestFile],
+        Field(
+            min_length=1,
+            max_length=1,
+            validation_alias=AliasChoices("file", "files"),
+            serialization_alias="id",
+        ),
+        BeforeValidator(_ensure_list),
+        AfterValidator(
+            _allowed_mime_types("application/pdf", error_msg="Must be a PDF file")
+        ),
+        PlainSerializer(_serialize_as_first_file_id),
+    ]
+    output_type: Annotated[PdfAType, Field(serialization_alias="output_type")]
+    output: Annotated[
+        str | None,
+        Field(serialization_alias="output", min_length=1, default=None),
+        AfterValidator(_validate_output_prefix),
+    ] = None
+    rasterize_if_errors_encountered: Annotated[
+        Literal["on", "off"] | None,
+        Field(
+            serialization_alias="rasterize_if_errors_encountered",
+            default=None,
+        ),
+        BeforeValidator(_bool_to_on_off),
+    ] = None
+
+
 class PdfToPdfxPayload(BaseModel):
     """Adapt caller options into a pdfRest-ready PDF/X request payload."""
 
@@ -624,6 +1019,127 @@ class PdfCompressPayload(BaseModel):
             msg = "A profile can only be provided when compression_level is 'custom'."
             raise ValueError(msg)
         return self
+
+
+class PdfXfaToAcroformsPayload(BaseModel):
+    """Adapt caller options into a pdfRest-ready XFA-to-AcroForms request payload."""
+
+    files: Annotated[
+        list[PdfRestFile],
+        Field(
+            min_length=1,
+            max_length=1,
+            validation_alias=AliasChoices("file", "files"),
+            serialization_alias="id",
+        ),
+        BeforeValidator(_ensure_list),
+        AfterValidator(
+            _allowed_mime_types("application/pdf", error_msg="Must be a PDF file")
+        ),
+        PlainSerializer(_serialize_as_first_file_id),
+    ]
+    output: Annotated[
+        str | None,
+        Field(serialization_alias="output", min_length=1, default=None),
+        AfterValidator(_validate_output_prefix),
+    ] = None
+
+
+class PdfLinearizePayload(BaseModel):
+    """Adapt caller options into a pdfRest-ready linearize PDF request payload."""
+
+    files: Annotated[
+        list[PdfRestFile],
+        Field(
+            min_length=1,
+            max_length=1,
+            validation_alias=AliasChoices("file", "files"),
+            serialization_alias="id",
+        ),
+        BeforeValidator(_ensure_list),
+        AfterValidator(
+            _allowed_mime_types("application/pdf", error_msg="Must be a PDF file")
+        ),
+        PlainSerializer(_serialize_as_first_file_id),
+    ]
+    output: Annotated[
+        str | None,
+        Field(serialization_alias="output", min_length=1, default=None),
+        AfterValidator(_validate_output_prefix),
+    ] = None
+
+
+class PdfRasterizePayload(BaseModel):
+    """Adapt caller options into a pdfRest-ready rasterize PDF request payload."""
+
+    files: Annotated[
+        list[PdfRestFile],
+        Field(
+            min_length=1,
+            max_length=1,
+            validation_alias=AliasChoices("file", "files"),
+            serialization_alias="id",
+        ),
+        BeforeValidator(_ensure_list),
+        AfterValidator(
+            _allowed_mime_types("application/pdf", error_msg="Must be a PDF file")
+        ),
+        PlainSerializer(_serialize_as_first_file_id),
+    ]
+    output: Annotated[
+        str | None,
+        Field(serialization_alias="output", min_length=1, default=None),
+        AfterValidator(_validate_output_prefix),
+    ] = None
+
+
+class PdfFlattenTransparenciesPayload(BaseModel):
+    """Adapt caller options into a pdfRest-ready flatten-transparencies request payload."""
+
+    files: Annotated[
+        list[PdfRestFile],
+        Field(
+            min_length=1,
+            max_length=1,
+            validation_alias=AliasChoices("file", "files"),
+            serialization_alias="id",
+        ),
+        BeforeValidator(_ensure_list),
+        AfterValidator(
+            _allowed_mime_types("application/pdf", error_msg="Must be a PDF file")
+        ),
+        PlainSerializer(_serialize_as_first_file_id),
+    ]
+    output: Annotated[
+        str | None,
+        Field(serialization_alias="output", min_length=1, default=None),
+        AfterValidator(_validate_output_prefix),
+    ] = None
+    quality: Literal["low", "medium", "high"] = "medium"
+
+
+class PdfFlattenAnnotationsPayload(BaseModel):
+    """Adapt caller options into a pdfRest-ready flatten-annotations request payload."""
+
+    files: Annotated[
+        list[PdfRestFile],
+        Field(
+            min_length=1,
+            max_length=1,
+            validation_alias=AliasChoices("file", "files"),
+            serialization_alias="id",
+        ),
+        BeforeValidator(_ensure_list),
+        AfterValidator(
+            _allowed_mime_types("application/pdf", error_msg="Must be a PDF file")
+        ),
+        PlainSerializer(_serialize_as_first_file_id),
+    ]
+    output: Annotated[
+        str | None,
+        Field(serialization_alias="output", min_length=1, default=None),
+        AfterValidator(_validate_output_prefix),
+    ] = None
 
 
 class BmpPdfRestPayload(BasePdfRestGraphicPayload[Literal["rgb", "gray"]]):

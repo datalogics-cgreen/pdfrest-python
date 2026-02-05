@@ -9,11 +9,11 @@ from ..resources import get_test_resource_path
 
 
 @pytest.fixture(scope="module")
-def uploaded_pdf_with_forms(
+def uploaded_pdf_for_transparencies(
     pdfrest_api_key: str,
     pdfrest_live_base_url: str,
 ) -> PdfRestFile:
-    resource = get_test_resource_path("form_with_data.pdf")
+    resource = get_test_resource_path("report.pdf")
     with PdfRestClient(
         api_key=pdfrest_api_key,
         base_url=pdfrest_live_base_url,
@@ -22,19 +22,20 @@ def uploaded_pdf_with_forms(
 
 
 @pytest.mark.parametrize(
-    "output_name",
+    ("output_name", "quality"),
     [
-        pytest.param(None, id="default-output"),
-        pytest.param("flattened-live", id="custom-output"),
+        pytest.param(None, "medium", id="default-output"),
+        pytest.param("flatten-transparency", "high", id="custom-output-high"),
     ],
 )
-def test_live_flatten_pdf_forms(
+def test_live_flatten_transparencies_success(
     pdfrest_api_key: str,
     pdfrest_live_base_url: str,
-    uploaded_pdf_with_forms: PdfRestFile,
+    uploaded_pdf_for_transparencies: PdfRestFile,
     output_name: str | None,
+    quality: str,
 ) -> None:
-    kwargs: dict[str, str] = {}
+    kwargs: dict[str, str] = {"quality": quality}
     if output_name is not None:
         kwargs["output"] = output_name
 
@@ -42,12 +43,16 @@ def test_live_flatten_pdf_forms(
         api_key=pdfrest_api_key,
         base_url=pdfrest_live_base_url,
     ) as client:
-        response = client.flatten_pdf_forms(uploaded_pdf_with_forms, **kwargs)
+        response = client.flatten_transparencies(
+            uploaded_pdf_for_transparencies, **kwargs
+        )
 
     assert response.output_files
     output_file = response.output_file
     assert output_file.type == "application/pdf"
-    assert str(response.input_id) == str(uploaded_pdf_with_forms.id)
+    assert output_file.size > 0
+    assert response.warning is None
+    assert str(response.input_id) == str(uploaded_pdf_for_transparencies.id)
     if output_name is not None:
         assert output_file.name.startswith(output_name)
     else:
@@ -56,19 +61,20 @@ def test_live_flatten_pdf_forms(
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize(
-    "output_name",
+    ("output_name", "quality"),
     [
-        pytest.param(None, id="default-output"),
-        pytest.param("flattened-live", id="custom-output"),
+        pytest.param(None, "medium", id="default-output"),
+        pytest.param("flatten-transparency", "high", id="custom-output-high"),
     ],
 )
-async def test_live_async_flatten_pdf_forms(
+async def test_live_async_flatten_transparencies_success(
     pdfrest_api_key: str,
     pdfrest_live_base_url: str,
-    uploaded_pdf_with_forms: PdfRestFile,
+    uploaded_pdf_for_transparencies: PdfRestFile,
     output_name: str | None,
+    quality: str,
 ) -> None:
-    kwargs: dict[str, str] = {}
+    kwargs: dict[str, str] = {"quality": quality}
     if output_name is not None:
         kwargs["output"] = output_name
 
@@ -76,9 +82,8 @@ async def test_live_async_flatten_pdf_forms(
         api_key=pdfrest_api_key,
         base_url=pdfrest_live_base_url,
     ) as client:
-        response = await client.flatten_pdf_forms(
-            uploaded_pdf_with_forms,
-            **kwargs,
+        response = await client.flatten_transparencies(
+            uploaded_pdf_for_transparencies, **kwargs
         )
 
     assert response.output_files
@@ -88,13 +93,15 @@ async def test_live_async_flatten_pdf_forms(
     else:
         assert output_file.name.endswith(".pdf")
     assert output_file.type == "application/pdf"
-    assert str(response.input_id) == str(uploaded_pdf_with_forms.id)
+    assert output_file.size > 0
+    assert response.warning is None
+    assert str(response.input_id) == str(uploaded_pdf_for_transparencies.id)
 
 
-def test_live_flatten_pdf_forms_invalid_file_id(
+def test_live_flatten_transparencies_invalid_file_id(
     pdfrest_api_key: str,
     pdfrest_live_base_url: str,
-    uploaded_pdf_with_forms: PdfRestFile,
+    uploaded_pdf_for_transparencies: PdfRestFile,
 ) -> None:
     with (
         PdfRestClient(
@@ -103,24 +110,24 @@ def test_live_flatten_pdf_forms_invalid_file_id(
         ) as client,
         pytest.raises(PdfRestApiError, match=r"(?i)(id|file)"),
     ):
-        client.flatten_pdf_forms(
-            uploaded_pdf_with_forms,
-            extra_body={"id": "ffffffff-ffff-ffff-ffff-ffffffffffff"},
+        client.flatten_transparencies(
+            uploaded_pdf_for_transparencies,
+            extra_body={"id": "00000000-0000-0000-0000-000000000000"},
         )
 
 
 @pytest.mark.asyncio
-async def test_live_async_flatten_pdf_forms_invalid_file_id(
+async def test_live_async_flatten_transparencies_invalid_file_id(
     pdfrest_api_key: str,
     pdfrest_live_base_url: str,
-    uploaded_pdf_with_forms: PdfRestFile,
+    uploaded_pdf_for_transparencies: PdfRestFile,
 ) -> None:
     async with AsyncPdfRestClient(
         api_key=pdfrest_api_key,
         base_url=pdfrest_live_base_url,
     ) as client:
         with pytest.raises(PdfRestApiError, match=r"(?i)(id|file)"):
-            await client.flatten_pdf_forms(
-                uploaded_pdf_with_forms,
-                extra_body={"id": "00000000-0000-0000-0000-000000000000"},
+            await client.flatten_transparencies(
+                uploaded_pdf_for_transparencies,
+                extra_body={"id": "ffffffff-ffff-ffff-ffff-ffffffffffff"},
             )
