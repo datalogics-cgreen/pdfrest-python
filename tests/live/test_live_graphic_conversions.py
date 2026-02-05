@@ -36,6 +36,14 @@ PAYLOAD_MODELS: dict[str, _GraphicEndpointSpec] = {
     "tiff": _GraphicEndpointSpec("convert_to_tiff", TiffPdfRestPayload),
 }
 
+_EXPECTED_FILE_FORMATS: dict[str, tuple[str, str]] = {
+    "png": ("image/png", ".png"),
+    "bmp": ("image/bmp", ".bmp"),
+    "gif": ("image/gif", ".gif"),
+    "jpeg": ("image/jpeg", ".jpg"),
+    "tiff": ("image/tiff", ".tif"),
+}
+
 
 def _enumerate_color_models(
     payload_model: type[BasePdfRestGraphicPayload[Any]],
@@ -108,6 +116,22 @@ def _invalid_smoothing_cases() -> list[Any]:
     return cases
 
 
+def _expected_file_format(label: str) -> tuple[str, str]:
+    return _EXPECTED_FILE_FORMATS[label]
+
+
+def _assert_output_files(
+    output_files: Sequence[PdfRestFile],
+    *,
+    expected_mime: str,
+    expected_suffix: str,
+) -> None:
+    assert output_files
+    assert all(file_info.name.endswith(expected_suffix) for file_info in output_files)
+    assert all(file_info.type == expected_mime for file_info in output_files)
+    assert all(file_info.size > 0 for file_info in output_files)
+
+
 @pytest.fixture(scope="module")
 def uploaded_20_page_pdf(
     pdfrest_api_key: str,
@@ -137,8 +161,11 @@ def test_live_convert_to_png_success(
             resolution=150,
         )
 
-    assert response.output_files
-    assert all(file_info.type == "image/png" for file_info in response.output_files)
+    _assert_output_files(
+        response.output_files,
+        expected_mime="image/png",
+        expected_suffix=".png",
+    )
     assert str(response.input_id) == str(uploaded.id)
 
 
@@ -159,8 +186,11 @@ async def test_live_async_convert_to_png_success(
             resolution=150,
         )
 
-    assert response.output_files
-    assert all(file_info.type == "image/png" for file_info in response.output_files)
+    _assert_output_files(
+        response.output_files,
+        expected_mime="image/png",
+        expected_suffix=".png",
+    )
     assert str(response.input_id) == str(uploaded.id)
 
 
@@ -183,12 +213,17 @@ def test_live_graphic_valid_color_models(
     ) as client:
         uploaded = client.files.create_from_paths([resource])[0]
         client_method = getattr(client, spec.method_name)
+        expected_mime, expected_suffix = _expected_file_format(_endpoint_label)
         response = client_method(
             uploaded,
             color_model=color_model,
             resolution=resolution,
         )
-        assert response.output_files
+        _assert_output_files(
+            response.output_files,
+            expected_mime=expected_mime,
+            expected_suffix=expected_suffix,
+        )
 
 
 @pytest.mark.asyncio
@@ -212,12 +247,17 @@ async def test_live_async_graphic_valid_color_models(
     ) as client:
         uploaded = (await client.files.create_from_paths([resource]))[0]
         client_method = getattr(client, spec.method_name)
+        expected_mime, expected_suffix = _expected_file_format(_endpoint_label)
         response = await client_method(
             uploaded,
             color_model=color_model,
             resolution=resolution,
         )
-        assert response.output_files
+        _assert_output_files(
+            response.output_files,
+            expected_mime=expected_mime,
+            expected_suffix=expected_suffix,
+        )
 
 
 @pytest.mark.parametrize(
@@ -318,7 +358,11 @@ def test_live_graphic_resolution_bounds(
                 client_method(uploaded, **call_kwargs)
         else:
             response = client_method(uploaded, **call_kwargs)
-            assert response.output_files
+            _assert_output_files(
+                response.output_files,
+                expected_mime="image/png",
+                expected_suffix=".png",
+            )
 
 
 @pytest.mark.asyncio
@@ -363,7 +407,11 @@ async def test_live_async_graphic_resolution_bounds(
                 await client_method(uploaded, **call_kwargs)
         else:
             response = await client_method(uploaded, **call_kwargs)
-            assert response.output_files
+            _assert_output_files(
+                response.output_files,
+                expected_mime="image/png",
+                expected_suffix=".png",
+            )
 
 
 @pytest.mark.parametrize(
@@ -383,11 +431,16 @@ def test_live_graphic_valid_smoothing(
     ) as client:
         uploaded = client.files.create_from_paths([resource])[0]
         client_method = getattr(client, spec.method_name)
+        expected_mime, expected_suffix = _expected_file_format(_endpoint_label)
         response = client_method(
             uploaded,
             smoothing=smoothing_value,
         )
-        assert response.output_files
+        _assert_output_files(
+            response.output_files,
+            expected_mime=expected_mime,
+            expected_suffix=expected_suffix,
+        )
 
 
 @pytest.mark.asyncio
@@ -408,11 +461,16 @@ async def test_live_async_graphic_valid_smoothing(
     ) as client:
         uploaded = (await client.files.create_from_paths([resource]))[0]
         client_method = getattr(client, spec.method_name)
+        expected_mime, expected_suffix = _expected_file_format(_endpoint_label)
         response = await client_method(
             uploaded,
             smoothing=smoothing_value,
         )
-        assert response.output_files
+        _assert_output_files(
+            response.output_files,
+            expected_mime=expected_mime,
+            expected_suffix=expected_suffix,
+        )
 
 
 @pytest.mark.parametrize(
@@ -504,12 +562,10 @@ def test_live_png_page_range_variants(
 
             expected_pages = _expand_page_selection(page_range, total_pages=20)
             assert len(response.output_files) == len(expected_pages)
-            assert any(
-                file_info.name.endswith(".png") for file_info in response.output_files
-            )
-            assert all(
-                file_info.type == "image/png" and file_info.size > 0
-                for file_info in response.output_files
+            _assert_output_files(
+                response.output_files,
+                expected_mime="image/png",
+                expected_suffix=".png",
             )
             assert str(response.input_id) == str(uploaded_20_page_pdf.id)
         else:
@@ -560,12 +616,10 @@ async def test_live_async_png_page_range_variants(
 
             expected_pages = _expand_page_selection(page_range, total_pages=20)
             assert len(response.output_files) == len(expected_pages)
-            assert any(
-                file_info.name.endswith(".png") for file_info in response.output_files
-            )
-            assert all(
-                file_info.type == "image/png" and file_info.size > 0
-                for file_info in response.output_files
+            _assert_output_files(
+                response.output_files,
+                expected_mime="image/png",
+                expected_suffix=".png",
             )
             assert str(response.input_id) == str(uploaded_20_page_pdf.id)
         else:
