@@ -48,6 +48,14 @@ jobs:
           --compare-branch origin/${{ github.base_ref }}
           --fail-under 90
           --markdown-report coverage/py${{ matrix.python-version }}/diff-cover.md
+      - name: Check client class function coverage
+        run: >
+          uv run python scripts/check_class_function_coverage.py
+          coverage/py${{ matrix.python-version }}/coverage.json
+          --class PdfRestClient
+          --class AsyncPdfRestClient
+          --fail-under 90
+          --markdown-report coverage/py${{ matrix.python-version }}/class-function-coverage.md
       - name: Upload coverage reports
         if: always()
         uses: actions/upload-artifact@v4
