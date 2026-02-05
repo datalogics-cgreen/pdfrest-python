@@ -537,6 +537,56 @@ def test_prepare_request_rejects_files_with_json(
         )
 
 
+def test_prepare_request_rejects_missing_leading_slash(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("PDFREST_API_KEY", VALID_API_KEY)
+    with (
+        PdfRestClient(api_key=VALID_API_KEY) as client,
+        pytest.raises(PdfRestConfigurationError, match="endpoint must start with '/'"),
+    ):
+        client.prepare_request("GET", "up")
+
+
+@pytest.mark.asyncio
+async def test_async_prepare_request_rejects_missing_leading_slash(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("PDFREST_API_KEY", ASYNC_API_KEY)
+    async with AsyncPdfRestClient(api_key=ASYNC_API_KEY) as client:
+        with pytest.raises(
+            PdfRestConfigurationError, match="endpoint must start with '/'"
+        ):
+            client.prepare_request("GET", "up")
+
+
+def test_prepare_request_accepts_iterator_and_marks_stream(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("PDFREST_API_KEY", VALID_API_KEY)
+    file_iter = iter([("file", BytesIO(b"data"))])
+    with PdfRestClient(api_key=VALID_API_KEY) as client:
+        request = client.prepare_request("POST", "/upload", files=file_iter)
+
+    assert isinstance(request.files, list)
+    assert len(request.files) == 1
+    assert request.has_stream_uploads()
+
+
+@pytest.mark.asyncio
+async def test_async_prepare_request_accepts_iterator_and_marks_stream(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("PDFREST_API_KEY", ASYNC_API_KEY)
+    file_iter = iter([("file", BytesIO(b"data"))])
+    async with AsyncPdfRestClient(api_key=ASYNC_API_KEY) as client:
+        request = client.prepare_request("POST", "/upload", files=file_iter)
+
+    assert isinstance(request.files, list)
+    assert len(request.files) == 1
+    assert request.has_stream_uploads()
+
+
 def test_download_file_retries_on_error(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("PDFREST_API_KEY", VALID_API_KEY)
     monkeypatch.setattr(client_module.random, "uniform", lambda *_: 0.0)
@@ -639,6 +689,76 @@ def test_authentication_error_handles_non_json(
         client.up()
     assert "Authentication with pdfRest failed." in str(exc_info.value)
     assert exc_info.value.response_content == "Unauthorized"
+
+
+def test_client_raises_for_non_json_success_response(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("PDFREST_API_KEY", VALID_API_KEY)
+
+    def handler(_: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, text="not-json")
+
+    transport = httpx.MockTransport(handler)
+    with (
+        pytest.raises(PdfRestApiError, match="Response body is not valid JSON") as exc,
+        PdfRestClient(transport=transport) as client,
+    ):
+        client.up()
+    assert exc.value.status_code == 200
+    assert exc.value.response_content == "not-json"
+
+
+@pytest.mark.asyncio
+async def test_async_client_raises_for_non_json_success_response(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("PDFREST_API_KEY", ASYNC_API_KEY)
+
+    def handler(_: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, text="not-json")
+
+    transport = httpx.MockTransport(handler)
+    async with AsyncPdfRestClient(transport=transport) as client:
+        with pytest.raises(
+            PdfRestApiError, match="Response body is not valid JSON"
+        ) as exc:
+            await client.up()
+    assert exc.value.status_code == 200
+    assert exc.value.response_content == "not-json"
+
+
+def test_client_uses_text_for_non_json_error_payload(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("PDFREST_API_KEY", VALID_API_KEY)
+
+    def handler(_: httpx.Request) -> httpx.Response:
+        return httpx.Response(500, text="server blew up")
+
+    transport = httpx.MockTransport(handler)
+    with (
+        pytest.raises(PdfRestApiError, match="status code 500") as exc,
+        PdfRestClient(transport=transport) as client,
+    ):
+        client.up()
+    assert exc.value.response_content == "server blew up"
+
+
+@pytest.mark.asyncio
+async def test_async_client_uses_text_for_non_json_error_payload(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("PDFREST_API_KEY", ASYNC_API_KEY)
+
+    def handler(_: httpx.Request) -> httpx.Response:
+        return httpx.Response(500, text="server blew up")
+
+    transport = httpx.MockTransport(handler)
+    async with AsyncPdfRestClient(transport=transport) as client:
+        with pytest.raises(PdfRestApiError, match="status code 500") as exc:
+            await client.up()
+    assert exc.value.response_content == "server blew up"
 
 
 def test_client_raises_for_non_success_response(
