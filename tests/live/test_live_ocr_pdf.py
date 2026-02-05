@@ -12,7 +12,7 @@ def test_live_ocr_pdf_success(
     pdfrest_api_key: str,
     pdfrest_live_base_url: str,
 ) -> None:
-    resource = get_test_resource_path("report.pdf")
+    resource = get_test_resource_path("report-image.pdf")
     with PdfRestClient(
         api_key=pdfrest_api_key,
         base_url=pdfrest_live_base_url,
@@ -35,7 +35,7 @@ async def test_live_async_ocr_pdf_success(
     pdfrest_api_key: str,
     pdfrest_live_base_url: str,
 ) -> None:
-    resource = get_test_resource_path("report.pdf")
+    resource = get_test_resource_path("report-image.pdf")
     async with AsyncPdfRestClient(
         api_key=pdfrest_api_key,
         base_url=pdfrest_live_base_url,
@@ -56,7 +56,7 @@ def test_live_ocr_pdf_invalid_pages(
     pdfrest_api_key: str,
     pdfrest_live_base_url: str,
 ) -> None:
-    resource = get_test_resource_path("report.pdf")
+    resource = get_test_resource_path("report-image.pdf")
     with PdfRestClient(
         api_key=pdfrest_api_key,
         base_url=pdfrest_live_base_url,
@@ -74,7 +74,7 @@ async def test_live_async_ocr_pdf_invalid_pages(
     pdfrest_api_key: str,
     pdfrest_live_base_url: str,
 ) -> None:
-    resource = get_test_resource_path("report.pdf")
+    resource = get_test_resource_path("report-image.pdf")
     async with AsyncPdfRestClient(
         api_key=pdfrest_api_key,
         base_url=pdfrest_live_base_url,
