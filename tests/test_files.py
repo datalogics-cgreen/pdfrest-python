@@ -605,6 +605,45 @@ def test_files_create_from_paths_supports_metadata() -> None:
     _assert_file_matches_payload(response[0], info_payload)
 
 
+def test_files_create_from_paths_supports_content_type_only() -> None:
+    uploaded_file_id = str(uuid.uuid4())
+    info_payload = _build_file_info_payload(uploaded_file_id, "report.pdf")
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.method == "POST" and request.url.path == "/upload":
+            body = request.content
+            assert b'filename="report.pdf"' in body
+            assert b"Content-Type: application/test-pdf" in body
+            return httpx.Response(
+                200,
+                json={
+                    "files": [
+                        {"name": "report.pdf", "id": uploaded_file_id},
+                    ]
+                },
+            )
+        if request.method == "GET":
+            assert request.url.params["format"] == "info"
+            return httpx.Response(200, json=info_payload)
+        msg = f"Unexpected request: {request.method} {request.url}"
+        raise AssertionError(msg)
+
+    transport = httpx.MockTransport(handler)
+    report_pdf = get_test_resource_path("report.pdf")
+    with PdfRestClient(api_key=VALID_API_KEY, transport=transport) as client:
+        response = client.files.create_from_paths(
+            [
+                (
+                    report_pdf,
+                    "application/test-pdf",
+                )
+            ]
+        )
+
+    assert len(response) == 1
+    _assert_file_matches_payload(response[0], info_payload)
+
+
 class TestDownloadHelpers:
     @pytest.fixture
     def client(self) -> Iterator[tuple[PdfRestClient, bytes, dict[str, Any]]]:
@@ -1232,6 +1271,48 @@ async def test_async_files_create_from_paths_single_path() -> None:
     report_pdf = get_test_resource_path("report.pdf")
     async with AsyncPdfRestClient(api_key=VALID_API_KEY, transport=transport) as client:
         response = await client.files.create_from_paths(report_pdf)
+
+    assert len(response) == 1
+    _assert_file_matches_payload(response[0], info_payload)
+
+
+@pytest.mark.asyncio
+async def test_async_files_create_from_paths_supports_metadata() -> None:
+    uploaded_file_id = str(uuid.uuid4())
+    info_payload = _build_file_info_payload(uploaded_file_id, "report.pdf")
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.method == "POST" and request.url.path == "/upload":
+            body = request.content
+            assert b'filename="report.pdf"' in body
+            assert b"Content-Type: application/test-pdf" in body
+            assert b"X-Custom: header" in body
+            return httpx.Response(
+                200,
+                json={
+                    "files": [
+                        {"name": "report.pdf", "id": uploaded_file_id},
+                    ]
+                },
+            )
+        if request.method == "GET":
+            assert request.url.params["format"] == "info"
+            return httpx.Response(200, json=info_payload)
+        msg = f"Unexpected request: {request.method} {request.url}"
+        raise AssertionError(msg)
+
+    transport = httpx.MockTransport(handler)
+    report_pdf = get_test_resource_path("report.pdf")
+    async with AsyncPdfRestClient(api_key=VALID_API_KEY, transport=transport) as client:
+        response = await client.files.create_from_paths(
+            [
+                (
+                    report_pdf,
+                    "application/test-pdf",
+                    {"X-Custom": "header"},
+                )
+            ]
+        )
 
     assert len(response) == 1
     _assert_file_matches_payload(response[0], info_payload)
