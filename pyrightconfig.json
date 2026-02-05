@@ -23,6 +23,9 @@
       "root": "src"
     },
     {
+      "root": "scripts"
+    },
+    {
       "root": "examples",
       "pythonVersion": "3.11"
     },
