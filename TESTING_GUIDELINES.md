@@ -19,9 +19,9 @@ iteration required.
   asserting method/path/headers/body). Optional payload branches (for example,
   `pages`, `output`, `rgb_color`, and output-prefix fields) require explicit
   tests so serialization differences are caught early.
-- **Check parity regularly.** Run `scripts/check_test_parity.sh` (defaults to
-  `upstream/main..HEAD`) to spot missing sync/async counterparts, keeping
-  parameterized test IDs aligned between transports.
+- **Check client coverage regularly.** Run `uvx nox -s class-coverage` to
+  enforce minimum function-level coverage for `PdfRestClient` and
+  `AsyncPdfRestClient`.
 - **Exercise both sides of the contract.** Hermetic tests (via
   `httpx.MockTransport`) validate serialization and local validation. Live
   suites prove the server behaves the same way, including invalid literal
