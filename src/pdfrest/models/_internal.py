@@ -148,8 +148,22 @@ def _serialize_redactions(value: list[_PdfRedactionVariant]) -> str:
     return json.dumps(payload, separators=(",", ":"))
 
 
+def _serialize_text_object_value(value: Any) -> Any:
+    if isinstance(value, str):
+        return value
+    return json.dumps(value, separators=(",", ":"))
+
+
 def _serialize_text_objects(value: list[BaseModel]) -> str:
-    payload = [entry.model_dump(mode="json", exclude_none=True) for entry in value]
+    payload = [
+        {
+            key: _serialize_text_object_value(field_value)
+            for key, field_value in entry.model_dump(
+                mode="json", exclude_none=True
+            ).items()
+        }
+        for entry in value
+    ]
     return json.dumps(payload, separators=(",", ":"))
 
 

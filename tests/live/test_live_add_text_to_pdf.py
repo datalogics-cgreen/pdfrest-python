@@ -42,12 +42,22 @@ def _serialize_text_object_for_extra_body(
     text_object: dict[str, object],
 ) -> dict[str, object]:
     serialized = dict(text_object)
+    # PdfAddTextObjectModel coercion: numeric placement/size fields are floats on
+    # serialization even when callers provide integers.
+    for key in ("max_width", "rotation", "text_size", "x", "y"):
+        value = serialized.get(key)
+        if isinstance(value, int):
+            serialized[key] = float(value)
     rgb = serialized.get("text_color_rgb")
     if isinstance(rgb, (list, tuple)):
         serialized["text_color_rgb"] = ",".join(str(channel) for channel in rgb)
     cmyk = serialized.get("text_color_cmyk")
     if isinstance(cmyk, (list, tuple)):
         serialized["text_color_cmyk"] = ",".join(str(channel) for channel in cmyk)
+    # Match add-text wire format where each non-string value is JSON-quoted.
+    for key, value in list(serialized.items()):
+        if not isinstance(value, str):
+            serialized[key] = json.dumps(value, separators=(",", ":"))
     return serialized
 
 

@@ -39,6 +39,8 @@ def _serialize_text_object_for_request(
     text_object: dict[str, object],
 ) -> dict[str, object]:
     serialized = dict(text_object)
+    # PdfAddTextObjectModel defines these fields as floats, so Pydantic serializes
+    # integer inputs as 200.0/45.0/etc. Mirror that to keep wire assertions exact.
     for key in ("max_width", "rotation", "text_size", "x", "y"):
         value = serialized.get(key)
         if isinstance(value, int):
@@ -49,6 +51,10 @@ def _serialize_text_object_for_request(
     cmyk = serialized.get("text_color_cmyk")
     if isinstance(cmyk, (list, tuple)):
         serialized["text_color_cmyk"] = ",".join(str(channel) for channel in cmyk)
+    # Add-text payloads now quote non-string values inside the text_objects JSON.
+    for key, value in list(serialized.items()):
+        if not isinstance(value, str):
+            serialized[key] = json.dumps(value, separators=(",", ":"))
     return serialized
 
 
