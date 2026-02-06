@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import json
-from collections.abc import Callable
 
 import httpx
 import pytest
@@ -9,7 +8,6 @@ from pydantic import ValidationError
 
 from pdfrest import AsyncPdfRestClient, PdfRestClient
 from pdfrest.models import PdfRestFile, PdfRestFileBasedResponse, PdfRestFileID
-from pdfrest.models._internal import PdfAddAttachmentPayload
 
 from .graphics_test_helpers import (
     ASYNC_API_KEY,
@@ -33,10 +31,6 @@ def test_add_attachment_to_pdf_success(monkeypatch: pytest.MonkeyPatch) -> None:
     attachment = make_attachment_file(str(PdfRestFileID.generate()), "notes.txt")
     output_id = str(PdfRestFileID.generate())
 
-    payload_dump = PdfAddAttachmentPayload.model_validate(
-        {"files": [input_file], "attachments": [attachment], "output": "attached"}
-    ).model_dump(mode="json", by_alias=True, exclude_none=True, exclude_unset=True)
-
     seen: dict[str, int] = {"post": 0, "get": 0}
 
     def handler(request: httpx.Request) -> httpx.Response:
@@ -46,7 +40,9 @@ def test_add_attachment_to_pdf_success(monkeypatch: pytest.MonkeyPatch) -> None:
         ):
             seen["post"] += 1
             payload = json.loads(request.content.decode("utf-8"))
-            assert payload == payload_dump
+            assert payload["id"] == str(input_file.id)
+            assert payload["id_to_attach"] == str(attachment.id)
+            assert payload["output"] == "attached"
             return httpx.Response(
                 200,
                 json={
@@ -303,33 +299,45 @@ def test_add_attachment_to_pdf_requires_pdf_file(
         client.add_attachment_to_pdf(not_pdf, attachment=attachment)
 
 
-@pytest.mark.parametrize(
-    "payload_data",
-    [
-        pytest.param(
-            lambda pdf, attachment: {
-                "files": [pdf, make_pdf_file(PdfRestFileID.generate())],
-                "attachments": [attachment],
-            },
-            id="multiple-input-files",
-        ),
-        pytest.param(
-            lambda pdf, attachment: {
-                "files": [pdf],
-                "attachments": [
-                    attachment,
-                    make_attachment_file(str(PdfRestFileID.generate())),
-                ],
-            },
-            id="multiple-attachments",
-        ),
-    ],
-)
-def test_add_attachment_to_pdf_rejects_multiple_files(
-    payload_data: Callable[[PdfRestFile, PdfRestFile], dict[str, object]],
+def test_add_attachment_to_pdf_rejects_multiple_input_files(
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    input_file = make_pdf_file(PdfRestFileID.generate())
-    attachment = make_attachment_file(str(PdfRestFileID.generate()))
+    monkeypatch.delenv("PDFREST_API_KEY", raising=False)
 
-    with pytest.raises(ValidationError):
-        PdfAddAttachmentPayload.model_validate(payload_data(input_file, attachment))
+    def handler(_: httpx.Request) -> httpx.Response:
+        pytest.fail("Request should not be sent when validation fails.")
+
+    transport = httpx.MockTransport(handler)
+    with (
+        PdfRestClient(api_key=VALID_API_KEY, transport=transport) as client,
+        pytest.raises(ValidationError, match="at most 1 item"),
+    ):
+        client.add_attachment_to_pdf(
+            [
+                make_pdf_file(PdfRestFileID.generate(1)),
+                make_pdf_file(PdfRestFileID.generate(2)),
+            ],
+            attachment=make_attachment_file(str(PdfRestFileID.generate())),
+        )
+
+
+def test_add_attachment_to_pdf_rejects_multiple_attachments(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.delenv("PDFREST_API_KEY", raising=False)
+
+    def handler(_: httpx.Request) -> httpx.Response:
+        pytest.fail("Request should not be sent when validation fails.")
+
+    transport = httpx.MockTransport(handler)
+    with (
+        PdfRestClient(api_key=VALID_API_KEY, transport=transport) as client,
+        pytest.raises(ValidationError, match="at most 1 item"),
+    ):
+        client.add_attachment_to_pdf(
+            make_pdf_file(PdfRestFileID.generate(1)),
+            attachment=[
+                make_attachment_file(str(PdfRestFileID.generate(2))),
+                make_attachment_file(str(PdfRestFileID.generate(3)), "more.txt"),
+            ],
+        )

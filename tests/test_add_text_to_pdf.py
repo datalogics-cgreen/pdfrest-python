@@ -9,7 +9,6 @@ from pydantic import ValidationError
 
 from pdfrest import AsyncPdfRestClient, PdfRestClient
 from pdfrest.models import PdfRestFileBasedResponse, PdfRestFileID
-from pdfrest.models._internal import PdfAddTextPayload
 
 from .graphics_test_helpers import (
     ASYNC_API_KEY,
@@ -36,18 +35,23 @@ def make_text_object(**overrides: object) -> dict[str, object]:
     return base
 
 
+def _serialize_text_object_for_request(
+    text_object: dict[str, object],
+) -> dict[str, object]:
+    serialized = dict(text_object)
+    rgb = serialized.get("text_color_rgb")
+    if isinstance(rgb, (list, tuple)):
+        serialized["text_color_rgb"] = ",".join(str(channel) for channel in rgb)
+    cmyk = serialized.get("text_color_cmyk")
+    if isinstance(cmyk, (list, tuple)):
+        serialized["text_color_cmyk"] = ",".join(str(channel) for channel in cmyk)
+    return serialized
+
+
 def test_add_text_to_pdf_success(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.delenv("PDFREST_API_KEY", raising=False)
     pdf_file = make_pdf_file(PdfRestFileID.generate(1))
     output_id = str(PdfRestFileID.generate())
-
-    request_payload = PdfAddTextPayload.model_validate(
-        {
-            "files": [pdf_file],
-            "text_objects": [make_text_object()],
-            "output": "with-text",
-        }
-    ).model_dump(mode="json", by_alias=True, exclude_none=True, exclude_unset=True)
 
     seen: dict[str, int] = {"post": 0, "get": 0}
 
@@ -55,7 +59,12 @@ def test_add_text_to_pdf_success(monkeypatch: pytest.MonkeyPatch) -> None:
         if request.method == "POST" and request.url.path == "/pdf-with-added-text":
             seen["post"] += 1
             payload = json.loads(request.content.decode("utf-8"))
-            assert payload == request_payload
+            assert payload["id"] == str(pdf_file.id)
+            assert payload["output"] == "with-text"
+            assert payload["text_objects"] == json.dumps(
+                [_serialize_text_object_for_request(make_text_object())],
+                separators=(",", ":"),
+            )
             return httpx.Response(
                 200,
                 json={
@@ -215,6 +224,28 @@ def test_add_text_to_pdf_text_size_bounds(
         )
 
 
+def test_add_text_to_pdf_rejects_multiple_input_files(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.delenv("PDFREST_API_KEY", raising=False)
+
+    def handler(_: httpx.Request) -> httpx.Response:
+        pytest.fail("Request should not be sent when validation fails.")
+
+    transport = httpx.MockTransport(handler)
+    with (
+        PdfRestClient(api_key=VALID_API_KEY, transport=transport) as client,
+        pytest.raises(ValidationError, match="at most 1 item"),
+    ):
+        client.add_text_to_pdf(
+            [
+                make_pdf_file(PdfRestFileID.generate(1)),
+                make_pdf_file(PdfRestFileID.generate(2)),
+            ],
+            text_objects=[make_text_object()],
+        )
+
+
 @pytest.mark.asyncio
 async def test_async_add_text_to_pdf_success(
     monkeypatch: pytest.MonkeyPatch,
@@ -223,20 +254,17 @@ async def test_async_add_text_to_pdf_success(
     pdf_file = make_pdf_file(PdfRestFileID.generate(1))
     output_id = str(PdfRestFileID.generate())
 
-    request_payload = PdfAddTextPayload.model_validate(
-        {
-            "files": [pdf_file],
-            "text_objects": [make_text_object(page="all")],
-        }
-    ).model_dump(mode="json", by_alias=True, exclude_none=True, exclude_unset=True)
-
     seen: dict[str, int] = {"post": 0, "get": 0}
 
     def handler(request: httpx.Request) -> httpx.Response:
         if request.method == "POST" and request.url.path == "/pdf-with-added-text":
             seen["post"] += 1
             payload = json.loads(request.content.decode("utf-8"))
-            assert payload == request_payload
+            assert payload["id"] == str(pdf_file.id)
+            assert payload["text_objects"] == json.dumps(
+                [_serialize_text_object_for_request(make_text_object(page="all"))],
+                separators=(",", ":"),
+            )
             return httpx.Response(
                 200,
                 json={
@@ -275,6 +303,7 @@ async def test_async_add_text_to_pdf_request_customization(
     monkeypatch.delenv("PDFREST_API_KEY", raising=False)
     pdf_file = make_pdf_file(PdfRestFileID.generate(1))
     output_id = str(PdfRestFileID.generate())
+    captured_timeout: dict[str, float | dict[str, float] | None] = {}
 
     def handler(request: httpx.Request) -> httpx.Response:
         if request.method == "POST" and request.url.path == "/pdf-with-added-text":
@@ -282,6 +311,7 @@ async def test_async_add_text_to_pdf_request_customization(
             assert request.headers["X-Test"] == "async"
             payload = json.loads(request.content.decode("utf-8"))
             assert payload["text_size"] == 18
+            captured_timeout["value"] = request.extensions.get("timeout")
             return httpx.Response(
                 200,
                 json={
@@ -315,6 +345,14 @@ async def test_async_add_text_to_pdf_request_customization(
         )
 
     assert response.output_files[0].name == "async-custom-text.pdf"
+    timeout_value = captured_timeout["value"]
+    assert timeout_value is not None
+    if isinstance(timeout_value, dict):
+        assert all(
+            component == pytest.approx(1.0) for component in timeout_value.values()
+        )
+    else:
+        assert timeout_value == pytest.approx(1.0)
 
 
 @pytest.mark.asyncio

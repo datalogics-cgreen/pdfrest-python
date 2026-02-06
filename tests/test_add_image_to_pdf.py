@@ -9,7 +9,6 @@ from pydantic import ValidationError
 
 from pdfrest import AsyncPdfRestClient, PdfRestClient
 from pdfrest.models import PdfRestFileBasedResponse, PdfRestFileID
-from pdfrest.models._internal import PdfAddImagePayload
 
 from .graphics_test_helpers import (
     ASYNC_API_KEY,
@@ -28,17 +27,6 @@ def test_add_image_to_pdf_success(monkeypatch: pytest.MonkeyPatch) -> None:
     )
     output_id = str(PdfRestFileID.generate())
 
-    request_payload = PdfAddImagePayload.model_validate(
-        {
-            "files": [pdf_file],
-            "image": [image_file],
-            "x": 12,
-            "y": 34,
-            "page": 3,
-            "output": "with-image",
-        }
-    ).model_dump(mode="json", by_alias=True, exclude_none=True, exclude_unset=True)
-
     seen: dict[str, int] = {"post": 0, "get": 0}
 
     def handler(request: httpx.Request) -> httpx.Response:
@@ -46,7 +34,12 @@ def test_add_image_to_pdf_success(monkeypatch: pytest.MonkeyPatch) -> None:
             seen["post"] += 1
             assert request.headers["wsn"] == "pdfrest-python"
             payload = json.loads(request.content.decode("utf-8"))
-            assert payload == request_payload
+            assert payload["id"] == str(pdf_file.id)
+            assert payload["image_id"] == str(image_file.id)
+            assert payload["x"] == 12
+            assert payload["y"] == 34
+            assert payload["page"] == 3
+            assert payload["output"] == "with-image"
             return httpx.Response(
                 200,
                 json={
@@ -222,6 +215,56 @@ def test_add_image_to_pdf_page_minimum(monkeypatch: pytest.MonkeyPatch) -> None:
         )
 
 
+def test_add_image_to_pdf_rejects_multiple_input_files(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.delenv("PDFREST_API_KEY", raising=False)
+
+    def handler(_: httpx.Request) -> httpx.Response:
+        pytest.fail("Request should not be sent when validation fails.")
+
+    transport = httpx.MockTransport(handler)
+    with (
+        PdfRestClient(api_key=VALID_API_KEY, transport=transport) as client,
+        pytest.raises(ValidationError, match="at most 1 item"),
+    ):
+        client.add_image_to_pdf(
+            [
+                make_pdf_file(PdfRestFileID.generate(1)),
+                make_pdf_file(PdfRestFileID.generate(2)),
+            ],
+            image=make_image_file(PdfRestFileID.generate(3)),
+            x=1,
+            y=1,
+            page=1,
+        )
+
+
+def test_add_image_to_pdf_rejects_multiple_images(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.delenv("PDFREST_API_KEY", raising=False)
+
+    def handler(_: httpx.Request) -> httpx.Response:
+        pytest.fail("Request should not be sent when validation fails.")
+
+    transport = httpx.MockTransport(handler)
+    with (
+        PdfRestClient(api_key=VALID_API_KEY, transport=transport) as client,
+        pytest.raises(ValidationError, match="at most 1 item"),
+    ):
+        client.add_image_to_pdf(
+            make_pdf_file(PdfRestFileID.generate(1)),
+            image=[
+                make_image_file(PdfRestFileID.generate(2)),
+                make_image_file(PdfRestFileID.generate(3), name="secondary.png"),
+            ],
+            x=1,
+            y=1,
+            page=1,
+        )
+
+
 @pytest.mark.asyncio
 async def test_async_add_image_to_pdf_success(
     monkeypatch: pytest.MonkeyPatch,
@@ -231,23 +274,17 @@ async def test_async_add_image_to_pdf_success(
     image_file = make_image_file(PdfRestFileID.generate(2), mime_type="image/gif")
     output_id = str(PdfRestFileID.generate())
 
-    request_payload = PdfAddImagePayload.model_validate(
-        {
-            "files": [pdf_file],
-            "image": [image_file],
-            "x": 5,
-            "y": 6,
-            "page": 7,
-        }
-    ).model_dump(mode="json", by_alias=True, exclude_none=True, exclude_unset=True)
-
     seen: dict[str, int] = {"post": 0, "get": 0}
 
     def handler(request: httpx.Request) -> httpx.Response:
         if request.method == "POST" and request.url.path == "/pdf-with-added-image":
             seen["post"] += 1
             payload = json.loads(request.content.decode("utf-8"))
-            assert payload == request_payload
+            assert payload["id"] == str(pdf_file.id)
+            assert payload["image_id"] == str(image_file.id)
+            assert payload["x"] == 5
+            assert payload["y"] == 6
+            assert payload["page"] == 7
             return httpx.Response(
                 200,
                 json={
@@ -289,6 +326,7 @@ async def test_async_add_image_to_pdf_request_customization(
     pdf_file = make_pdf_file(PdfRestFileID.generate(1))
     image_file = make_image_file(PdfRestFileID.generate(2))
     output_id = str(PdfRestFileID.generate())
+    captured_timeout: dict[str, float | dict[str, float] | None] = {}
 
     def handler(request: httpx.Request) -> httpx.Response:
         if request.method == "POST" and request.url.path == "/pdf-with-added-image":
@@ -297,6 +335,7 @@ async def test_async_add_image_to_pdf_request_customization(
             payload = json.loads(request.content.decode("utf-8"))
             assert payload["x"] == 15
             assert payload["y"] == 25
+            captured_timeout["value"] = request.extensions.get("timeout")
             return httpx.Response(
                 200,
                 json={
@@ -331,6 +370,14 @@ async def test_async_add_image_to_pdf_request_customization(
         )
 
     assert response.output_files[0].name == "async-custom-with-image.pdf"
+    timeout_value = captured_timeout["value"]
+    assert timeout_value is not None
+    if isinstance(timeout_value, dict):
+        assert all(
+            component == pytest.approx(1.0) for component in timeout_value.values()
+        )
+    else:
+        assert timeout_value == pytest.approx(1.0)
 
 
 @pytest.mark.asyncio

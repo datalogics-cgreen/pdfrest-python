@@ -108,3 +108,25 @@ def test_live_add_image_to_pdf_invalid_page(
             page=1,
             extra_body={"page": 0},
         )
+
+
+@pytest.mark.asyncio
+async def test_live_async_add_image_to_pdf_invalid_page(
+    pdfrest_api_key: str,
+    pdfrest_live_base_url: str,
+    uploaded_pdf_for_image_addition: PdfRestFile,
+    uploaded_image: PdfRestFile,
+) -> None:
+    async with AsyncPdfRestClient(
+        api_key=pdfrest_api_key,
+        base_url=pdfrest_live_base_url,
+    ) as client:
+        with pytest.raises(PdfRestApiError, match=r"(?i)page"):
+            await client.add_image_to_pdf(
+                uploaded_pdf_for_image_addition,
+                image=uploaded_image,
+                x=0,
+                y=0,
+                page=1,
+                extra_body={"page": 0},
+            )

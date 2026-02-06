@@ -103,3 +103,28 @@ def test_live_add_text_to_pdf_invalid_page(
                 ]
             },
         )
+
+
+@pytest.mark.asyncio
+async def test_live_async_add_text_to_pdf_invalid_page(
+    pdfrest_api_key: str,
+    pdfrest_live_base_url: str,
+    uploaded_pdf_for_text: PdfRestFile,
+) -> None:
+    async with AsyncPdfRestClient(
+        api_key=pdfrest_api_key,
+        base_url=pdfrest_live_base_url,
+    ) as client:
+        with pytest.raises(PdfRestApiError, match=r"(?i)page"):
+            await client.add_text_to_pdf(
+                uploaded_pdf_for_text,
+                text_objects=[_default_text_object()],
+                extra_body={
+                    "text_objects": [
+                        {
+                            **_default_text_object(),
+                            "page": 0,
+                        }
+                    ]
+                },
+            )
