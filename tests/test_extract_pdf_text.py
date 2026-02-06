@@ -60,6 +60,11 @@ EXTRACT_TEXT_OPTION_SETS = [
     for preserve, word_style, word_coordinates in BOOL_OPTION_SETS
 ]
 
+PAGES_OPTION_SETS = [
+    pytest.param(None, id="without-pages"),
+    pytest.param(["1-2"], id="with-pages"),
+]
+
 
 @pytest.mark.parametrize("options", EXTRACT_TEXT_OPTION_SETS)
 def test_extract_pdf_text_success(
@@ -163,8 +168,10 @@ def test_extract_pdf_text_request_customization(
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("options", EXTRACT_TEXT_OPTION_SETS)
+@pytest.mark.parametrize("pages", PAGES_OPTION_SETS)
 async def test_async_extract_pdf_text_success(
     options: Mapping[str, bool | str],
+    pages: list[str] | None,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.delenv("PDFREST_API_KEY", raising=False)
@@ -173,6 +180,8 @@ async def test_async_extract_pdf_text_success(
         "files": [input_file],
         "output_type": "json",
     }
+    if pages is not None:
+        base_payload["pages"] = pages
     payload_input = base_payload | dict(options)
     payload_dump = ExtractTextPayload.model_validate(payload_input).model_dump(
         mode="json",
@@ -197,13 +206,16 @@ async def test_async_extract_pdf_text_success(
         api_key=ASYNC_API_KEY,
         transport=transport,
     ) as client:
-        response = await client.extract_pdf_text(
-            input_file,
-            full_text=options["full_text"],
-            preserve_line_breaks=options["preserve_line_breaks"],
-            word_style=options["word_style"],
-            word_coordinates=options["word_coordinates"],
-        )
+        request_kwargs: dict[str, object] = {
+            "full_text": options["full_text"],
+            "preserve_line_breaks": options["preserve_line_breaks"],
+            "word_style": options["word_style"],
+            "word_coordinates": options["word_coordinates"],
+        }
+        if pages is not None:
+            request_kwargs["pages"] = pages
+
+        response = await client.extract_pdf_text(input_file, **request_kwargs)
 
     assert seen == {"post": 1}
     assert isinstance(response, ExtractedTextDocument)
