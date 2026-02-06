@@ -167,6 +167,61 @@ def test_extract_pdf_text_request_customization(
 
 
 @pytest.mark.asyncio
+async def test_async_extract_pdf_text_request_customization(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.delenv("PDFREST_API_KEY", raising=False)
+    input_file = make_pdf_file(PdfRestFileID.generate(2))
+    payload_dump = ExtractTextPayload.model_validate(
+        {
+            "files": [input_file],
+            "full_text": "document",
+            "preserve_line_breaks": False,
+            "word_style": False,
+            "word_coordinates": False,
+            "output_type": "json",
+        }
+    ).model_dump(mode="json", by_alias=True, exclude_none=True, exclude_unset=True)
+    expected_response = _make_extracted_text_document_payload(str(input_file.id))
+    captured_timeout: dict[str, float | dict[str, float] | None] = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.method == "POST" and request.url.path == "/extracted-text":
+            assert request.url.params["trace"] == "true"
+            assert request.headers["X-Debug"] == "async-json"
+            captured_timeout["post"] = request.extensions.get("timeout")
+            payload = json.loads(request.content.decode("utf-8"))
+            assert payload == payload_dump | {"debug": True}
+            return httpx.Response(200, json=expected_response)
+        msg = f"Unexpected request {request.method} {request.url}"
+        raise AssertionError(msg)
+
+    transport = httpx.MockTransport(handler)
+    async with AsyncPdfRestClient(
+        api_key=ASYNC_API_KEY,
+        transport=transport,
+    ) as client:
+        response = await client.extract_pdf_text(
+            input_file,
+            extra_query={"trace": "true"},
+            extra_headers={"X-Debug": "async-json"},
+            extra_body={"debug": True},
+            timeout=0.25,
+        )
+
+    assert isinstance(response, ExtractedTextDocument)
+    post_timeout = captured_timeout["post"]
+    assert post_timeout is not None
+    if isinstance(post_timeout, dict):
+        assert all(
+            component == pytest.approx(0.25) for component in post_timeout.values()
+        )
+    else:
+        assert post_timeout == pytest.approx(0.25)
+    assert response.model_dump(by_alias=True, exclude_none=True) == expected_response
+
+
+@pytest.mark.asyncio
 @pytest.mark.parametrize("options", EXTRACT_TEXT_OPTION_SETS)
 @pytest.mark.parametrize("pages", PAGES_OPTION_SETS)
 async def test_async_extract_pdf_text_success(
