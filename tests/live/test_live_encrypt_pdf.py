@@ -208,7 +208,7 @@ def test_live_remove_open_password_invalid_password(
             new_open_password=correct_password,
             output="live-open-invalid",
         ).output_file
-        with pytest.raises(PdfRestApiError, match="open password"):
+        with pytest.raises(PdfRestApiError, match="password-protected"):
             client.remove_open_password(
                 restricted,
                 current_open_password=wrong_password,
@@ -234,7 +234,7 @@ async def test_live_async_remove_open_password_invalid_password(
                 output="async-live-open-invalid",
             )
         ).output_file
-        with pytest.raises(PdfRestApiError, match="open password"):
+        with pytest.raises(PdfRestApiError, match="password-protected"):
             await client.remove_open_password(
                 restricted,
                 current_open_password=wrong_password,
