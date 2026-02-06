@@ -59,7 +59,7 @@ def test_live_extract_pdf_text_success(
     assert isinstance(response, ExtractedTextDocument)
     assert response.input_id == uploaded.id
     _assert_live_full_text(response, full_text_mode=options["full_text"])
-    if options["word_style"] == "on" or options["word_coordinates"] == "on":
+    if options["word_style"] or options["word_coordinates"]:
         assert response.words is not None
         assert response.words
 
@@ -82,7 +82,7 @@ async def test_live_async_extract_pdf_text_success(
     assert isinstance(response, ExtractedTextDocument)
     assert response.input_id == uploaded.id
     _assert_live_full_text(response, full_text_mode=options["full_text"])
-    if options["word_style"] == "on" or options["word_coordinates"] == "on":
+    if options["word_style"] or options["word_coordinates"]:
         assert response.words is not None
         assert response.words
 
