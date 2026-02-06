@@ -9,7 +9,6 @@ from pydantic import ValidationError
 
 from pdfrest import AsyncPdfRestClient, PdfRestClient
 from pdfrest.models import PdfRestFile, PdfRestFileBasedResponse, PdfRestFileID
-from pdfrest.models._internal import PdfRestrictPayload, PdfUnrestrictPayload
 from pdfrest.types import PdfRestriction
 
 from .graphics_test_helpers import (
@@ -34,6 +33,48 @@ def make_non_pdf_file(file_id: str) -> PdfRestFile:
     )
 
 
+def build_restrict_payload(
+    input_file: PdfRestFile,
+    *,
+    new_permissions_password: str,
+    current_permissions_password: str | None = None,
+    current_open_password: str | None = None,
+    restrictions: list[PdfRestriction] | None = None,
+    output: str | None = None,
+) -> dict[str, str | list[PdfRestriction]]:
+    payload: dict[str, str | list[PdfRestriction]] = {
+        "id": str(input_file.id),
+        "new_permissions_password": new_permissions_password,
+    }
+    if current_permissions_password is not None:
+        payload["current_permissions_password"] = current_permissions_password
+    if current_open_password is not None:
+        payload["current_open_password"] = current_open_password
+    if restrictions is not None:
+        payload["restrictions"] = restrictions
+    if output is not None:
+        payload["output"] = output
+    return payload
+
+
+def build_unrestrict_payload(
+    input_file: PdfRestFile,
+    *,
+    current_permissions_password: str,
+    current_open_password: str | None = None,
+    output: str | None = None,
+) -> dict[str, str]:
+    payload: dict[str, str] = {
+        "id": str(input_file.id),
+        "current_permissions_password": current_permissions_password,
+    }
+    if current_open_password is not None:
+        payload["current_open_password"] = current_open_password
+    if output is not None:
+        payload["output"] = output
+    return payload
+
+
 @pytest.mark.parametrize(
     "restrictions",
     [
@@ -50,16 +91,12 @@ def test_add_permissions_password_success(
     output_id = str(PdfRestFileID.generate())
     new_password = make_password("secure")
     open_password = make_password("open")
-    payload_input: dict[str, object] = {
-        "files": [input_file],
-        "new_permissions_password": new_password,
-        "current_open_password": open_password,
-        "output": "restricted",
-    }
-    if restrictions is not None:
-        payload_input["restrictions"] = restrictions
-    payload_dump = PdfRestrictPayload.model_validate(payload_input).model_dump(
-        mode="json", by_alias=True, exclude_none=True, exclude_unset=True
+    payload_dump = build_restrict_payload(
+        input_file,
+        new_permissions_password=new_password,
+        current_open_password=open_password,
+        restrictions=restrictions,
+        output="restricted",
     )
 
     seen: dict[str, int] = {"post": 0, "get": 0}
@@ -115,14 +152,12 @@ def test_add_permissions_password_request_customization(
     output_id = str(PdfRestFileID.generate())
     captured_timeout: dict[str, float | dict[str, float] | None] = {}
     new_password = make_password("custom")
-    payload_dump = PdfRestrictPayload.model_validate(
-        {
-            "files": [input_file],
-            "new_permissions_password": new_password,
-            "restrictions": ["print_high"],
-            "output": "custom-restricted",
-        }
-    ).model_dump(mode="json", by_alias=True, exclude_none=True, exclude_unset=True)
+    payload_dump = build_restrict_payload(
+        input_file,
+        new_permissions_password=new_password,
+        restrictions=["print_high"],
+        output="custom-restricted",
+    )
 
     def handler(request: httpx.Request) -> httpx.Response:
         if request.method == "POST" and request.url.path == "/restricted-pdf":
@@ -185,15 +220,15 @@ def test_change_permissions_password_request_customization(
     captured_timeout: dict[str, float | dict[str, float] | None] = {}
     current_password = make_password("old")
     new_password = make_password("new")
-    payload_dump = PdfRestrictPayload.model_validate(
-        {
-            "files": [input_file],
-            "current_permissions_password": current_password,
-            "new_permissions_password": new_password,
-            "restrictions": ["edit_content"],
-            "output": "rotated",
-        }
-    ).model_dump(mode="json", by_alias=True, exclude_none=True, exclude_unset=True)
+    current_open_password = make_password("open")
+    payload_dump = build_restrict_payload(
+        input_file,
+        current_permissions_password=current_password,
+        new_permissions_password=new_password,
+        current_open_password=current_open_password,
+        restrictions=["edit_content"],
+        output="rotated",
+    )
 
     def handler(request: httpx.Request) -> httpx.Response:
         if request.method == "POST" and request.url.path == "/restricted-pdf":
@@ -230,6 +265,7 @@ def test_change_permissions_password_request_customization(
             input_file,
             current_permissions_password=current_password,
             new_permissions_password=new_password,
+            current_open_password=current_open_password,
             restrictions=["edit_content"],
             output="rotated",
             extra_query={"trace": "sync"},
@@ -255,13 +291,11 @@ def test_remove_permissions_password_success(
     input_file = make_pdf_file(PdfRestFileID.generate(1))
     output_id = str(PdfRestFileID.generate())
     current_password = make_password("old")
-    payload_dump = PdfUnrestrictPayload.model_validate(
-        {
-            "files": [input_file],
-            "current_permissions_password": current_password,
-            "output": "clean",
-        }
-    ).model_dump(mode="json", by_alias=True, exclude_none=True, exclude_unset=True)
+    payload_dump = build_unrestrict_payload(
+        input_file,
+        current_permissions_password=current_password,
+        output="clean",
+    )
 
     seen: dict[str, int] = {"post": 0, "get": 0}
 
@@ -305,6 +339,74 @@ def test_remove_permissions_password_success(
     assert response.output_file.type == "application/pdf"
 
 
+def test_remove_permissions_password_request_customization(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.delenv("PDFREST_API_KEY", raising=False)
+    input_file = make_pdf_file(PdfRestFileID.generate(1))
+    output_id = str(PdfRestFileID.generate())
+    captured_timeout: dict[str, float | dict[str, float] | None] = {}
+    current_password = make_password("remove-custom")
+    open_password = make_password("open-custom")
+    payload_dump = build_unrestrict_payload(
+        input_file,
+        current_permissions_password=current_password,
+        current_open_password=open_password,
+        output="clean-custom",
+    )
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.method == "POST" and request.url.path == "/unrestricted-pdf":
+            assert request.url.params["trace"] == "sync"
+            assert request.headers["X-Debug"] == "sync"
+            captured_timeout["value"] = request.extensions.get("timeout")
+            payload = json.loads(request.content.decode("utf-8"))
+            assert payload == {**payload_dump, "audit": "enabled"}
+            return httpx.Response(
+                200,
+                json={
+                    "inputId": [input_file.id],
+                    "outputId": [output_id],
+                },
+            )
+        if request.method == "GET" and request.url.path == f"/resource/{output_id}":
+            assert request.url.params["format"] == "info"
+            assert request.url.params["trace"] == "sync"
+            assert request.headers["X-Debug"] == "sync"
+            return httpx.Response(
+                200,
+                json=build_file_info_payload(
+                    output_id,
+                    "clean-custom.pdf",
+                    "application/pdf",
+                ),
+            )
+        msg = f"Unexpected request {request.method} {request.url}"
+        raise AssertionError(msg)
+
+    transport = httpx.MockTransport(handler)
+    with PdfRestClient(api_key=VALID_API_KEY, transport=transport) as client:
+        response = client.remove_permissions_password(
+            input_file,
+            current_permissions_password=current_password,
+            current_open_password=open_password,
+            output="clean-custom",
+            extra_query={"trace": "sync"},
+            extra_headers={"X-Debug": "sync"},
+            extra_body={"audit": "enabled"},
+            timeout=0.69,
+        )
+
+    assert isinstance(response, PdfRestFileBasedResponse)
+    assert response.output_file.name == "clean-custom.pdf"
+    timeout_value = captured_timeout["value"]
+    assert timeout_value is not None
+    if isinstance(timeout_value, dict):
+        assert all(pytest.approx(0.69) == value for value in timeout_value.values())
+    else:
+        assert timeout_value == pytest.approx(0.69)
+
+
 @pytest.mark.asyncio
 @pytest.mark.parametrize(
     "restrictions",
@@ -321,15 +423,11 @@ async def test_async_add_permissions_password_success(
     input_file = make_pdf_file(PdfRestFileID.generate(1))
     output_id = str(PdfRestFileID.generate())
     new_password = make_password("secure")
-    payload_input: dict[str, object] = {
-        "files": [input_file],
-        "new_permissions_password": new_password,
-        "output": "restricted",
-    }
-    if restrictions is not None:
-        payload_input["restrictions"] = restrictions
-    payload_dump = PdfRestrictPayload.model_validate(payload_input).model_dump(
-        mode="json", by_alias=True, exclude_none=True, exclude_unset=True
+    payload_dump = build_restrict_payload(
+        input_file,
+        new_permissions_password=new_password,
+        restrictions=restrictions,
+        output="restricted",
     )
 
     seen: dict[str, int] = {"post": 0, "get": 0}
@@ -385,13 +483,13 @@ async def test_async_add_permissions_password_request_customization(
     output_id = str(PdfRestFileID.generate())
     captured_timeout: dict[str, float | dict[str, float] | None] = {}
     new_password = make_password("async")
-    payload_dump = PdfRestrictPayload.model_validate(
-        {
-            "files": [input_file],
-            "new_permissions_password": new_password,
-            "restrictions": ["print_high"],
-        }
-    ).model_dump(mode="json", by_alias=True, exclude_none=True, exclude_unset=True)
+    current_open_password = make_password("async-open")
+    payload_dump = build_restrict_payload(
+        input_file,
+        new_permissions_password=new_password,
+        current_open_password=current_open_password,
+        restrictions=["print_high"],
+    )
 
     def handler(request: httpx.Request) -> httpx.Response:
         if request.method == "POST" and request.url.path == "/restricted-pdf":
@@ -427,6 +525,7 @@ async def test_async_add_permissions_password_request_customization(
         response = await client.add_permissions_password(
             input_file,
             new_permissions_password=new_password,
+            current_open_password=current_open_password,
             restrictions=["print_high"],
             extra_query={"trace": "async"},
             extra_headers={"X-Debug": "async"},
@@ -454,15 +553,15 @@ async def test_async_change_permissions_password_request_customization(
     captured_timeout: dict[str, float | dict[str, float] | None] = {}
     current_password = make_password("old-async")
     new_password = make_password("new-async")
-    payload_dump = PdfRestrictPayload.model_validate(
-        {
-            "files": [input_file],
-            "current_permissions_password": current_password,
-            "new_permissions_password": new_password,
-            "restrictions": ["edit_content"],
-            "output": "async-rotated",
-        }
-    ).model_dump(mode="json", by_alias=True, exclude_none=True, exclude_unset=True)
+    current_open_password = make_password("open-async")
+    payload_dump = build_restrict_payload(
+        input_file,
+        current_permissions_password=current_password,
+        new_permissions_password=new_password,
+        current_open_password=current_open_password,
+        restrictions=["edit_content"],
+        output="async-rotated",
+    )
 
     def handler(request: httpx.Request) -> httpx.Response:
         if request.method == "POST" and request.url.path == "/restricted-pdf":
@@ -499,6 +598,7 @@ async def test_async_change_permissions_password_request_customization(
             input_file,
             current_permissions_password=current_password,
             new_permissions_password=new_password,
+            current_open_password=current_open_password,
             restrictions=["edit_content"],
             output="async-rotated",
             extra_query={"trace": "async"},
@@ -525,12 +625,10 @@ async def test_async_remove_permissions_password_success(
     input_file = make_pdf_file(PdfRestFileID.generate(2))
     output_id = str(PdfRestFileID.generate())
     current_password = make_password("secret")
-    payload_dump = PdfUnrestrictPayload.model_validate(
-        {
-            "files": [input_file],
-            "current_permissions_password": current_password,
-        }
-    ).model_dump(mode="json", by_alias=True, exclude_none=True, exclude_unset=True)
+    payload_dump = build_unrestrict_payload(
+        input_file,
+        current_permissions_password=current_password,
+    )
 
     def handler(request: httpx.Request) -> httpx.Response:
         if request.method == "POST" and request.url.path == "/unrestricted-pdf":
@@ -565,6 +663,75 @@ async def test_async_remove_permissions_password_success(
 
     assert isinstance(response, PdfRestFileBasedResponse)
     assert response.output_file.name == "async-clean.pdf"
+
+
+@pytest.mark.asyncio
+async def test_async_remove_permissions_password_request_customization(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.delenv("PDFREST_API_KEY", raising=False)
+    input_file = make_pdf_file(PdfRestFileID.generate(2))
+    output_id = str(PdfRestFileID.generate())
+    captured_timeout: dict[str, float | dict[str, float] | None] = {}
+    current_password = make_password("async-remove-custom")
+    open_password = make_password("async-open-custom")
+    payload_dump = build_unrestrict_payload(
+        input_file,
+        current_permissions_password=current_password,
+        current_open_password=open_password,
+        output="async-clean-custom",
+    )
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.method == "POST" and request.url.path == "/unrestricted-pdf":
+            assert request.url.params["trace"] == "async"
+            assert request.headers["X-Debug"] == "async"
+            captured_timeout["value"] = request.extensions.get("timeout")
+            payload = json.loads(request.content.decode("utf-8"))
+            assert payload == {**payload_dump, "audit": "enabled"}
+            return httpx.Response(
+                200,
+                json={
+                    "inputId": [input_file.id],
+                    "outputId": [output_id],
+                },
+            )
+        if request.method == "GET" and request.url.path == f"/resource/{output_id}":
+            assert request.url.params["format"] == "info"
+            assert request.url.params["trace"] == "async"
+            assert request.headers["X-Debug"] == "async"
+            return httpx.Response(
+                200,
+                json=build_file_info_payload(
+                    output_id,
+                    "async-clean-custom.pdf",
+                    "application/pdf",
+                ),
+            )
+        msg = f"Unexpected request {request.method} {request.url}"
+        raise AssertionError(msg)
+
+    transport = httpx.MockTransport(handler)
+    async with AsyncPdfRestClient(api_key=ASYNC_API_KEY, transport=transport) as client:
+        response = await client.remove_permissions_password(
+            input_file,
+            current_permissions_password=current_password,
+            current_open_password=open_password,
+            output="async-clean-custom",
+            extra_query={"trace": "async"},
+            extra_headers={"X-Debug": "async"},
+            extra_body={"audit": "enabled"},
+            timeout=0.73,
+        )
+
+    assert isinstance(response, PdfRestFileBasedResponse)
+    assert response.output_file.name == "async-clean-custom.pdf"
+    timeout_value = captured_timeout["value"]
+    assert timeout_value is not None
+    if isinstance(timeout_value, dict):
+        assert all(pytest.approx(0.73) == value for value in timeout_value.values())
+    else:
+        assert timeout_value == pytest.approx(0.73)
 
 
 @pytest.mark.asyncio

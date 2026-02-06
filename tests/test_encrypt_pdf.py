@@ -9,7 +9,6 @@ from pydantic import ValidationError
 
 from pdfrest import AsyncPdfRestClient, PdfRestClient
 from pdfrest.models import PdfRestFile, PdfRestFileBasedResponse, PdfRestFileID
-from pdfrest.models._internal import PdfDecryptPayload, PdfEncryptPayload
 
 from .graphics_test_helpers import (
     ASYNC_API_KEY,
@@ -33,6 +32,45 @@ def make_non_pdf_file(file_id: str) -> PdfRestFile:
     )
 
 
+def build_encrypt_payload(
+    input_file: PdfRestFile,
+    *,
+    new_open_password: str,
+    current_open_password: str | None = None,
+    current_permissions_password: str | None = None,
+    output: str | None = None,
+) -> dict[str, str]:
+    payload: dict[str, str] = {
+        "id": str(input_file.id),
+        "new_open_password": new_open_password,
+    }
+    if current_open_password is not None:
+        payload["current_open_password"] = current_open_password
+    if current_permissions_password is not None:
+        payload["current_permissions_password"] = current_permissions_password
+    if output is not None:
+        payload["output"] = output
+    return payload
+
+
+def build_decrypt_payload(
+    input_file: PdfRestFile,
+    *,
+    current_open_password: str,
+    current_permissions_password: str | None = None,
+    output: str | None = None,
+) -> dict[str, str]:
+    payload: dict[str, str] = {
+        "id": str(input_file.id),
+        "current_open_password": current_open_password,
+    }
+    if current_permissions_password is not None:
+        payload["current_permissions_password"] = current_permissions_password
+    if output is not None:
+        payload["output"] = output
+    return payload
+
+
 @pytest.mark.parametrize(
     "permissions_password",
     [
@@ -47,15 +85,11 @@ def test_add_open_password_success(
     input_file = make_pdf_file(PdfRestFileID.generate(1))
     output_id = str(PdfRestFileID.generate())
     new_password = make_password("open")
-    payload_input: dict[str, object] = {
-        "files": [input_file],
-        "new_open_password": new_password,
-        "output": "encrypted",
-    }
-    if permissions_password is not None:
-        payload_input["current_permissions_password"] = permissions_password
-    payload_dump = PdfEncryptPayload.model_validate(payload_input).model_dump(
-        mode="json", by_alias=True, exclude_none=True, exclude_unset=True
+    payload_dump = build_encrypt_payload(
+        input_file,
+        new_open_password=new_password,
+        current_permissions_password=permissions_password,
+        output="encrypted",
     )
 
     seen: dict[str, int] = {"post": 0, "get": 0}
@@ -111,15 +145,14 @@ def test_change_open_password_request_customization(
     captured_timeout: dict[str, float | dict[str, float] | None] = {}
     current_password = make_password("old-open")
     new_password = make_password("new-open")
-    payload_dump = PdfEncryptPayload.model_validate(
-        {
-            "files": [input_file],
-            "current_open_password": current_password,
-            "new_open_password": new_password,
-            "current_permissions_password": make_password("perm"),
-            "output": "rotated-open",
-        }
-    ).model_dump(mode="json", by_alias=True, exclude_none=True, exclude_unset=True)
+    permissions_password = make_password("perm")
+    payload_dump = build_encrypt_payload(
+        input_file,
+        current_open_password=current_password,
+        new_open_password=new_password,
+        current_permissions_password=permissions_password,
+        output="rotated-open",
+    )
 
     def handler(request: httpx.Request) -> httpx.Response:
         if request.method == "POST" and request.url.path == "/encrypted-pdf":
@@ -156,9 +189,7 @@ def test_change_open_password_request_customization(
             input_file,
             current_open_password=current_password,
             new_open_password=new_password,
-            current_permissions_password=payload_dump.get(
-                "current_permissions_password"
-            ),
+            current_permissions_password=permissions_password,
             output="rotated-open",
             extra_query={"trace": "sync"},
             extra_headers={"X-Debug": "sync"},
@@ -181,13 +212,11 @@ def test_remove_open_password_success(monkeypatch: pytest.MonkeyPatch) -> None:
     input_file = make_pdf_file(PdfRestFileID.generate(1))
     output_id = str(PdfRestFileID.generate())
     current_password = make_password("open-current")
-    payload_dump = PdfDecryptPayload.model_validate(
-        {
-            "files": [input_file],
-            "current_open_password": current_password,
-            "output": "decrypted",
-        }
-    ).model_dump(mode="json", by_alias=True, exclude_none=True, exclude_unset=True)
+    payload_dump = build_decrypt_payload(
+        input_file,
+        current_open_password=current_password,
+        output="decrypted",
+    )
 
     seen: dict[str, int] = {"post": 0, "get": 0}
 
@@ -231,6 +260,74 @@ def test_remove_open_password_success(monkeypatch: pytest.MonkeyPatch) -> None:
     assert response.output_file.type == "application/pdf"
 
 
+def test_remove_open_password_request_customization(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.delenv("PDFREST_API_KEY", raising=False)
+    input_file = make_pdf_file(PdfRestFileID.generate(1))
+    output_id = str(PdfRestFileID.generate())
+    captured_timeout: dict[str, float | dict[str, float] | None] = {}
+    current_password = make_password("open-custom")
+    permissions_password = make_password("perm-custom")
+    payload_dump = build_decrypt_payload(
+        input_file,
+        current_open_password=current_password,
+        current_permissions_password=permissions_password,
+        output="decrypted-custom",
+    )
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.method == "POST" and request.url.path == "/decrypted-pdf":
+            assert request.url.params["trace"] == "sync"
+            assert request.headers["X-Debug"] == "sync"
+            captured_timeout["value"] = request.extensions.get("timeout")
+            payload = json.loads(request.content.decode("utf-8"))
+            assert payload == {**payload_dump, "audit": "yes"}
+            return httpx.Response(
+                200,
+                json={
+                    "inputId": [input_file.id],
+                    "outputId": [output_id],
+                },
+            )
+        if request.method == "GET" and request.url.path == f"/resource/{output_id}":
+            assert request.url.params["format"] == "info"
+            assert request.url.params["trace"] == "sync"
+            assert request.headers["X-Debug"] == "sync"
+            return httpx.Response(
+                200,
+                json=build_file_info_payload(
+                    output_id,
+                    "decrypted-custom.pdf",
+                    "application/pdf",
+                ),
+            )
+        msg = f"Unexpected request {request.method} {request.url}"
+        raise AssertionError(msg)
+
+    transport = httpx.MockTransport(handler)
+    with PdfRestClient(api_key=VALID_API_KEY, transport=transport) as client:
+        response = client.remove_open_password(
+            input_file,
+            current_open_password=current_password,
+            current_permissions_password=permissions_password,
+            output="decrypted-custom",
+            extra_query={"trace": "sync"},
+            extra_headers={"X-Debug": "sync"},
+            extra_body={"audit": "yes"},
+            timeout=0.59,
+        )
+
+    assert isinstance(response, PdfRestFileBasedResponse)
+    assert response.output_file.name == "decrypted-custom.pdf"
+    timeout_value = captured_timeout["value"]
+    assert timeout_value is not None
+    if isinstance(timeout_value, dict):
+        assert all(pytest.approx(0.59) == value for value in timeout_value.values())
+    else:
+        assert timeout_value == pytest.approx(0.59)
+
+
 @pytest.mark.asyncio
 async def test_async_add_open_password_request_customization(
     monkeypatch: pytest.MonkeyPatch,
@@ -240,12 +337,13 @@ async def test_async_add_open_password_request_customization(
     output_id = str(PdfRestFileID.generate())
     captured_timeout: dict[str, float | dict[str, float] | None] = {}
     new_password = make_password("async-open")
-    payload_dump = PdfEncryptPayload.model_validate(
-        {
-            "files": [input_file],
-            "new_open_password": new_password,
-        }
-    ).model_dump(mode="json", by_alias=True, exclude_none=True, exclude_unset=True)
+    permissions_password = make_password("async-perm")
+    payload_dump = build_encrypt_payload(
+        input_file,
+        new_open_password=new_password,
+        current_permissions_password=permissions_password,
+        output="async-encrypted",
+    )
 
     def handler(request: httpx.Request) -> httpx.Response:
         if request.method == "POST" and request.url.path == "/encrypted-pdf":
@@ -281,6 +379,8 @@ async def test_async_add_open_password_request_customization(
         response = await client.add_open_password(
             input_file,
             new_open_password=new_password,
+            current_permissions_password=permissions_password,
+            output="async-encrypted",
             extra_query={"trace": "async"},
             extra_headers={"X-Debug": "async"},
             extra_body={"keep_permissions": "yes"},
@@ -298,6 +398,62 @@ async def test_async_add_open_password_request_customization(
 
 
 @pytest.mark.asyncio
+async def test_async_change_open_password_success(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.delenv("PDFREST_API_KEY", raising=False)
+    input_file = make_pdf_file(PdfRestFileID.generate(2))
+    output_id = str(PdfRestFileID.generate())
+    current_password = make_password("async-open-current")
+    new_password = make_password("async-open-next")
+    permissions_password = make_password("async-open-perm")
+    payload_dump = build_encrypt_payload(
+        input_file,
+        current_open_password=current_password,
+        new_open_password=new_password,
+        current_permissions_password=permissions_password,
+        output="async-rotated-open",
+    )
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.method == "POST" and request.url.path == "/encrypted-pdf":
+            payload = json.loads(request.content.decode("utf-8"))
+            assert payload == payload_dump
+            return httpx.Response(
+                200,
+                json={
+                    "inputId": [input_file.id],
+                    "outputId": [output_id],
+                },
+            )
+        if request.method == "GET" and request.url.path == f"/resource/{output_id}":
+            assert request.url.params["format"] == "info"
+            return httpx.Response(
+                200,
+                json=build_file_info_payload(
+                    output_id,
+                    "async-rotated-open.pdf",
+                    "application/pdf",
+                ),
+            )
+        msg = f"Unexpected request {request.method} {request.url}"
+        raise AssertionError(msg)
+
+    transport = httpx.MockTransport(handler)
+    async with AsyncPdfRestClient(api_key=ASYNC_API_KEY, transport=transport) as client:
+        response = await client.change_open_password(
+            input_file,
+            current_open_password=current_password,
+            new_open_password=new_password,
+            current_permissions_password=permissions_password,
+            output="async-rotated-open",
+        )
+
+    assert isinstance(response, PdfRestFileBasedResponse)
+    assert response.output_file.name == "async-rotated-open.pdf"
+
+
+@pytest.mark.asyncio
 async def test_async_remove_open_password_success(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -305,12 +461,10 @@ async def test_async_remove_open_password_success(
     input_file = make_pdf_file(PdfRestFileID.generate(2))
     output_id = str(PdfRestFileID.generate())
     current_password = make_password("async-open-current")
-    payload_dump = PdfDecryptPayload.model_validate(
-        {
-            "files": [input_file],
-            "current_open_password": current_password,
-        }
-    ).model_dump(mode="json", by_alias=True, exclude_none=True, exclude_unset=True)
+    payload_dump = build_decrypt_payload(
+        input_file,
+        current_open_password=current_password,
+    )
 
     def handler(request: httpx.Request) -> httpx.Response:
         if request.method == "POST" and request.url.path == "/decrypted-pdf":
@@ -345,6 +499,75 @@ async def test_async_remove_open_password_success(
 
     assert isinstance(response, PdfRestFileBasedResponse)
     assert response.output_file.name == "async-decrypted.pdf"
+
+
+@pytest.mark.asyncio
+async def test_async_remove_open_password_request_customization(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.delenv("PDFREST_API_KEY", raising=False)
+    input_file = make_pdf_file(PdfRestFileID.generate(2))
+    output_id = str(PdfRestFileID.generate())
+    captured_timeout: dict[str, float | dict[str, float] | None] = {}
+    current_password = make_password("async-open-custom")
+    permissions_password = make_password("async-perm-custom")
+    payload_dump = build_decrypt_payload(
+        input_file,
+        current_open_password=current_password,
+        current_permissions_password=permissions_password,
+        output="async-decrypted-custom",
+    )
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.method == "POST" and request.url.path == "/decrypted-pdf":
+            assert request.url.params["trace"] == "async"
+            assert request.headers["X-Debug"] == "async"
+            captured_timeout["value"] = request.extensions.get("timeout")
+            payload = json.loads(request.content.decode("utf-8"))
+            assert payload == {**payload_dump, "audit": "yes"}
+            return httpx.Response(
+                200,
+                json={
+                    "inputId": [input_file.id],
+                    "outputId": [output_id],
+                },
+            )
+        if request.method == "GET" and request.url.path == f"/resource/{output_id}":
+            assert request.url.params["format"] == "info"
+            assert request.url.params["trace"] == "async"
+            assert request.headers["X-Debug"] == "async"
+            return httpx.Response(
+                200,
+                json=build_file_info_payload(
+                    output_id,
+                    "async-decrypted-custom.pdf",
+                    "application/pdf",
+                ),
+            )
+        msg = f"Unexpected request {request.method} {request.url}"
+        raise AssertionError(msg)
+
+    transport = httpx.MockTransport(handler)
+    async with AsyncPdfRestClient(api_key=ASYNC_API_KEY, transport=transport) as client:
+        response = await client.remove_open_password(
+            input_file,
+            current_open_password=current_password,
+            current_permissions_password=permissions_password,
+            output="async-decrypted-custom",
+            extra_query={"trace": "async"},
+            extra_headers={"X-Debug": "async"},
+            extra_body={"audit": "yes"},
+            timeout=0.63,
+        )
+
+    assert isinstance(response, PdfRestFileBasedResponse)
+    assert response.output_file.name == "async-decrypted-custom.pdf"
+    timeout_value = captured_timeout["value"]
+    assert timeout_value is not None
+    if isinstance(timeout_value, dict):
+        assert all(pytest.approx(0.63) == value for value in timeout_value.values())
+    else:
+        assert timeout_value == pytest.approx(0.63)
 
 
 def test_encrypt_decrypt_validation(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -404,3 +627,53 @@ def test_encrypt_decrypt_validation(monkeypatch: pytest.MonkeyPatch) -> None:
             [pdf_file, other_pdf],
             current_open_password=secure_password,
         )
+
+
+@pytest.mark.asyncio
+async def test_async_encrypt_decrypt_validation(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.delenv("PDFREST_API_KEY", raising=False)
+    pdf_file = make_pdf_file(PdfRestFileID.generate(1))
+    non_pdf_file = make_non_pdf_file(str(PdfRestFileID.generate()))
+    other_pdf = make_pdf_file(PdfRestFileID.generate(2))
+    secure_password = make_password("secure-async")
+    short_password = "a" * 3
+    empty_password = "".join([])
+    transport = httpx.MockTransport(lambda request: (_ for _ in ()).throw(RuntimeError))
+
+    async with AsyncPdfRestClient(api_key=ASYNC_API_KEY, transport=transport) as client:
+        with pytest.raises(ValidationError, match="Must be a PDF file"):
+            await client.add_open_password(
+                non_pdf_file,
+                new_open_password=secure_password,
+            )
+
+        with pytest.raises(ValidationError, match="at most 1"):
+            await client.add_open_password(
+                [pdf_file, other_pdf],
+                new_open_password=secure_password,
+            )
+
+        with pytest.raises(
+            ValidationError, match="String should have at least 6 characters"
+        ):
+            await client.add_open_password(
+                pdf_file,
+                new_open_password=short_password,
+            )
+
+        with pytest.raises(
+            ValidationError, match="String should have at least 1 character"
+        ):
+            await client.change_open_password(
+                pdf_file,
+                current_open_password=empty_password,
+                new_open_password=secure_password,
+            )
+
+        with pytest.raises(ValidationError, match="at most 1"):
+            await client.remove_open_password(
+                [pdf_file, other_pdf],
+                current_open_password=secure_password,
+            )

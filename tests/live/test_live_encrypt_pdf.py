@@ -1,19 +1,13 @@
 from __future__ import annotations
 
-from typing import cast, get_args
 from uuid import uuid4
 
 import pytest
 
 from pdfrest import AsyncPdfRestClient, PdfRestApiError, PdfRestClient
 from pdfrest.models import PdfRestFile
-from pdfrest.types import PdfRestriction
 
 from ..resources import get_test_resource_path
-
-PDF_RESTRICTIONS: tuple[PdfRestriction, ...] = cast(
-    tuple[PdfRestriction, ...], get_args(PdfRestriction)
-)
 
 
 def make_password(label: str) -> str:
