@@ -125,7 +125,9 @@
   a shared validation suite when multiple endpoints rely on the same input rules
   (e.g., `tests/test_graphic_payload_validation.py`).
 - Do not import from private modules (names beginning with an underscore) in
-  tests or production code—expose any shared helpers via a public module first.
+  production code. In tests, prefer public modules first; allow private-model
+  imports only when necessary to validate request serialization or mock
+  server-facing payload contracts that are not exposed publicly.
 
 ## Testing Guidelines
 
