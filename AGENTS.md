@@ -30,6 +30,31 @@
   `coverage/py3.12/coverage.xml`, `coverage/py3.12/coverage.md`,
   `coverage/py3.12/html/`).
 
+## Code Quality Checklist
+
+- When code changes are complete, or when asked to "check code quality", run
+  this default sequence:
+  - `uv run ruff format .`
+  - `uv run ruff check .`
+  - `uv run basedpyright`
+- Do not include pytest or nox runs in the default "code quality" request; treat
+  runtime tests as a separate validation step.
+
+## Test Validation Checklist
+
+- Run tests separately from code quality checks:
+  - `uv run pytest -n auto --maxschedchunk 2` (or a focused module when
+    iterating)
+- For full compatibility before handoff/PR, run:
+  - `uvx nox -s tests` (Python 3.10-3.14 matrix + coverage artifacts)
+- For class-function coverage gate validation (when relevant to client changes),
+  run:
+  - `uv run python scripts/check_class_function_coverage.py coverage/py<version>/coverage.json --fail-under 90 --class PdfRestClient --class AsyncPdfRestClient --class _FilesClient --class _AsyncFilesClient`
+- Always report:
+  - files changed
+  - tests/checks run and not run
+  - why any checks were skipped
+
 ## Coding Style & Naming Conventions
 
 - Target Python 3.10–3.14; use 4-space indentation and type hints for public
