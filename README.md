@@ -37,8 +37,11 @@ Run the test suite with:
 uv run pytest
 ```
 
-Check sync/async parity for changed tests (defaults to `upstream/main..HEAD`):
+Check per-function coverage for the client classes:
 
 ```bash
-scripts/check_test_parity.sh
+uvx nox -s class-coverage
 ```
+
+To reuse an existing `coverage/py<version>/coverage.json` without rerunning
+tests, add `-- --no-tests` (and optional `--coverage-json path`).

@@ -38,6 +38,37 @@ jobs:
         run: uvx nox --python ${{ matrix.python-version }} --session tests -- --no-parallel
         env:
           PDFREST_API_KEY: ${{ secrets.PDFREST_API_KEY }}
+      - name: Fetch base branch for diff-cover
+        if: github.event_name == 'pull_request'
+        run: |
+          if git rev-parse --is-shallow-repository | grep -q true; then
+            git fetch --no-tags --prune origin ${{ github.base_ref }} --unshallow
+          else
+            git fetch --no-tags --prune origin ${{ github.base_ref }}
+          fi
+      - name: Run diff-cover (new code must be >= 90%)
+        if: github.event_name == 'pull_request'
+        run: >
+          uv run diff-cover coverage/py${{ matrix.python-version }}/coverage.xml
+          --compare-branch origin/${{ github.base_ref }}
+          --fail-under 90
+          --format markdown:coverage/py${{ matrix.python-version }}/diff-cover.md
+      - name: Check client class function coverage
+        run: >
+          uv run python scripts/check_class_function_coverage.py
+          coverage/py${{ matrix.python-version }}/coverage.json
+          --class PdfRestClient
+          --class AsyncPdfRestClient
+          --class _FilesClient
+          --class _AsyncFilesClient
+          --fail-under 90
+          --markdown-report coverage/py${{ matrix.python-version }}/class-function-coverage.md
+      - name: Upload coverage reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-${{ matrix.python-version }}
+          path: coverage/py${{ matrix.python-version }}
 
   examples:
     name: Examples (Python ${{ matrix.python-version }})

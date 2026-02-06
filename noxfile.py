@@ -17,6 +17,79 @@ python_versions = ("3.10", "3.11", "3.12", "3.13", "3.14")
 PROJECT_ROOT = Path(__file__).resolve().parent
 DEFAULT_EXAMPLE_PYTHON = "3.11"
 EXAMPLES_DIR = PROJECT_ROOT / "examples"
+DEFAULT_COVERAGE_CLASSES = (
+    "PdfRestClient",
+    "AsyncPdfRestClient",
+    "_FilesClient",
+    "_AsyncFilesClient",
+)
+
+
+def _install_test_dependencies(session: nox.Session) -> None:
+    _ = session.run_install(
+        "uv",
+        "sync",
+        "--no-default-groups",
+        "--group=dev",
+        "--reinstall-package=pdfrest",
+        f"--python={session.virtualenv.location}",
+        env={"UV_PROJECT_ENVIRONMENT": session.virtualenv.location},
+    )
+
+
+def _coverage_dir_for_session(session: nox.Session) -> Path:
+    coverage_dir = PROJECT_ROOT / "coverage" / f"py{session.python}"
+    coverage_dir.mkdir(parents=True, exist_ok=True)
+    return coverage_dir
+
+
+def _pytest_args_from_session(session: nox.Session) -> list[str]:
+    parser = argparse.ArgumentParser(add_help=False)
+    _ = parser.add_argument("--no-parallel", action="store_true")
+    _ = parser.add_argument("-n", "--workers", "--numprocesses")
+    custom, remaining = parser.parse_known_args(session.posargs)
+
+    pytest_args = list(remaining)
+
+    if custom.no_parallel:
+        return pytest_args
+    if custom.workers:
+        pytest_args[:0] = ["-n", custom.workers, "--maxschedchunk", "2"]
+    else:
+        pytest_args[:0] = ["-n", "8", "--maxschedchunk", "2"]
+
+    return pytest_args
+
+
+def _run_pytest_with_coverage(session: nox.Session, pytest_args: Iterable[str]) -> Path:
+    coverage_dir = _coverage_dir_for_session(session)
+    htmlcov_dir = coverage_dir / "html"
+    xml_report = coverage_dir / "coverage.xml"
+    md_report = coverage_dir / "coverage.md"
+    json_report = coverage_dir / "coverage.json"
+    _ = session.run(
+        "pytest",
+        "--cov=pdfrest",
+        "--cov-report=term-missing",
+        f"--cov-report=html:{htmlcov_dir}",
+        f"--cov-report=xml:{xml_report}",
+        f"--cov-report=markdown:{md_report}",
+        f"--cov-report=json:{json_report}",
+        *pytest_args,
+    )
+    return coverage_dir
+
+
+def _parse_class_values(values: Iterable[str]) -> list[str]:
+    classes: list[str] = []
+    for value in values:
+        if not value:
+            continue
+        for item in value.split(","):
+            item = item.strip()
+            if item:
+                classes.append(item)
+    return classes
 
 
 @dataclass(frozen=True)
@@ -162,39 +235,60 @@ def _infer_python_version_from_path(script: Path) -> str | None:
 
 @nox.session(name="tests", python=python_versions, reuse_venv=True)
 def tests(session: nox.Session) -> None:
-    # Define only custom flags
+    pytest_args = _pytest_args_from_session(session)
+
+    _install_test_dependencies(session)
+    _ = _run_pytest_with_coverage(session, pytest_args)
+
+
+@nox.session(name="class-coverage", python=python_versions, reuse_venv=True)
+def class_coverage(session: nox.Session) -> None:
     parser = argparse.ArgumentParser(add_help=False)
     _ = parser.add_argument("--no-parallel", action="store_true")
-    _ = parser.add_argument(
-        "-n", "--workers", "--numprocesses"
-    )  # e.g., -n 4 to set workers
+    _ = parser.add_argument("-n", "--workers", "--numprocesses")
+    _ = parser.add_argument("--no-tests", action="store_true")
+    _ = parser.add_argument("--coverage-json", type=Path, default=None)
+    _ = parser.add_argument("--markdown-report", type=Path, default=None)
+    _ = parser.add_argument("--fail-under", type=float, default=90.0)
+    _ = parser.add_argument("--class", dest="classes", action="append", default=[])
+    _ = parser.add_argument("--classes", dest="classes_csv", default="")
     custom, remaining = parser.parse_known_args(session.posargs)
 
     pytest_args = list(remaining)
+    if not custom.no_parallel:
+        if custom.workers:
+            pytest_args[:0] = ["-n", custom.workers, "--maxschedchunk", "2"]
+        else:
+            pytest_args[:0] = ["-n", "8", "--maxschedchunk", "2"]
 
-    # Default to parallel unless disabled or overridden
-    if custom.no_parallel:
-        pass
-    elif custom.workers:
-        pytest_args[:0] = ["-n", custom.workers, "--maxschedchunk", "2"]
+    if custom.no_tests:
+        coverage_dir = _coverage_dir_for_session(session)
     else:
-        pytest_args[:0] = ["-n", "8", "--maxschedchunk", "2"]
+        _install_test_dependencies(session)
+        coverage_dir = _run_pytest_with_coverage(session, pytest_args)
 
-    _ = session.run_install(
-        "uv",
-        "sync",
-        "--no-default-groups",
-        "--group=dev",
-        "--reinstall-package=pdfrest",
-        f"--python={session.virtualenv.location}",
-        env={"UV_PROJECT_ENVIRONMENT": session.virtualenv.location},
+    coverage_json = custom.coverage_json or (coverage_dir / "coverage.json")
+    markdown_report = custom.markdown_report or (
+        coverage_dir / "class-function-coverage.md"
     )
-    _ = session.run(
-        "pytest",
-        "--cov=pdfrest",
-        "--cov-report=term-missing",
-        *pytest_args,
-    )
+
+    classes = _parse_class_values([*custom.classes, custom.classes_csv])
+    if not classes:
+        classes = list(DEFAULT_COVERAGE_CLASSES)
+
+    script_args = [
+        "python",
+        str(PROJECT_ROOT / "scripts" / "check_class_function_coverage.py"),
+        str(coverage_json),
+        "--fail-under",
+        f"{custom.fail_under}",
+        "--markdown-report",
+        str(markdown_report),
+    ]
+    for class_name in classes:
+        script_args.extend(["--class", class_name])
+
+    _ = session.run(*script_args)
 
 
 @nox.session(name="examples", python=python_versions, reuse_venv=True)

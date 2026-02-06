@@ -344,3 +344,61 @@ async def test_async_extract_pdf_text_to_file_success(
     assert isinstance(response, PdfRestFileBasedResponse)
     assert len(response.output_files) == 1
     assert response.input_id == input_file.id
+
+
+@pytest.mark.asyncio
+async def test_async_extract_pdf_text_to_file_includes_pages(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.delenv("PDFREST_API_KEY", raising=False)
+    input_file = make_pdf_file(PdfRestFileID.generate(2))
+    output_id = str(PdfRestFileID.generate())
+    payload_dump = ExtractTextPayload.model_validate(
+        {
+            "files": [input_file],
+            "full_text": "document",
+            "preserve_line_breaks": "off",
+            "word_style": "off",
+            "word_coordinates": "off",
+            "output_type": "file",
+            "pages": ["2-3"],
+        }
+    ).model_dump(mode="json", by_alias=True, exclude_none=True, exclude_unset=True)
+
+    seen: dict[str, int] = {"post": 0, "get": 0}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.method == "POST" and request.url.path == "/extracted-text":
+            seen["post"] += 1
+            payload = json.loads(request.content.decode("utf-8"))
+            assert payload == payload_dump
+            return httpx.Response(
+                200,
+                json={
+                    "inputId": [str(input_file.id)],
+                    "outputId": [output_id],
+                },
+            )
+        if request.method == "GET" and request.url.path == f"/resource/{output_id}":
+            seen["get"] += 1
+            assert request.url.params["format"] == "info"
+            return httpx.Response(
+                200,
+                json=_make_text_file(output_id, "async-pages.txt").model_dump(
+                    mode="json", by_alias=True
+                ),
+            )
+        msg = f"Unexpected request {request.method} {request.url}"
+        raise AssertionError(msg)
+
+    transport = httpx.MockTransport(handler)
+    async with AsyncPdfRestClient(api_key=ASYNC_API_KEY, transport=transport) as client:
+        response = await client.extract_pdf_text_to_file(
+            input_file,
+            pages=["2-3"],
+        )
+
+    assert seen == {"post": 1, "get": 1}
+    assert isinstance(response, PdfRestFileBasedResponse)
+    assert len(response.output_files) == 1
+    assert response.input_id == input_file.id

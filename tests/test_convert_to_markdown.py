@@ -305,6 +305,63 @@ async def test_async_convert_to_markdown_request_customization(
 
 
 @pytest.mark.asyncio
+async def test_async_convert_to_markdown_includes_pages_and_output(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.delenv("PDFREST_API_KEY", raising=False)
+    input_file = make_pdf_file(PdfRestFileID.generate(2))
+    output_id = str(PdfRestFileID.generate())
+    payload_dump = ConvertToMarkdownPayload.model_validate(
+        {
+            "files": [input_file],
+            "output_type": "file",
+            "page_break_comments": "on",
+            "pages": ["2-4"],
+            "output": "async-md",
+        }
+    ).model_dump(mode="json", by_alias=True, exclude_none=True, exclude_unset=True)
+
+    seen: dict[str, int] = {"post": 0, "get": 0}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.method == "POST" and request.url.path == "/markdown":
+            seen["post"] += 1
+            payload = json.loads(request.content.decode("utf-8"))
+            assert payload == payload_dump
+            return httpx.Response(
+                200,
+                json={
+                    "inputId": [str(input_file.id)],
+                    "outputId": [output_id],
+                },
+            )
+        if request.method == "GET" and request.url.path == f"/resource/{output_id}":
+            seen["get"] += 1
+            assert request.url.params["format"] == "info"
+            return httpx.Response(
+                200,
+                json=_make_markdown_file(output_id, "async-pages.md").model_dump(
+                    mode="json", by_alias=True
+                ),
+            )
+        msg = f"Unexpected request {request.method} {request.url}"
+        raise AssertionError(msg)
+
+    transport = httpx.MockTransport(handler)
+    async with AsyncPdfRestClient(api_key=ASYNC_API_KEY, transport=transport) as client:
+        response = await client.convert_to_markdown(
+            input_file,
+            pages=["2-4"],
+            output="async-md",
+            page_break_comments="on",
+        )
+
+    assert seen == {"post": 1, "get": 1}
+    assert isinstance(response, PdfRestFileBasedResponse)
+    assert len(response.output_files) == 1
+
+
+@pytest.mark.asyncio
 async def test_async_convert_to_markdown_success(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
