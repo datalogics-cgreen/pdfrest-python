@@ -59,6 +59,8 @@ jobs:
           coverage/py${{ matrix.python-version }}/coverage.json
           --class PdfRestClient
           --class AsyncPdfRestClient
+          --class _FilesClient
+          --class _AsyncFilesClient
           --fail-under 90
           --markdown-report coverage/py${{ matrix.python-version }}/class-function-coverage.md
       - name: Upload coverage reports

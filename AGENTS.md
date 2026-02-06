@@ -146,6 +146,12 @@
   Optional payload branches (`pages`, `output`, `rgb_color`, etc.) need explicit
   coverage so serialization regressions are caught.
 
+- **Class function coverage scope:** The class coverage gate targets the main
+  client-facing classes (`PdfRestClient`, `AsyncPdfRestClient`, `_FilesClient`,
+  `_AsyncFilesClient`). For these classes, underscore-prefixed methods are
+  intentionally in scope and should be covered as part of the interface
+  contract.
+
 - Write pytest tests: files named `test_*.py`, test functions `test_*`, fixtures
   in `conftest.py` where shared.
 

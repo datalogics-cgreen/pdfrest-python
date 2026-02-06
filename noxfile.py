@@ -17,7 +17,12 @@ python_versions = ("3.10", "3.11", "3.12", "3.13", "3.14")
 PROJECT_ROOT = Path(__file__).resolve().parent
 DEFAULT_EXAMPLE_PYTHON = "3.11"
 EXAMPLES_DIR = PROJECT_ROOT / "examples"
-DEFAULT_COVERAGE_CLASSES = ("PdfRestClient", "AsyncPdfRestClient")
+DEFAULT_COVERAGE_CLASSES = (
+    "PdfRestClient",
+    "AsyncPdfRestClient",
+    "_FilesClient",
+    "_AsyncFilesClient",
+)
 
 
 def _install_test_dependencies(session: nox.Session) -> None:
