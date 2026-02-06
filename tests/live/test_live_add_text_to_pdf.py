@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import json
+
 import pytest
 
 from pdfrest import AsyncPdfRestClient, PdfRestApiError, PdfRestClient
@@ -34,6 +36,19 @@ def _default_text_object() -> dict[str, object]:
         "x": 72,
         "y": 144,
     }
+
+
+def _serialize_text_object_for_extra_body(
+    text_object: dict[str, object],
+) -> dict[str, object]:
+    serialized = dict(text_object)
+    rgb = serialized.get("text_color_rgb")
+    if isinstance(rgb, (list, tuple)):
+        serialized["text_color_rgb"] = ",".join(str(channel) for channel in rgb)
+    cmyk = serialized.get("text_color_cmyk")
+    if isinstance(cmyk, (list, tuple)):
+        serialized["text_color_cmyk"] = ",".join(str(channel) for channel in cmyk)
+    return serialized
 
 
 def test_live_add_text_to_pdf(
@@ -95,12 +110,17 @@ def test_live_add_text_to_pdf_invalid_page(
             uploaded_pdf_for_text,
             text_objects=[_default_text_object()],
             extra_body={
-                "text_objects": [
-                    {
-                        **_default_text_object(),
-                        "page": 0,
-                    }
-                ]
+                "text_objects": json.dumps(
+                    [
+                        _serialize_text_object_for_extra_body(
+                            {
+                                **_default_text_object(),
+                                "page": 0,
+                            }
+                        )
+                    ],
+                    separators=(",", ":"),
+                )
             },
         )
 
@@ -120,11 +140,16 @@ async def test_live_async_add_text_to_pdf_invalid_page(
                 uploaded_pdf_for_text,
                 text_objects=[_default_text_object()],
                 extra_body={
-                    "text_objects": [
-                        {
-                            **_default_text_object(),
-                            "page": 0,
-                        }
-                    ]
+                    "text_objects": json.dumps(
+                        [
+                            _serialize_text_object_for_extra_body(
+                                {
+                                    **_default_text_object(),
+                                    "page": 0,
+                                }
+                            )
+                        ],
+                        separators=(",", ":"),
+                    )
                 },
             )

@@ -39,6 +39,10 @@ def _serialize_text_object_for_request(
     text_object: dict[str, object],
 ) -> dict[str, object]:
     serialized = dict(text_object)
+    for key in ("max_width", "rotation", "text_size", "x", "y"):
+        value = serialized.get(key)
+        if isinstance(value, int):
+            serialized[key] = float(value)
     rgb = serialized.get("text_color_rgb")
     if isinstance(rgb, (list, tuple)):
         serialized["text_color_rgb"] = ",".join(str(channel) for channel in rgb)
@@ -108,6 +112,7 @@ def test_add_text_to_pdf_request_customization(
     pdf_file = make_pdf_file(PdfRestFileID.generate(1))
     output_id = str(PdfRestFileID.generate())
     captured_timeout: dict[str, float | dict[str, float] | None] = {}
+    overridden_text_object = make_text_object(page=2)
 
     def handler(request: httpx.Request) -> httpx.Response:
         if request.method == "POST" and request.url.path == "/pdf-with-added-text":
@@ -115,6 +120,10 @@ def test_add_text_to_pdf_request_customization(
             assert request.headers["X-Debug"] == "1"
             payload = json.loads(request.content.decode("utf-8"))
             assert payload["rotation"] == 15
+            assert payload["text_objects"] == json.dumps(
+                [_serialize_text_object_for_request(overridden_text_object)],
+                separators=(",", ":"),
+            )
             captured_timeout["value"] = request.extensions.get("timeout")
             return httpx.Response(
                 200,
@@ -144,7 +153,13 @@ def test_add_text_to_pdf_request_customization(
             text_objects=[make_text_object(rotation=15)],
             extra_query={"trace": "true"},
             extra_headers={"X-Debug": "1"},
-            extra_body={"rotation": 15},
+            extra_body={
+                "rotation": 15,
+                "text_objects": json.dumps(
+                    [_serialize_text_object_for_request(overridden_text_object)],
+                    separators=(",", ":"),
+                ),
+            },
             timeout=0.25,
         )
 
@@ -304,6 +319,7 @@ async def test_async_add_text_to_pdf_request_customization(
     pdf_file = make_pdf_file(PdfRestFileID.generate(1))
     output_id = str(PdfRestFileID.generate())
     captured_timeout: dict[str, float | dict[str, float] | None] = {}
+    overridden_text_object = make_text_object(page=3)
 
     def handler(request: httpx.Request) -> httpx.Response:
         if request.method == "POST" and request.url.path == "/pdf-with-added-text":
@@ -311,6 +327,10 @@ async def test_async_add_text_to_pdf_request_customization(
             assert request.headers["X-Test"] == "async"
             payload = json.loads(request.content.decode("utf-8"))
             assert payload["text_size"] == 18
+            assert payload["text_objects"] == json.dumps(
+                [_serialize_text_object_for_request(overridden_text_object)],
+                separators=(",", ":"),
+            )
             captured_timeout["value"] = request.extensions.get("timeout")
             return httpx.Response(
                 200,
@@ -340,7 +360,13 @@ async def test_async_add_text_to_pdf_request_customization(
             text_objects=[make_text_object(text_size=18)],
             extra_query={"trace": "true"},
             extra_headers={"X-Test": "async"},
-            extra_body={"text_size": 18},
+            extra_body={
+                "text_size": 18,
+                "text_objects": json.dumps(
+                    [_serialize_text_object_for_request(overridden_text_object)],
+                    separators=(",", ":"),
+                ),
+            },
             timeout=1.0,
         )
 
