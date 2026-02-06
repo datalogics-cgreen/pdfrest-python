@@ -26,7 +26,7 @@ def uploaded_image(
     pdfrest_api_key: str,
     pdfrest_live_base_url: str,
 ) -> PdfRestFile:
-    resource = get_test_resource_path("logo.png")
+    resource = get_test_resource_path("ducky.png")
     with PdfRestClient(
         api_key=pdfrest_api_key,
         base_url=pdfrest_live_base_url,
