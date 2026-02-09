@@ -13,8 +13,9 @@ policy precedence: `*GUIDELINES*.md` before `AGENTS.md`.
 
 ## Workflow
 
-1. Collect context from the active branch. Run `scripts/collect_pr_context.sh`
-   from repo root to detect:
+1. Collect context from the active branch. Run
+   `.agents/skills/pr-review-auditor/scripts/collect_pr_context.sh` from repo
+   root to detect:
 
 - checked-out branch,
 - PR number and base branch (via `gh pr view`),
@@ -23,8 +24,9 @@ policy precedence: `*GUIDELINES*.md` before `AGENTS.md`.
 - changed files,
 - available policy files (`*GUIDELINES*.md`, `AGENTS.md`).
 
-2. Inspect commits and patches in range. Run `scripts/review_range.sh` with the
-   range from step 1. This prints:
+2. Inspect commits and patches in range. Run
+   `.agents/skills/pr-review-auditor/scripts/review_range.sh` with the range
+   from step 1. This prints:
 
 - commits with full messages (`git log --format=fuller`),
 - per-commit changed files,
@@ -85,6 +87,8 @@ policy precedence: `*GUIDELINES*.md` before `AGENTS.md`.
 - Include a `Rule Coverage Matrix` section in Markdown.
 - Do not mark the review complete until every extracted rule has a status and
   evidence.
+- Do not emit internal script-path fallback chatter; run the canonical
+  `.agents/skills/pr-review-auditor/scripts/*` paths directly.
 - Include a `Rule Extraction Summary` with:
   - total rules per source file,
   - per-heading rule counts,
@@ -108,8 +112,9 @@ Use this exact table shape:
 
 ## Resources
 
-- `scripts/collect_pr_context.sh`: derive PR base/range and policy file
-  inventory.
-- `scripts/review_range.sh`: print full commit messages and patches for a range.
+- `.agents/skills/pr-review-auditor/scripts/collect_pr_context.sh`: derive PR
+  base/range and policy file inventory.
+- `.agents/skills/pr-review-auditor/scripts/review_range.sh`: print full commit
+  messages and patches for a range.
 - `references/review-checklist.md`: compact review checklist and severity
   rubric.
