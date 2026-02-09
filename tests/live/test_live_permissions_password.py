@@ -6,7 +6,7 @@ from uuid import uuid4
 import pytest
 
 from pdfrest import AsyncPdfRestClient, PdfRestApiError, PdfRestClient
-from pdfrest.models import PdfRestFile
+from pdfrest.models import PdfRestFile, PdfRestFileBasedResponse
 from pdfrest.types import PdfRestriction
 
 from ..resources import get_test_resource_path
@@ -14,6 +14,22 @@ from ..resources import get_test_resource_path
 
 def make_password(label: str) -> str:
     return f"{label}-{uuid4().hex}"
+
+
+def assert_pdf_file_response(
+    response: PdfRestFileBasedResponse,
+    *,
+    output_prefix: str,
+    input_file: PdfRestFile,
+) -> None:
+    assert response.output_files
+    output_file = response.output_file
+    assert output_file.type == "application/pdf"
+    assert output_file.name.startswith(output_prefix)
+    assert output_file.name.endswith(".pdf")
+    assert output_file.size > 0
+    assert response.warning is None
+    assert str(response.input_id) == str(input_file.id)
 
 
 PDF_RESTRICTIONS: tuple[PdfRestriction, ...] = cast(
@@ -56,11 +72,11 @@ def test_live_add_permissions_password(
             output="live-restrict",
         )
 
-    assert response.output_files
-    output_file = response.output_file
-    assert output_file.type == "application/pdf"
-    assert output_file.name.startswith("live-restrict")
-    assert str(response.input_id) == str(uploaded_pdf_for_permissions.id)
+    assert_pdf_file_response(
+        response,
+        output_prefix="live-restrict",
+        input_file=uploaded_pdf_for_permissions,
+    )
 
 
 @pytest.mark.asyncio
@@ -83,11 +99,11 @@ async def test_live_async_add_permissions_password(
             output="async-restrict",
         )
 
-    assert response.output_files
-    output_file = response.output_file
-    assert output_file.type == "application/pdf"
-    assert output_file.name.startswith("async-restrict")
-    assert str(response.input_id) == str(uploaded_pdf_for_permissions.id)
+    assert_pdf_file_response(
+        response,
+        output_prefix="async-restrict",
+        input_file=uploaded_pdf_for_permissions,
+    )
 
 
 def test_live_change_permissions_password(
@@ -116,11 +132,11 @@ def test_live_change_permissions_password(
             output="live-restrict-new",
         )
 
-    assert response.output_files
-    output_file = response.output_file
-    assert output_file.name.startswith("live-restrict-new")
-    assert output_file.type == "application/pdf"
-    assert str(response.input_id) == str(restricted_file.id)
+    assert_pdf_file_response(
+        response,
+        output_prefix="live-restrict-new",
+        input_file=restricted_file,
+    )
 
 
 @pytest.mark.asyncio
@@ -150,11 +166,11 @@ async def test_live_async_change_permissions_password(
             output="async-live-restrict-new",
         )
 
-    assert response.output_files
-    output_file = response.output_file
-    assert output_file.name.startswith("async-live-restrict-new")
-    assert output_file.type == "application/pdf"
-    assert str(response.input_id) == str(restricted_file.id)
+    assert_pdf_file_response(
+        response,
+        output_prefix="async-live-restrict-new",
+        input_file=restricted_file,
+    )
 
 
 def test_live_remove_permissions_password(
@@ -180,11 +196,11 @@ def test_live_remove_permissions_password(
             output="live-removed",
         )
 
-    assert response.output_files
-    output_file = response.output_file
-    assert output_file.name.startswith("live-removed")
-    assert output_file.type == "application/pdf"
-    assert str(response.input_id) == str(restricted_file.id)
+    assert_pdf_file_response(
+        response,
+        output_prefix="live-removed",
+        input_file=restricted_file,
+    )
 
 
 @pytest.mark.asyncio
@@ -211,11 +227,11 @@ async def test_live_async_remove_permissions_password(
             output="async-live-removed",
         )
 
-    assert response.output_files
-    output_file = response.output_file
-    assert output_file.name.startswith("async-live-removed")
-    assert output_file.type == "application/pdf"
-    assert str(response.input_id) == str(restricted_file.id)
+    assert_pdf_file_response(
+        response,
+        output_prefix="async-live-removed",
+        input_file=restricted_file,
+    )
 
 
 def test_live_remove_permissions_password_invalid_password(

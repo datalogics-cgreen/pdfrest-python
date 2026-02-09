@@ -5,13 +5,29 @@ from uuid import uuid4
 import pytest
 
 from pdfrest import AsyncPdfRestClient, PdfRestApiError, PdfRestClient
-from pdfrest.models import PdfRestFile
+from pdfrest.models import PdfRestFile, PdfRestFileBasedResponse
 
 from ..resources import get_test_resource_path
 
 
 def make_password(label: str) -> str:
     return f"{label}-{uuid4().hex}"
+
+
+def assert_pdf_file_response(
+    response: PdfRestFileBasedResponse,
+    *,
+    output_prefix: str,
+    input_file: PdfRestFile,
+) -> None:
+    assert response.output_files
+    output_file = response.output_file
+    assert output_file.type == "application/pdf"
+    assert output_file.name.startswith(output_prefix)
+    assert output_file.name.endswith(".pdf")
+    assert output_file.size > 0
+    assert response.warning is None
+    assert str(response.input_id) == str(input_file.id)
 
 
 @pytest.fixture(scope="module")
@@ -42,11 +58,11 @@ def test_live_add_open_password(
             output="live-encrypted",
         )
 
-    assert response.output_files
-    output_file = response.output_file
-    assert output_file.type == "application/pdf"
-    assert output_file.name.startswith("live-encrypted")
-    assert str(response.input_id) == str(uploaded_pdf_for_encrypt.id)
+    assert_pdf_file_response(
+        response,
+        output_prefix="live-encrypted",
+        input_file=uploaded_pdf_for_encrypt,
+    )
 
 
 @pytest.mark.asyncio
@@ -65,11 +81,11 @@ async def test_live_async_add_open_password(
             output="async-live-encrypted",
         )
 
-    assert response.output_files
-    output_file = response.output_file
-    assert output_file.type == "application/pdf"
-    assert output_file.name.startswith("async-live-encrypted")
-    assert str(response.input_id) == str(uploaded_pdf_for_encrypt.id)
+    assert_pdf_file_response(
+        response,
+        output_prefix="async-live-encrypted",
+        input_file=uploaded_pdf_for_encrypt,
+    )
 
 
 def test_live_change_open_password(
@@ -94,11 +110,11 @@ def test_live_change_open_password(
             output="live-open-new",
         )
 
-    assert response.output_files
-    output_file = response.output_file
-    assert output_file.name.startswith("live-open-new")
-    assert output_file.type == "application/pdf"
-    assert str(response.input_id) == str(restricted.id)
+    assert_pdf_file_response(
+        response,
+        output_prefix="live-open-new",
+        input_file=restricted,
+    )
 
 
 @pytest.mark.asyncio
@@ -126,11 +142,11 @@ async def test_live_async_change_open_password(
             output="async-live-open-new",
         )
 
-    assert response.output_files
-    output_file = response.output_file
-    assert output_file.name.startswith("async-live-open-new")
-    assert output_file.type == "application/pdf"
-    assert str(response.input_id) == str(restricted.id)
+    assert_pdf_file_response(
+        response,
+        output_prefix="async-live-open-new",
+        input_file=restricted,
+    )
 
 
 def test_live_remove_open_password(
@@ -154,11 +170,11 @@ def test_live_remove_open_password(
             output="live-open-removed",
         )
 
-    assert response.output_files
-    output_file = response.output_file
-    assert output_file.type == "application/pdf"
-    assert output_file.name.startswith("live-open-removed")
-    assert str(response.input_id) == str(restricted.id)
+    assert_pdf_file_response(
+        response,
+        output_prefix="live-open-removed",
+        input_file=restricted,
+    )
 
 
 @pytest.mark.asyncio
@@ -185,11 +201,11 @@ async def test_live_async_remove_open_password(
             output="async-live-open-removed",
         )
 
-    assert response.output_files
-    output_file = response.output_file
-    assert output_file.type == "application/pdf"
-    assert output_file.name.startswith("async-live-open-removed")
-    assert str(response.input_id) == str(restricted.id)
+    assert_pdf_file_response(
+        response,
+        output_prefix="async-live-open-removed",
+        input_file=restricted,
+    )
 
 
 def test_live_remove_open_password_invalid_password(
