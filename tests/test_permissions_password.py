@@ -8,7 +8,12 @@ import pytest
 from pydantic import ValidationError
 
 from pdfrest import AsyncPdfRestClient, PdfRestClient
-from pdfrest.models import PdfRestFile, PdfRestFileBasedResponse, PdfRestFileID
+from pdfrest.models import (
+    PdfRestFile,
+    PdfRestFileBasedResponse,
+    PdfRestFileID,
+)
+from pdfrest.models._internal import PdfRestrictPayload, PdfUnrestrictPayload
 from pdfrest.types import PdfRestriction
 
 from .graphics_test_helpers import (
@@ -41,20 +46,17 @@ def build_restrict_payload(
     current_open_password: str | None = None,
     restrictions: list[PdfRestriction] | None = None,
     output: str | None = None,
-) -> dict[str, str | list[PdfRestriction]]:
-    payload: dict[str, str | list[PdfRestriction]] = {
-        "id": str(input_file.id),
-        "new_permissions_password": new_permissions_password,
-    }
-    if current_permissions_password is not None:
-        payload["current_permissions_password"] = current_permissions_password
-    if current_open_password is not None:
-        payload["current_open_password"] = current_open_password
-    if restrictions is not None:
-        payload["restrictions"] = restrictions
-    if output is not None:
-        payload["output"] = output
-    return payload
+) -> dict[str, object]:
+    return PdfRestrictPayload.model_validate(
+        {
+            "files": [input_file],
+            "new_permissions_password": new_permissions_password,
+            "current_permissions_password": current_permissions_password,
+            "current_open_password": current_open_password,
+            "restrictions": restrictions,
+            "output": output,
+        }
+    ).model_dump(mode="json", by_alias=True, exclude_none=True, exclude_unset=True)
 
 
 def build_unrestrict_payload(
@@ -63,16 +65,15 @@ def build_unrestrict_payload(
     current_permissions_password: str,
     current_open_password: str | None = None,
     output: str | None = None,
-) -> dict[str, str]:
-    payload: dict[str, str] = {
-        "id": str(input_file.id),
-        "current_permissions_password": current_permissions_password,
-    }
-    if current_open_password is not None:
-        payload["current_open_password"] = current_open_password
-    if output is not None:
-        payload["output"] = output
-    return payload
+) -> dict[str, object]:
+    return PdfUnrestrictPayload.model_validate(
+        {
+            "files": [input_file],
+            "current_permissions_password": current_permissions_password,
+            "current_open_password": current_open_password,
+            "output": output,
+        }
+    ).model_dump(mode="json", by_alias=True, exclude_none=True, exclude_unset=True)
 
 
 @pytest.mark.parametrize(

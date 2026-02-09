@@ -8,7 +8,12 @@ import pytest
 from pydantic import ValidationError
 
 from pdfrest import AsyncPdfRestClient, PdfRestClient
-from pdfrest.models import PdfRestFile, PdfRestFileBasedResponse, PdfRestFileID
+from pdfrest.models import (
+    PdfRestFile,
+    PdfRestFileBasedResponse,
+    PdfRestFileID,
+)
+from pdfrest.models._internal import PdfDecryptPayload, PdfEncryptPayload
 
 from .graphics_test_helpers import (
     ASYNC_API_KEY,
@@ -39,18 +44,16 @@ def build_encrypt_payload(
     current_open_password: str | None = None,
     current_permissions_password: str | None = None,
     output: str | None = None,
-) -> dict[str, str]:
-    payload: dict[str, str] = {
-        "id": str(input_file.id),
-        "new_open_password": new_open_password,
-    }
-    if current_open_password is not None:
-        payload["current_open_password"] = current_open_password
-    if current_permissions_password is not None:
-        payload["current_permissions_password"] = current_permissions_password
-    if output is not None:
-        payload["output"] = output
-    return payload
+) -> dict[str, object]:
+    return PdfEncryptPayload.model_validate(
+        {
+            "files": [input_file],
+            "new_open_password": new_open_password,
+            "current_open_password": current_open_password,
+            "current_permissions_password": current_permissions_password,
+            "output": output,
+        }
+    ).model_dump(mode="json", by_alias=True, exclude_none=True, exclude_unset=True)
 
 
 def build_decrypt_payload(
@@ -59,16 +62,15 @@ def build_decrypt_payload(
     current_open_password: str,
     current_permissions_password: str | None = None,
     output: str | None = None,
-) -> dict[str, str]:
-    payload: dict[str, str] = {
-        "id": str(input_file.id),
-        "current_open_password": current_open_password,
-    }
-    if current_permissions_password is not None:
-        payload["current_permissions_password"] = current_permissions_password
-    if output is not None:
-        payload["output"] = output
-    return payload
+) -> dict[str, object]:
+    return PdfDecryptPayload.model_validate(
+        {
+            "files": [input_file],
+            "current_open_password": current_open_password,
+            "current_permissions_password": current_permissions_password,
+            "output": output,
+        }
+    ).model_dump(mode="json", by_alias=True, exclude_none=True, exclude_unset=True)
 
 
 @pytest.mark.parametrize(

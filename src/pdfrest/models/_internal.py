@@ -33,8 +33,7 @@ from ..types import (
     SummaryOutputType,
     TranslateOutputFormat,
 )
-from . import PdfRestFile
-from .public import PdfRestFileID
+from .public import PdfRestFile, PdfRestFileID
 
 
 def _ensure_list(value: Any) -> Any:
