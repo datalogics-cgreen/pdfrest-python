@@ -267,3 +267,46 @@ async def test_live_async_remove_permissions_password_invalid_password(
                 restricted_file,
                 current_permissions_password=wrong_password,
             )
+
+
+def test_live_add_permissions_password_invalid_restriction(
+    pdfrest_api_key: str,
+    pdfrest_live_base_url: str,
+    uploaded_pdf_for_permissions: PdfRestFile,
+) -> None:
+    invalid_restriction = "totally-invalid-restriction"
+    with (
+        PdfRestClient(
+            api_key=pdfrest_api_key,
+            base_url=pdfrest_live_base_url,
+        ) as client,
+        pytest.raises(PdfRestApiError, match=r"(?i)restriction|invalid"),
+    ):
+        client.add_permissions_password(
+            uploaded_pdf_for_permissions,
+            new_permissions_password=make_password("live-invalid-restriction"),
+            restrictions=["print_low"],
+            extra_body={"restrictions": [invalid_restriction]},
+        )
+
+
+@pytest.mark.asyncio
+async def test_live_async_add_permissions_password_invalid_restriction(
+    pdfrest_api_key: str,
+    pdfrest_live_base_url: str,
+    uploaded_pdf_for_permissions: PdfRestFile,
+) -> None:
+    invalid_restriction = "totally-invalid-restriction"
+    async with AsyncPdfRestClient(
+        api_key=pdfrest_api_key,
+        base_url=pdfrest_live_base_url,
+    ) as client:
+        with pytest.raises(PdfRestApiError, match=r"(?i)restriction|invalid"):
+            await client.add_permissions_password(
+                uploaded_pdf_for_permissions,
+                new_permissions_password=make_password(
+                    "async-live-invalid-restriction"
+                ),
+                restrictions=["print_low"],
+                extra_body={"restrictions": [invalid_restriction]},
+            )
