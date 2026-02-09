@@ -23,7 +23,7 @@
 - `uvx nox -s tests` — create matrix virtualenvs via nox and execute the pytest
   session.
 - `nox` executes pytest sessions with built-in parallelism; when invoking pytest
-  directly use `pytest -n 8 --maxschedchunk 2` to mirror the parallel test
+  directly use `pytest -n auto --maxschedchunk 2` to mirror the parallel test
   scheduling and keep runtimes predictable.
 - Coverage reports (XML/Markdown/HTML) are produced by the nox `tests` session
   and stored under `coverage/py<version>/` (for example,
@@ -134,7 +134,9 @@
   considered complete. Mirror the naming/structure used by the graphic
   conversion suites: one module per endpoint, parameterized success cases that
   enumerate all accepted literals, at least one invalid input that hits the
-  server, and coverage for any request options surfaced on the client. If an
+  server, and coverage for server-observable endpoint options. Validate
+  `extra_query`/`extra_headers`/`extra_body`/`timeout` plumbing in unit tests
+  (MockTransport) unless a live assertion depends on those options. If an
   endpoint cannot be exercised live, call that out explicitly in the PR
   description with the reason and the follow-up plan; otherwise reviewers should
   block the change. Treat this as a release gate on par with unit tests.
