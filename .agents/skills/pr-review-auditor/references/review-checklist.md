@@ -8,7 +8,7 @@
 
 ## Review Scope
 
-- Determine PR base branch and audit `origin/<base>..HEAD`.
+- Determine PR base branch and audit `<base_remote>/<base>..HEAD`.
 - Review full commit messages, changed files, and relevant patches.
 - Focus on behavior, CI impact, tests, then style.
 

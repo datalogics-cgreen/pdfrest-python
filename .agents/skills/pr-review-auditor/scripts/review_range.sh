@@ -4,7 +4,7 @@ set -euo pipefail
 range="${1:-}"
 if [[ -z "${range}" ]]; then
     echo "usage: $(basename "$0") <git-range>" >&2
-    echo "example: $(basename "$0") origin/main..HEAD" >&2
+    echo "example: $(basename "$0") upstream/main..HEAD" >&2
     exit 1
 fi
 

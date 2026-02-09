@@ -20,7 +20,7 @@ policy precedence: `*GUIDELINES*.md` before `AGENTS.md`.
 - checked-out branch,
 - PR number and base branch (via `gh pr view`),
 - merge-base commit,
-- review range (`origin/<base>..HEAD`),
+- review range (`<base_remote>/<base>..HEAD`),
 - changed files,
 - available policy files (`*GUIDELINES*.md`, `AGENTS.md`).
 
