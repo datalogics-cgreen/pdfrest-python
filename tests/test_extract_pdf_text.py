@@ -292,6 +292,21 @@ def test_extract_pdf_text_multi_file_guard(monkeypatch: pytest.MonkeyPatch) -> N
         client.extract_pdf_text(files)
 
 
+@pytest.mark.asyncio
+async def test_async_extract_pdf_text_multi_file_guard(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.delenv("PDFREST_API_KEY", raising=False)
+    files = [
+        make_pdf_file(PdfRestFileID.generate(1)),
+        make_pdf_file(PdfRestFileID.generate(2)),
+    ]
+    transport = httpx.MockTransport(lambda request: httpx.Response(500))
+    async with AsyncPdfRestClient(api_key=ASYNC_API_KEY, transport=transport) as client:
+        with pytest.raises(ValidationError, match="at most 1 item"):
+            await client.extract_pdf_text(files)
+
+
 def test_extract_pdf_text_invalid_pages(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.delenv("PDFREST_API_KEY", raising=False)
     input_file = make_pdf_file(PdfRestFileID.generate(1))
@@ -304,6 +319,21 @@ def test_extract_pdf_text_invalid_pages(monkeypatch: pytest.MonkeyPatch) -> None
         ),
     ):
         client.extract_pdf_text(input_file, pages=["5-1"])
+
+
+@pytest.mark.asyncio
+async def test_async_extract_pdf_text_invalid_pages(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.delenv("PDFREST_API_KEY", raising=False)
+    input_file = make_pdf_file(PdfRestFileID.generate(1))
+    transport = httpx.MockTransport(lambda request: httpx.Response(500))
+    async with AsyncPdfRestClient(api_key=ASYNC_API_KEY, transport=transport) as client:
+        with pytest.raises(
+            ValidationError,
+            match="The start page must be less than or equal to the end",
+        ):
+            await client.extract_pdf_text(input_file, pages=["5-1"])
 
 
 def test_extract_pdf_text_server_error(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -322,6 +352,25 @@ def test_extract_pdf_text_server_error(monkeypatch: pytest.MonkeyPatch) -> None:
         pytest.raises(PdfRestApiError, match="Invalid option"),
     ):
         client.extract_pdf_text(input_file, full_text="off")
+
+
+@pytest.mark.asyncio
+async def test_async_extract_pdf_text_server_error(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.delenv("PDFREST_API_KEY", raising=False)
+    input_file = make_pdf_file(PdfRestFileID.generate(1))
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.method == "POST" and request.url.path == "/extracted-text":
+            return httpx.Response(400, json={"message": "Invalid option"})
+        msg = f"Unexpected request {request.method} {request.url}"
+        raise AssertionError(msg)
+
+    transport = httpx.MockTransport(handler)
+    async with AsyncPdfRestClient(api_key=ASYNC_API_KEY, transport=transport) as client:
+        with pytest.raises(PdfRestApiError, match="Invalid option"):
+            await client.extract_pdf_text(input_file, full_text="off")
 
 
 @pytest.mark.parametrize(
@@ -352,3 +401,32 @@ def test_extract_pdf_text_invalid_option_values(
         pytest.raises(ValidationError, match=match),
     ):
         client.extract_pdf_text(input_file, **invalid_kwargs)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("invalid_kwargs", "match"),
+    [
+        pytest.param({"full_text": "pages"}, "full_text", id="bad-full-text"),
+        pytest.param(
+            {"preserve_line_breaks": "maybe"},
+            "preserve_line_breaks",
+            id="bad-preserve-line-breaks",
+        ),
+        pytest.param({"word_style": "maybe"}, "word_style", id="bad-word-style"),
+        pytest.param(
+            {"word_coordinates": "maybe"}, "word_coordinates", id="bad-word-coordinates"
+        ),
+    ],
+)
+async def test_async_extract_pdf_text_invalid_option_values(
+    invalid_kwargs: Mapping[str, object],
+    match: str,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.delenv("PDFREST_API_KEY", raising=False)
+    input_file = make_pdf_file(PdfRestFileID.generate(1))
+    transport = httpx.MockTransport(lambda request: httpx.Response(500))
+    async with AsyncPdfRestClient(api_key=ASYNC_API_KEY, transport=transport) as client:
+        with pytest.raises(ValidationError, match=match):
+            await client.extract_pdf_text(input_file, **invalid_kwargs)
