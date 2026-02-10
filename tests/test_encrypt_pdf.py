@@ -153,6 +153,77 @@ def test_add_open_password_success(
     )
 
 
+def test_add_open_password_request_customization(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.delenv("PDFREST_API_KEY", raising=False)
+    input_file = make_pdf_file(PdfRestFileID.generate(1))
+    output_id = str(PdfRestFileID.generate())
+    captured_timeout: dict[str, float | dict[str, float] | None] = {}
+    new_password = make_password("open-custom")
+    permissions_password = make_password("perm-custom")
+    payload_dump = build_encrypt_payload(
+        input_file,
+        new_open_password=new_password,
+        current_permissions_password=permissions_password,
+        output="encrypted-custom",
+    )
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.method == "POST" and request.url.path == "/encrypted-pdf":
+            assert request.url.params["trace"] == "sync"
+            assert request.headers["X-Debug"] == "sync"
+            captured_timeout["value"] = request.extensions.get("timeout")
+            payload = json.loads(request.content.decode("utf-8"))
+            assert payload == {**payload_dump, "diagnostics": "on"}
+            return httpx.Response(
+                200,
+                json={
+                    "inputId": [input_file.id],
+                    "outputId": [output_id],
+                },
+            )
+        if request.method == "GET" and request.url.path == f"/resource/{output_id}":
+            assert request.url.params["format"] == "info"
+            assert request.url.params["trace"] == "sync"
+            assert request.headers["X-Debug"] == "sync"
+            return httpx.Response(
+                200,
+                json=build_file_info_payload(
+                    output_id,
+                    "encrypted-custom.pdf",
+                    "application/pdf",
+                ),
+            )
+        msg = f"Unexpected request {request.method} {request.url}"
+        raise AssertionError(msg)
+
+    transport = httpx.MockTransport(handler)
+    with PdfRestClient(api_key=VALID_API_KEY, transport=transport) as client:
+        response = client.add_open_password(
+            input_file,
+            new_open_password=new_password,
+            current_permissions_password=permissions_password,
+            output="encrypted-custom",
+            extra_query={"trace": "sync"},
+            extra_headers={"X-Debug": "sync"},
+            extra_body={"diagnostics": "on"},
+            timeout=0.71,
+        )
+
+    assert_pdf_file_response(
+        response,
+        expected_name="encrypted-custom.pdf",
+        input_file=input_file,
+    )
+    timeout_value = captured_timeout["value"]
+    assert timeout_value is not None
+    if isinstance(timeout_value, dict):
+        assert all(pytest.approx(0.71) == value for value in timeout_value.values())
+    else:
+        assert timeout_value == pytest.approx(0.71)
+
+
 def test_change_open_password_request_customization(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -482,6 +553,81 @@ async def test_async_change_open_password_success(
         expected_name="async-rotated-open.pdf",
         input_file=input_file,
     )
+
+
+@pytest.mark.asyncio
+async def test_async_change_open_password_request_customization(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.delenv("PDFREST_API_KEY", raising=False)
+    input_file = make_pdf_file(PdfRestFileID.generate(2))
+    output_id = str(PdfRestFileID.generate())
+    captured_timeout: dict[str, float | dict[str, float] | None] = {}
+    current_password = make_password("async-open-current-custom")
+    new_password = make_password("async-open-next-custom")
+    permissions_password = make_password("async-open-perm-custom")
+    payload_dump = build_encrypt_payload(
+        input_file,
+        current_open_password=current_password,
+        new_open_password=new_password,
+        current_permissions_password=permissions_password,
+        output="async-rotated-open-custom",
+    )
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.method == "POST" and request.url.path == "/encrypted-pdf":
+            assert request.url.params["trace"] == "async"
+            assert request.headers["X-Debug"] == "async"
+            captured_timeout["value"] = request.extensions.get("timeout")
+            payload = json.loads(request.content.decode("utf-8"))
+            assert payload == {**payload_dump, "audit": "yes"}
+            return httpx.Response(
+                200,
+                json={
+                    "inputId": [input_file.id],
+                    "outputId": [output_id],
+                },
+            )
+        if request.method == "GET" and request.url.path == f"/resource/{output_id}":
+            assert request.url.params["format"] == "info"
+            assert request.url.params["trace"] == "async"
+            assert request.headers["X-Debug"] == "async"
+            return httpx.Response(
+                200,
+                json=build_file_info_payload(
+                    output_id,
+                    "async-rotated-open-custom.pdf",
+                    "application/pdf",
+                ),
+            )
+        msg = f"Unexpected request {request.method} {request.url}"
+        raise AssertionError(msg)
+
+    transport = httpx.MockTransport(handler)
+    async with AsyncPdfRestClient(api_key=ASYNC_API_KEY, transport=transport) as client:
+        response = await client.change_open_password(
+            input_file,
+            current_open_password=current_password,
+            new_open_password=new_password,
+            current_permissions_password=permissions_password,
+            output="async-rotated-open-custom",
+            extra_query={"trace": "async"},
+            extra_headers={"X-Debug": "async"},
+            extra_body={"audit": "yes"},
+            timeout=0.74,
+        )
+
+    assert_pdf_file_response(
+        response,
+        expected_name="async-rotated-open-custom.pdf",
+        input_file=input_file,
+    )
+    timeout_value = captured_timeout["value"]
+    assert timeout_value is not None
+    if isinstance(timeout_value, dict):
+        assert all(pytest.approx(0.74) == value for value in timeout_value.values())
+    else:
+        assert timeout_value == pytest.approx(0.74)
 
 
 @pytest.mark.asyncio
