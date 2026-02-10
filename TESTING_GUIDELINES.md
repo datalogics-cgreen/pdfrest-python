@@ -201,8 +201,11 @@ iteration required.
   predictable. Use `pytest.fixture(scope="module"/"class")` and
   `pytest_asyncio.fixture` to cache uploaded PDFs/profiles for both transports.
 - **Sync + async parity:** Every live module should contain matching sync and
-  async tests for success, customization, streaming, and invalid paths
-  (compression levels, conversion options, file streaming helpers).
+  async tests for success, streaming, and invalid paths (compression levels,
+  conversion options, file streaming helpers). Treat transport-plumbing
+  customization (`extra_query`, `extra_headers`, `extra_body`, `timeout`) as a
+  unit-test responsibility unless the endpoint exposes server-observable
+  behavior tied to those options.
 - **Enumerate literals:** Parameterize over every accepted literal (compression
   levels, `color_model`, `smoothing`, merge selectors, redaction presets). Each
   literal should hit the server once per transport.
@@ -210,6 +213,10 @@ iteration required.
   diagnostics toggles, merge metadata, and URL uploads. Validate the server
   honors them (filenames start with the user-provided prefix, warnings appear
   when expected).
+- **Customization placement:** Verify request customization wiring in mocked
+  tests (sync + async) for each endpoint. Live customization tests are optional
+  and should be added only when they validate server-side behavior beyond client
+  request assembly.
 - **Negative live cases:** Override JSON via `extra_body`/`extra_query` to
   bypass local validation and assert `PdfRestApiError` (or the exact server
   exception) surfaces—for example, sending an invalid compression literal or

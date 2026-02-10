@@ -23,12 +23,37 @@
 - `uvx nox -s tests` — create matrix virtualenvs via nox and execute the pytest
   session.
 - `nox` executes pytest sessions with built-in parallelism; when invoking pytest
-  directly use `pytest -n 8 --maxschedchunk 2` to mirror the parallel test
+  directly use `pytest -n auto --maxschedchunk 2` to mirror the parallel test
   scheduling and keep runtimes predictable.
 - Coverage reports (XML/Markdown/HTML) are produced by the nox `tests` session
   and stored under `coverage/py<version>/` (for example,
   `coverage/py3.12/coverage.xml`, `coverage/py3.12/coverage.md`,
   `coverage/py3.12/html/`).
+
+## Code Quality Checklist
+
+- When code changes are complete, or when asked to "check code quality", run
+  this default sequence:
+  - `uv run ruff format .`
+  - `uv run ruff check .`
+  - `uv run basedpyright`
+- Do not include pytest or nox runs in the default "code quality" request; treat
+  runtime tests as a separate validation step.
+
+## Test Validation Checklist
+
+- Run tests separately from code quality checks:
+  - `uv run pytest -n auto --maxschedchunk 2` (or a focused module when
+    iterating)
+- For full compatibility before handoff/PR, run:
+  - `uvx nox -s tests` (Python 3.10-3.14 matrix + coverage artifacts)
+- For class-function coverage gate validation (when relevant to client changes),
+  run:
+  - `uv run python scripts/check_class_function_coverage.py coverage/py<version>/coverage.json --fail-under 90 --class PdfRestClient --class AsyncPdfRestClient --class _FilesClient --class _AsyncFilesClient`
+- Always report:
+  - files changed
+  - tests/checks run and not run
+  - why any checks were skipped
 
 ## Coding Style & Naming Conventions
 
@@ -125,7 +150,9 @@
   a shared validation suite when multiple endpoints rely on the same input rules
   (e.g., `tests/test_graphic_payload_validation.py`).
 - Do not import from private modules (names beginning with an underscore) in
-  tests or production code—expose any shared helpers via a public module first.
+  production code. In tests, prefer public modules first; allow private-model
+  imports only when necessary to validate request serialization or mock
+  server-facing payload contracts that are not exposed publicly.
 
 ## Testing Guidelines
 
@@ -134,7 +161,9 @@
   considered complete. Mirror the naming/structure used by the graphic
   conversion suites: one module per endpoint, parameterized success cases that
   enumerate all accepted literals, at least one invalid input that hits the
-  server, and coverage for any request options surfaced on the client. If an
+  server, and coverage for server-observable endpoint options. Validate
+  `extra_query`/`extra_headers`/`extra_body`/`timeout` plumbing in unit tests
+  (MockTransport) unless a live assertion depends on those options. If an
   endpoint cannot be exercised live, call that out explicitly in the PR
   description with the reason and the follow-up plan; otherwise reviewers should
   block the change. Treat this as a release gate on par with unit tests.
