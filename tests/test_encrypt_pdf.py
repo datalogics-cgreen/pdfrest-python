@@ -73,6 +73,20 @@ def build_decrypt_payload(
     ).model_dump(mode="json", by_alias=True, exclude_none=True, exclude_unset=True)
 
 
+def assert_pdf_file_response(
+    response: PdfRestFileBasedResponse, *, expected_name: str, input_file: PdfRestFile
+) -> None:
+    assert isinstance(response, PdfRestFileBasedResponse)
+    output_file = response.output_file
+    assert output_file.name == expected_name
+    assert output_file.type == "application/pdf"
+    assert output_file.size > 0
+    output_url = str(output_file.url)
+    assert f"/resource/{output_file.id}" in output_url
+    assert response.warning is None
+    assert str(response.input_id) == str(input_file.id)
+
+
 @pytest.mark.parametrize(
     "permissions_password",
     [
@@ -132,10 +146,11 @@ def test_add_open_password_success(
         )
 
     assert seen == {"post": 1, "get": 1}
-    assert isinstance(response, PdfRestFileBasedResponse)
-    assert response.output_file.name == "encrypted.pdf"
-    assert response.output_file.type == "application/pdf"
-    assert str(response.input_id) == str(input_file.id)
+    assert_pdf_file_response(
+        response,
+        expected_name="encrypted.pdf",
+        input_file=input_file,
+    )
 
 
 def test_change_open_password_request_customization(
@@ -199,8 +214,11 @@ def test_change_open_password_request_customization(
             timeout=0.77,
         )
 
-    assert isinstance(response, PdfRestFileBasedResponse)
-    assert response.output_file.name == "rotated-open.pdf"
+    assert_pdf_file_response(
+        response,
+        expected_name="rotated-open.pdf",
+        input_file=input_file,
+    )
     timeout_value = captured_timeout["value"]
     assert timeout_value is not None
     if isinstance(timeout_value, dict):
@@ -257,9 +275,11 @@ def test_remove_open_password_success(monkeypatch: pytest.MonkeyPatch) -> None:
         )
 
     assert seen == {"post": 1, "get": 1}
-    assert isinstance(response, PdfRestFileBasedResponse)
-    assert response.output_file.name == "decrypted.pdf"
-    assert response.output_file.type == "application/pdf"
+    assert_pdf_file_response(
+        response,
+        expected_name="decrypted.pdf",
+        input_file=input_file,
+    )
 
 
 def test_remove_open_password_request_customization(
@@ -320,8 +340,11 @@ def test_remove_open_password_request_customization(
             timeout=0.59,
         )
 
-    assert isinstance(response, PdfRestFileBasedResponse)
-    assert response.output_file.name == "decrypted-custom.pdf"
+    assert_pdf_file_response(
+        response,
+        expected_name="decrypted-custom.pdf",
+        input_file=input_file,
+    )
     timeout_value = captured_timeout["value"]
     assert timeout_value is not None
     if isinstance(timeout_value, dict):
@@ -389,8 +412,11 @@ async def test_async_add_open_password_request_customization(
             timeout=0.66,
         )
 
-    assert isinstance(response, PdfRestFileBasedResponse)
-    assert response.output_file.name == "async-encrypted.pdf"
+    assert_pdf_file_response(
+        response,
+        expected_name="async-encrypted.pdf",
+        input_file=input_file,
+    )
     timeout_value = captured_timeout["value"]
     assert timeout_value is not None
     if isinstance(timeout_value, dict):
@@ -451,8 +477,11 @@ async def test_async_change_open_password_success(
             output="async-rotated-open",
         )
 
-    assert isinstance(response, PdfRestFileBasedResponse)
-    assert response.output_file.name == "async-rotated-open.pdf"
+    assert_pdf_file_response(
+        response,
+        expected_name="async-rotated-open.pdf",
+        input_file=input_file,
+    )
 
 
 @pytest.mark.asyncio
@@ -499,8 +528,11 @@ async def test_async_remove_open_password_success(
             current_open_password=current_password,
         )
 
-    assert isinstance(response, PdfRestFileBasedResponse)
-    assert response.output_file.name == "async-decrypted.pdf"
+    assert_pdf_file_response(
+        response,
+        expected_name="async-decrypted.pdf",
+        input_file=input_file,
+    )
 
 
 @pytest.mark.asyncio
@@ -562,8 +594,11 @@ async def test_async_remove_open_password_request_customization(
             timeout=0.63,
         )
 
-    assert isinstance(response, PdfRestFileBasedResponse)
-    assert response.output_file.name == "async-decrypted-custom.pdf"
+    assert_pdf_file_response(
+        response,
+        expected_name="async-decrypted-custom.pdf",
+        input_file=input_file,
+    )
     timeout_value = captured_timeout["value"]
     assert timeout_value is not None
     if isinstance(timeout_value, dict):

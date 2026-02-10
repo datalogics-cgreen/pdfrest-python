@@ -26,6 +26,8 @@ def assert_pdf_file_response(
     assert output_file.name.startswith(output_prefix)
     assert output_file.name.endswith(".pdf")
     assert output_file.size > 0
+    output_url = str(output_file.url)
+    assert f"/resource/{output_file.id}" in output_url
     assert response.warning is None
     assert str(response.input_id) == str(input_file.id)
 
