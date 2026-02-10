@@ -13,6 +13,348 @@ from pdfrest.models._internal import PdfBlankPayload
 from .graphics_test_helpers import ASYNC_API_KEY, VALID_API_KEY, build_file_info_payload
 
 
+@pytest.mark.parametrize(
+    "page_size",
+    [
+        pytest.param("letter", id="letter"),
+        pytest.param("legal", id="legal"),
+        pytest.param("ledger", id="ledger"),
+        pytest.param("A3", id="a3"),
+        pytest.param("A4", id="a4"),
+        pytest.param("A5", id="a5"),
+    ],
+)
+@pytest.mark.parametrize(
+    "page_orientation",
+    [
+        pytest.param("portrait", id="portrait"),
+        pytest.param("landscape", id="landscape"),
+    ],
+)
+def test_blank_pdf_standard_page_literals(
+    monkeypatch: pytest.MonkeyPatch,
+    page_size: str,
+    page_orientation: str,
+) -> None:
+    monkeypatch.delenv("PDFREST_API_KEY", raising=False)
+    output_id = str(PdfRestFileID.generate())
+
+    payload_dump = PdfBlankPayload.model_validate(
+        {
+            "page_size": page_size,
+            "page_count": 1,
+            "page_orientation": page_orientation,
+        }
+    ).model_dump(mode="json", by_alias=True, exclude_none=True, exclude_unset=True)
+
+    seen: dict[str, int] = {"post": 0, "get": 0}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.method == "POST" and request.url.path == "/blank-pdf":
+            seen["post"] += 1
+            payload = json.loads(request.content.decode("utf-8"))
+            assert payload == payload_dump
+            return httpx.Response(200, json={"outputId": [output_id]})
+        if request.method == "GET" and request.url.path == f"/resource/{output_id}":
+            seen["get"] += 1
+            return httpx.Response(
+                200,
+                json=build_file_info_payload(
+                    output_id,
+                    "blank.pdf",
+                    "application/pdf",
+                ),
+            )
+        msg = f"Unexpected request {request.method} {request.url}"
+        raise AssertionError(msg)
+
+    transport = httpx.MockTransport(handler)
+    with PdfRestClient(api_key=VALID_API_KEY, transport=transport) as client:
+        response = client.blank_pdf(
+            page_size=page_size,
+            page_count=1,
+            page_orientation=page_orientation,
+        )
+
+    assert seen == {"post": 1, "get": 1}
+    assert isinstance(response, PdfRestFileBasedResponse)
+    assert response.output_file.type == "application/pdf"
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "page_size",
+    [
+        pytest.param("letter", id="letter"),
+        pytest.param("legal", id="legal"),
+        pytest.param("ledger", id="ledger"),
+        pytest.param("A3", id="a3"),
+        pytest.param("A4", id="a4"),
+        pytest.param("A5", id="a5"),
+    ],
+)
+@pytest.mark.parametrize(
+    "page_orientation",
+    [
+        pytest.param("portrait", id="portrait"),
+        pytest.param("landscape", id="landscape"),
+    ],
+)
+async def test_async_blank_pdf_standard_page_literals(
+    monkeypatch: pytest.MonkeyPatch,
+    page_size: str,
+    page_orientation: str,
+) -> None:
+    monkeypatch.delenv("PDFREST_API_KEY", raising=False)
+    output_id = str(PdfRestFileID.generate())
+
+    payload_dump = PdfBlankPayload.model_validate(
+        {
+            "page_size": page_size,
+            "page_count": 1,
+            "page_orientation": page_orientation,
+        }
+    ).model_dump(mode="json", by_alias=True, exclude_none=True, exclude_unset=True)
+
+    seen: dict[str, int] = {"post": 0, "get": 0}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.method == "POST" and request.url.path == "/blank-pdf":
+            seen["post"] += 1
+            payload = json.loads(request.content.decode("utf-8"))
+            assert payload == payload_dump
+            return httpx.Response(200, json={"outputId": [output_id]})
+        if request.method == "GET" and request.url.path == f"/resource/{output_id}":
+            seen["get"] += 1
+            return httpx.Response(
+                200,
+                json=build_file_info_payload(
+                    output_id,
+                    "blank.pdf",
+                    "application/pdf",
+                ),
+            )
+        msg = f"Unexpected request {request.method} {request.url}"
+        raise AssertionError(msg)
+
+    transport = httpx.MockTransport(handler)
+    async with AsyncPdfRestClient(api_key=ASYNC_API_KEY, transport=transport) as client:
+        response = await client.blank_pdf(
+            page_size=page_size,
+            page_count=1,
+            page_orientation=page_orientation,
+        )
+
+    assert seen == {"post": 1, "get": 1}
+    assert isinstance(response, PdfRestFileBasedResponse)
+    assert response.output_file.type == "application/pdf"
+
+
+@pytest.mark.parametrize(
+    "page_count",
+    [
+        pytest.param(1, id="min-page-count"),
+        pytest.param(1000, id="max-page-count"),
+    ],
+)
+def test_blank_pdf_page_count_boundaries_success(
+    monkeypatch: pytest.MonkeyPatch,
+    page_count: int,
+) -> None:
+    monkeypatch.delenv("PDFREST_API_KEY", raising=False)
+    output_id = str(PdfRestFileID.generate())
+
+    seen: dict[str, int] = {"post": 0, "get": 0}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.method == "POST" and request.url.path == "/blank-pdf":
+            seen["post"] += 1
+            payload = json.loads(request.content.decode("utf-8"))
+            assert payload["page_count"] == page_count
+            return httpx.Response(200, json={"outputId": [output_id]})
+        if request.method == "GET" and request.url.path == f"/resource/{output_id}":
+            seen["get"] += 1
+            return httpx.Response(
+                200,
+                json=build_file_info_payload(
+                    output_id,
+                    "blank.pdf",
+                    "application/pdf",
+                ),
+            )
+        msg = f"Unexpected request {request.method} {request.url}"
+        raise AssertionError(msg)
+
+    transport = httpx.MockTransport(handler)
+    with PdfRestClient(api_key=VALID_API_KEY, transport=transport) as client:
+        response = client.blank_pdf(
+            page_size="letter",
+            page_count=page_count,
+            page_orientation="portrait",
+        )
+
+    assert isinstance(response, PdfRestFileBasedResponse)
+    assert seen == {"post": 1, "get": 1}
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "page_count",
+    [
+        pytest.param(1, id="min-page-count"),
+        pytest.param(1000, id="max-page-count"),
+    ],
+)
+async def test_async_blank_pdf_page_count_boundaries_success(
+    monkeypatch: pytest.MonkeyPatch,
+    page_count: int,
+) -> None:
+    monkeypatch.delenv("PDFREST_API_KEY", raising=False)
+    output_id = str(PdfRestFileID.generate())
+
+    seen: dict[str, int] = {"post": 0, "get": 0}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.method == "POST" and request.url.path == "/blank-pdf":
+            seen["post"] += 1
+            payload = json.loads(request.content.decode("utf-8"))
+            assert payload["page_count"] == page_count
+            return httpx.Response(200, json={"outputId": [output_id]})
+        if request.method == "GET" and request.url.path == f"/resource/{output_id}":
+            seen["get"] += 1
+            return httpx.Response(
+                200,
+                json=build_file_info_payload(
+                    output_id,
+                    "blank.pdf",
+                    "application/pdf",
+                ),
+            )
+        msg = f"Unexpected request {request.method} {request.url}"
+        raise AssertionError(msg)
+
+    transport = httpx.MockTransport(handler)
+    async with AsyncPdfRestClient(api_key=ASYNC_API_KEY, transport=transport) as client:
+        response = await client.blank_pdf(
+            page_size="letter",
+            page_count=page_count,
+            page_orientation="portrait",
+        )
+
+    assert isinstance(response, PdfRestFileBasedResponse)
+    assert seen == {"post": 1, "get": 1}
+
+
+@pytest.mark.parametrize(
+    ("page_count", "match"),
+    [
+        pytest.param(0, "greater than or equal to 1", id="below-min"),
+        pytest.param(1001, "less than or equal to 1000", id="above-max"),
+    ],
+)
+def test_blank_pdf_page_count_boundaries_validation(
+    monkeypatch: pytest.MonkeyPatch,
+    page_count: int,
+    match: str,
+) -> None:
+    monkeypatch.delenv("PDFREST_API_KEY", raising=False)
+    transport = httpx.MockTransport(lambda request: (_ for _ in ()).throw(RuntimeError))
+
+    with (
+        PdfRestClient(api_key=VALID_API_KEY, transport=transport) as client,
+        pytest.raises(ValidationError, match=match),
+    ):
+        client.blank_pdf(
+            page_size="A4",
+            page_count=page_count,
+            page_orientation="portrait",
+        )
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("page_count", "match"),
+    [
+        pytest.param(0, "greater than or equal to 1", id="below-min"),
+        pytest.param(1001, "less than or equal to 1000", id="above-max"),
+    ],
+)
+async def test_async_blank_pdf_page_count_boundaries_validation(
+    monkeypatch: pytest.MonkeyPatch,
+    page_count: int,
+    match: str,
+) -> None:
+    monkeypatch.delenv("PDFREST_API_KEY", raising=False)
+    transport = httpx.MockTransport(lambda request: (_ for _ in ()).throw(RuntimeError))
+
+    async with AsyncPdfRestClient(api_key=ASYNC_API_KEY, transport=transport) as client:
+        with pytest.raises(ValidationError, match=match):
+            await client.blank_pdf(
+                page_size="A4",
+                page_count=page_count,
+                page_orientation="portrait",
+            )
+
+
+@pytest.mark.parametrize(
+    ("custom_height", "custom_width", "match"),
+    [
+        pytest.param(0.0, 10.0, "greater than 0", id="height-zero"),
+        pytest.param(-1.0, 10.0, "greater than 0", id="height-negative"),
+        pytest.param(10.0, 0.0, "greater than 0", id="width-zero"),
+        pytest.param(10.0, -1.0, "greater than 0", id="width-negative"),
+    ],
+)
+def test_blank_pdf_custom_dimensions_validation(
+    monkeypatch: pytest.MonkeyPatch,
+    custom_height: float,
+    custom_width: float,
+    match: str,
+) -> None:
+    monkeypatch.delenv("PDFREST_API_KEY", raising=False)
+    transport = httpx.MockTransport(lambda request: (_ for _ in ()).throw(RuntimeError))
+
+    with (
+        PdfRestClient(api_key=VALID_API_KEY, transport=transport) as client,
+        pytest.raises(ValidationError, match=match),
+    ):
+        client.blank_pdf(
+            page_size="custom",
+            page_count=1,
+            custom_height=custom_height,
+            custom_width=custom_width,
+        )
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("custom_height", "custom_width", "match"),
+    [
+        pytest.param(0.0, 10.0, "greater than 0", id="height-zero"),
+        pytest.param(-1.0, 10.0, "greater than 0", id="height-negative"),
+        pytest.param(10.0, 0.0, "greater than 0", id="width-zero"),
+        pytest.param(10.0, -1.0, "greater than 0", id="width-negative"),
+    ],
+)
+async def test_async_blank_pdf_custom_dimensions_validation(
+    monkeypatch: pytest.MonkeyPatch,
+    custom_height: float,
+    custom_width: float,
+    match: str,
+) -> None:
+    monkeypatch.delenv("PDFREST_API_KEY", raising=False)
+    transport = httpx.MockTransport(lambda request: (_ for _ in ()).throw(RuntimeError))
+
+    async with AsyncPdfRestClient(api_key=ASYNC_API_KEY, transport=transport) as client:
+        with pytest.raises(ValidationError, match=match):
+            await client.blank_pdf(
+                page_size="custom",
+                page_count=1,
+                custom_height=custom_height,
+                custom_width=custom_width,
+            )
+
+
 def test_blank_pdf_success(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.delenv("PDFREST_API_KEY", raising=False)
     output_id = str(PdfRestFileID.generate())
