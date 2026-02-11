@@ -391,6 +391,56 @@ def test_convert_colors_validation(monkeypatch: pytest.MonkeyPatch) -> None:
         )
 
 
+@pytest.mark.asyncio
+async def test_async_convert_colors_validation(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("PDFREST_API_KEY", raising=False)
+    pdf_file = make_pdf_file(PdfRestFileID.generate(1))
+    png_file = PdfRestFile.model_validate(
+        build_file_info_payload(
+            PdfRestFileID.generate(),
+            "example.png",
+            "image/png",
+        )
+    )
+    wrong_profile_file = PdfRestFile.model_validate(
+        build_file_info_payload(
+            PdfRestFileID.generate(),
+            "profile.txt",
+            "text/plain",
+        )
+    )
+    transport = httpx.MockTransport(lambda request: (_ for _ in ()).throw(RuntimeError))
+
+    async with AsyncPdfRestClient(api_key=ASYNC_API_KEY, transport=transport) as client:
+        with pytest.raises(ValidationError, match="Must be a PDF file"):
+            await client.convert_colors(png_file, color_profile="srgb")
+
+        with pytest.raises(
+            ValidationError, match="List should have at most 1 item after validation"
+        ):
+            await client.convert_colors(
+                [pdf_file, make_pdf_file(PdfRestFileID.generate())],
+                color_profile="srgb",
+            )
+
+        with pytest.raises(ValueError, match="requires a profile"):
+            await client.convert_colors(pdf_file, color_profile="custom")
+
+        with pytest.raises(ValueError, match="only be provided when color_profile"):
+            await client.convert_colors(
+                pdf_file,
+                color_profile="srgb",
+                profile=_make_icc_file(),
+            )
+
+        with pytest.raises(ValidationError, match="Profile must be an ICC file"):
+            await client.convert_colors(
+                pdf_file,
+                color_profile="custom",
+                profile=wrong_profile_file,
+            )
+
+
 def test_convert_colors_rejects_invalid_color_profile(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
