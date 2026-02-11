@@ -454,3 +454,4 @@ $RECYCLE.BIN/
 
 !pyrightconfig.json
 /coverage/
+/coverage.json

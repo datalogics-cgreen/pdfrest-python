@@ -1,4 +1,15 @@
 from .public import (
+    ExtractedTextDocument,
+    ExtractedTextFullText,
+    ExtractedTextFullTextPage,
+    ExtractedTextFullTextPages,
+    ExtractedTextPoint,
+    ExtractedTextWord,
+    ExtractedTextWordColor,
+    ExtractedTextWordCoordinates,
+    ExtractedTextWordFont,
+    ExtractedTextWordStyle,
+    ExtractTextResponse,
     PdfRestDeletionResponse,
     PdfRestErrorResponse,
     PdfRestFile,
@@ -12,6 +23,17 @@ from .public import (
 )
 
 __all__ = [
+    "ExtractTextResponse",
+    "ExtractedTextDocument",
+    "ExtractedTextFullText",
+    "ExtractedTextFullTextPage",
+    "ExtractedTextFullTextPages",
+    "ExtractedTextPoint",
+    "ExtractedTextWord",
+    "ExtractedTextWordColor",
+    "ExtractedTextWordCoordinates",
+    "ExtractedTextWordFont",
+    "ExtractedTextWordStyle",
     "PdfRestDeletionResponse",
     "PdfRestErrorResponse",
     "PdfRestFile",

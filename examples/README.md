@@ -18,3 +18,10 @@ that via `.env` if desired), upload the checked-in sample assets under
 `examples/resources/`, and exercise the async client end-to-end. Use
 `uvx nox -s examples` when you want to execute every example across the
 supported interpreter matrix.
+
+## Available Examples
+
+- `examples/delete/delete_example.py` – demonstrate file deletion (sync + async
+  variants).
+- `examples/extract_text/extract_pdf_text_example.py` – run `extract_pdf_text`
+  with word coordinates/style enabled and render the output as a Rich table.
