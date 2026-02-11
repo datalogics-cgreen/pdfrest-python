@@ -338,6 +338,6 @@ def test_add_attachment_to_pdf_rejects_multiple_attachments(
             make_pdf_file(PdfRestFileID.generate(1)),
             attachment=[
                 make_attachment_file(str(PdfRestFileID.generate(2))),
-                make_attachment_file(str(PdfRestFileID.generate(3)), "more.txt"),
+                make_attachment_file(str(PdfRestFileID.generate(2)), "more.txt"),
             ],
         )

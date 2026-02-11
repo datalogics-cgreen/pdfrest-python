@@ -233,7 +233,7 @@ def test_add_image_to_pdf_rejects_multiple_input_files(
                 make_pdf_file(PdfRestFileID.generate(1)),
                 make_pdf_file(PdfRestFileID.generate(2)),
             ],
-            image=make_image_file(PdfRestFileID.generate(3)),
+            image=make_image_file(PdfRestFileID.generate(2)),
             x=1,
             y=1,
             page=1,
@@ -257,7 +257,7 @@ def test_add_image_to_pdf_rejects_multiple_images(
             make_pdf_file(PdfRestFileID.generate(1)),
             image=[
                 make_image_file(PdfRestFileID.generate(2)),
-                make_image_file(PdfRestFileID.generate(3), name="secondary.png"),
+                make_image_file(PdfRestFileID.generate(2), name="secondary.png"),
             ],
             x=1,
             y=1,
