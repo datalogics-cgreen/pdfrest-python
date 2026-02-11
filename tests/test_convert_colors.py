@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from typing import Any, cast, get_args
 
 import httpx
 import pytest
@@ -9,6 +10,7 @@ from pydantic import ValidationError
 from pdfrest import AsyncPdfRestClient, PdfRestClient
 from pdfrest.models import PdfRestFile, PdfRestFileBasedResponse, PdfRestFileID
 from pdfrest.models._internal import PdfConvertColorsPayload
+from pdfrest.types import PdfColorProfile
 
 from .graphics_test_helpers import (
     ASYNC_API_KEY,
@@ -28,19 +30,48 @@ def _make_icc_file() -> PdfRestFile:
     )
 
 
-def test_convert_colors_success(monkeypatch: pytest.MonkeyPatch) -> None:
+ALL_COLOR_PROFILES: tuple[PdfColorProfile, ...] = cast(
+    tuple[PdfColorProfile, ...],
+    get_args(PdfColorProfile),
+)
+
+
+@pytest.mark.parametrize(
+    "color_profile",
+    [
+        pytest.param(color_profile, id=f"color-profile-{color_profile}")
+        for color_profile in ALL_COLOR_PROFILES
+    ],
+)
+def test_convert_colors_success(
+    monkeypatch: pytest.MonkeyPatch,
+    color_profile: PdfColorProfile,
+) -> None:
     monkeypatch.delenv("PDFREST_API_KEY", raising=False)
     input_file = make_pdf_file(PdfRestFileID.generate(1))
+    profile_file = _make_icc_file()
     output_id = str(PdfRestFileID.generate())
 
-    payload_dump = PdfConvertColorsPayload.model_validate(
-        {
-            "files": [input_file],
-            "color_profile": "srgb",
-            "preserve_black": False,
-            "output": "converted",
-        }
-    ).model_dump(mode="json", by_alias=True, exclude_none=True, exclude_unset=True)
+    payload_options: dict[str, Any] = {
+        "files": [input_file],
+        "color_profile": color_profile,
+        "preserve_black": False,
+        "output": "converted",
+    }
+    client_options: dict[str, Any] = {
+        "color_profile": color_profile,
+        "output": "converted",
+    }
+    if color_profile == "custom":
+        payload_options["profile"] = profile_file
+        client_options["profile"] = profile_file
+
+    payload_dump = PdfConvertColorsPayload.model_validate(payload_options).model_dump(
+        mode="json",
+        by_alias=True,
+        exclude_none=True,
+        exclude_unset=True,
+    )
 
     seen: dict[str, int] = {"post": 0, "get": 0}
 
@@ -75,9 +106,7 @@ def test_convert_colors_success(monkeypatch: pytest.MonkeyPatch) -> None:
 
     transport = httpx.MockTransport(handler)
     with PdfRestClient(api_key=VALID_API_KEY, transport=transport) as client:
-        response = client.convert_colors(
-            input_file, color_profile="srgb", output="converted"
-        )
+        response = client.convert_colors(input_file, **client_options)
 
     assert seen == {"post": 1, "get": 1}
     assert isinstance(response, PdfRestFileBasedResponse)
@@ -158,17 +187,39 @@ def test_convert_colors_request_customization(
         assert timeout_value == pytest.approx(0.29)
 
 
+@pytest.mark.parametrize(
+    "color_profile",
+    [
+        pytest.param(color_profile, id=f"color-profile-{color_profile}")
+        for color_profile in ALL_COLOR_PROFILES
+    ],
+)
 @pytest.mark.asyncio
 async def test_async_convert_colors_success(
     monkeypatch: pytest.MonkeyPatch,
+    color_profile: PdfColorProfile,
 ) -> None:
     monkeypatch.delenv("PDFREST_API_KEY", raising=False)
     input_file = make_pdf_file(PdfRestFileID.generate(2))
+    profile_file = _make_icc_file()
     output_id = str(PdfRestFileID.generate())
 
-    payload_dump = PdfConvertColorsPayload.model_validate(
-        {"files": [input_file], "color_profile": "srgb", "preserve_black": False}
-    ).model_dump(mode="json", by_alias=True, exclude_none=True, exclude_unset=True)
+    payload_options: dict[str, Any] = {
+        "files": [input_file],
+        "color_profile": color_profile,
+        "preserve_black": False,
+    }
+    client_options: dict[str, Any] = {"color_profile": color_profile}
+    if color_profile == "custom":
+        payload_options["profile"] = profile_file
+        client_options["profile"] = profile_file
+
+    payload_dump = PdfConvertColorsPayload.model_validate(payload_options).model_dump(
+        mode="json",
+        by_alias=True,
+        exclude_none=True,
+        exclude_unset=True,
+    )
 
     seen: dict[str, int] = {"post": 0, "get": 0}
 
@@ -203,7 +254,7 @@ async def test_async_convert_colors_success(
 
     transport = httpx.MockTransport(handler)
     async with AsyncPdfRestClient(api_key=ASYNC_API_KEY, transport=transport) as client:
-        response = await client.convert_colors(input_file, color_profile="srgb")
+        response = await client.convert_colors(input_file, **client_options)
 
     assert seen == {"post": 1, "get": 1}
     assert isinstance(response, PdfRestFileBasedResponse)
@@ -338,3 +389,32 @@ def test_convert_colors_validation(monkeypatch: pytest.MonkeyPatch) -> None:
             color_profile="custom",
             profile=wrong_profile_file,
         )
+
+
+def test_convert_colors_rejects_invalid_color_profile(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.delenv("PDFREST_API_KEY", raising=False)
+    pdf_file = make_pdf_file(PdfRestFileID.generate(1))
+    invalid_color_profile = cast(Any, "not-a-color-profile")
+    transport = httpx.MockTransport(lambda request: (_ for _ in ()).throw(RuntimeError))
+
+    with (
+        PdfRestClient(api_key=VALID_API_KEY, transport=transport) as client,
+        pytest.raises(ValidationError, match="Input should be"),
+    ):
+        client.convert_colors(pdf_file, color_profile=invalid_color_profile)
+
+
+@pytest.mark.asyncio
+async def test_async_convert_colors_rejects_invalid_color_profile(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.delenv("PDFREST_API_KEY", raising=False)
+    pdf_file = make_pdf_file(PdfRestFileID.generate(1))
+    invalid_color_profile = cast(Any, "not-a-color-profile")
+    transport = httpx.MockTransport(lambda request: (_ for _ in ()).throw(RuntimeError))
+
+    async with AsyncPdfRestClient(api_key=ASYNC_API_KEY, transport=transport) as client:
+        with pytest.raises(ValidationError, match="Input should be"):
+            await client.convert_colors(pdf_file, color_profile=invalid_color_profile)
