@@ -382,6 +382,18 @@ def test_convert_colors_validation(monkeypatch: pytest.MonkeyPatch) -> None:
 
     with (
         PdfRestClient(api_key=VALID_API_KEY, transport=transport) as client,
+        pytest.raises(
+            ValidationError, match="List should have at most 1 item after validation"
+        ),
+    ):
+        client.convert_colors(
+            pdf_file,
+            color_profile="custom",
+            profile=[_make_icc_file(), _make_icc_file()],
+        )
+
+    with (
+        PdfRestClient(api_key=VALID_API_KEY, transport=transport) as client,
         pytest.raises(ValidationError, match="Profile must be an ICC file"),
     ):
         client.convert_colors(
@@ -431,6 +443,15 @@ async def test_async_convert_colors_validation(monkeypatch: pytest.MonkeyPatch) 
                 pdf_file,
                 color_profile="srgb",
                 profile=_make_icc_file(),
+            )
+
+        with pytest.raises(
+            ValidationError, match="List should have at most 1 item after validation"
+        ):
+            await client.convert_colors(
+                pdf_file,
+                color_profile="custom",
+                profile=[_make_icc_file(), _make_icc_file()],
             )
 
         with pytest.raises(ValidationError, match="Profile must be an ICC file"):
