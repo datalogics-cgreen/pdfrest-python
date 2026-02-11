@@ -14,9 +14,6 @@ ALL_COLOR_PROFILES: tuple[PdfColorProfile, ...] = cast(
     tuple[PdfColorProfile, ...],
     get_args(PdfColorProfile),
 )
-PRESET_COLOR_PROFILES: tuple[PdfColorProfile, ...] = tuple(
-    color_profile for color_profile in ALL_COLOR_PROFILES if color_profile != "custom"
-)
 
 
 @pytest.fixture(scope="module")
@@ -32,26 +29,47 @@ def uploaded_pdf_for_color_conversion(
         return client.files.create_from_paths([resource])[0]
 
 
+def _upload_custom_profile_for_color_conversion(
+    pdfrest_api_key: str,
+    pdfrest_live_base_url: str,
+) -> PdfRestFile:
+    resource = get_test_resource_path("custom.icc")
+    with PdfRestClient(
+        api_key=pdfrest_api_key,
+        base_url=pdfrest_live_base_url,
+    ) as client:
+        return client.files.create_from_paths([resource])[0]
+
+
 @pytest.mark.parametrize(
     "color_profile",
     [
         pytest.param(color_profile, id=f"color-profile-{color_profile}")
-        for color_profile in PRESET_COLOR_PROFILES
+        for color_profile in ALL_COLOR_PROFILES
     ],
 )
-def test_live_convert_colors_presets_success(
+def test_live_convert_colors_color_profiles_success(
     pdfrest_api_key: str,
     pdfrest_live_base_url: str,
     uploaded_pdf_for_color_conversion: PdfRestFile,
     color_profile: PdfColorProfile,
 ) -> None:
+    kwargs: dict[str, PdfColorProfile | PdfRestFile] = {"color_profile": color_profile}
+    custom_profile: PdfRestFile | None = None
+    if color_profile == "custom":
+        custom_profile = _upload_custom_profile_for_color_conversion(
+            pdfrest_api_key,
+            pdfrest_live_base_url,
+        )
+        kwargs["profile"] = custom_profile
+
     with PdfRestClient(
         api_key=pdfrest_api_key,
         base_url=pdfrest_live_base_url,
     ) as client:
         response = client.convert_colors(
             uploaded_pdf_for_color_conversion,
-            color_profile=color_profile,
+            **kwargs,
         )
 
     assert response.output_files
@@ -59,7 +77,12 @@ def test_live_convert_colors_presets_success(
     assert output_file.type == "application/pdf"
     assert output_file.size > 0
     assert response.warning is None
-    assert str(response.input_id) == str(uploaded_pdf_for_color_conversion.id)
+    input_ids = {str(file_id) for file_id in response.input_ids}
+    assert str(uploaded_pdf_for_color_conversion.id) in input_ids
+    if custom_profile is not None:
+        assert str(custom_profile.id) in input_ids
+    else:
+        assert str(response.input_id) == str(uploaded_pdf_for_color_conversion.id)
 
 
 @pytest.mark.parametrize(
@@ -102,22 +125,31 @@ def test_live_convert_colors_output_prefix(
     "color_profile",
     [
         pytest.param(color_profile, id=f"color-profile-{color_profile}")
-        for color_profile in PRESET_COLOR_PROFILES
+        for color_profile in ALL_COLOR_PROFILES
     ],
 )
-async def test_live_async_convert_colors_presets_success(
+async def test_live_async_convert_colors_color_profiles_success(
     pdfrest_api_key: str,
     pdfrest_live_base_url: str,
     uploaded_pdf_for_color_conversion: PdfRestFile,
     color_profile: PdfColorProfile,
 ) -> None:
+    kwargs: dict[str, PdfColorProfile | PdfRestFile] = {"color_profile": color_profile}
+    custom_profile: PdfRestFile | None = None
+    if color_profile == "custom":
+        custom_profile = _upload_custom_profile_for_color_conversion(
+            pdfrest_api_key,
+            pdfrest_live_base_url,
+        )
+        kwargs["profile"] = custom_profile
+
     async with AsyncPdfRestClient(
         api_key=pdfrest_api_key,
         base_url=pdfrest_live_base_url,
     ) as client:
         response = await client.convert_colors(
             uploaded_pdf_for_color_conversion,
-            color_profile=color_profile,
+            **kwargs,
         )
 
     assert response.output_files
@@ -125,7 +157,12 @@ async def test_live_async_convert_colors_presets_success(
     assert output_file.type == "application/pdf"
     assert output_file.size > 0
     assert response.warning is None
-    assert str(response.input_id) == str(uploaded_pdf_for_color_conversion.id)
+    input_ids = {str(file_id) for file_id in response.input_ids}
+    assert str(uploaded_pdf_for_color_conversion.id) in input_ids
+    if custom_profile is not None:
+        assert str(custom_profile.id) in input_ids
+    else:
+        assert str(response.input_id) == str(uploaded_pdf_for_color_conversion.id)
 
 
 @pytest.mark.asyncio
