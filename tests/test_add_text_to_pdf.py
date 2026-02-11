@@ -410,3 +410,89 @@ async def test_async_add_text_to_pdf_invalid_cmyk_range(
                     )
                 ],
             )
+
+
+@pytest.mark.asyncio
+async def test_async_add_text_to_pdf_requires_color(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.delenv("PDFREST_API_KEY", raising=False)
+
+    def handler(_: httpx.Request) -> httpx.Response:
+        pytest.fail("Request should not be sent when validation fails.")
+
+    transport = httpx.MockTransport(handler)
+    text_object = make_text_object()
+    text_object.pop("text_color_rgb")
+
+    async with AsyncPdfRestClient(api_key=ASYNC_API_KEY, transport=transport) as client:
+        with pytest.raises(
+            ValidationError,
+            match=re.escape(
+                "Either text_color_rgb or text_color_cmyk must be provided."
+            ),
+        ):
+            await client.add_text_to_pdf(
+                make_pdf_file(PdfRestFileID.generate(1)),
+                text_objects=[text_object],
+            )
+
+
+@pytest.mark.asyncio
+async def test_async_add_text_to_pdf_rgb_bounds(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.delenv("PDFREST_API_KEY", raising=False)
+
+    def handler(_: httpx.Request) -> httpx.Response:
+        pytest.fail("Request should not be sent when validation fails.")
+
+    transport = httpx.MockTransport(handler)
+    async with AsyncPdfRestClient(api_key=ASYNC_API_KEY, transport=transport) as client:
+        with pytest.raises(
+            ValidationError,
+            match=re.escape("text_color_rgb values must be between 0 and 255."),
+        ):
+            await client.add_text_to_pdf(
+                make_pdf_file(PdfRestFileID.generate(1)),
+                text_objects=[make_text_object(text_color_rgb=(0, 0, 256))],
+            )
+
+
+@pytest.mark.asyncio
+async def test_async_add_text_to_pdf_text_size_bounds(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.delenv("PDFREST_API_KEY", raising=False)
+
+    def handler(_: httpx.Request) -> httpx.Response:
+        pytest.fail("Request should not be sent when validation fails.")
+
+    transport = httpx.MockTransport(handler)
+    async with AsyncPdfRestClient(api_key=ASYNC_API_KEY, transport=transport) as client:
+        with pytest.raises(ValidationError, match="greater than or equal to 5"):
+            await client.add_text_to_pdf(
+                make_pdf_file(PdfRestFileID.generate(1)),
+                text_objects=[make_text_object(text_size=4)],
+            )
+
+
+@pytest.mark.asyncio
+async def test_async_add_text_to_pdf_rejects_multiple_input_files(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.delenv("PDFREST_API_KEY", raising=False)
+
+    def handler(_: httpx.Request) -> httpx.Response:
+        pytest.fail("Request should not be sent when validation fails.")
+
+    transport = httpx.MockTransport(handler)
+    async with AsyncPdfRestClient(api_key=ASYNC_API_KEY, transport=transport) as client:
+        with pytest.raises(ValidationError, match="at most 1 item"):
+            await client.add_text_to_pdf(
+                [
+                    make_pdf_file(PdfRestFileID.generate(1)),
+                    make_pdf_file(PdfRestFileID.generate(2)),
+                ],
+                text_objects=[make_text_object()],
+            )

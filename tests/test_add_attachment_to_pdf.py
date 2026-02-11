@@ -341,3 +341,66 @@ def test_add_attachment_to_pdf_rejects_multiple_attachments(
                 make_attachment_file(str(PdfRestFileID.generate(2)), "more.txt"),
             ],
         )
+
+
+@pytest.mark.asyncio
+async def test_async_add_attachment_to_pdf_requires_pdf_file(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.delenv("PDFREST_API_KEY", raising=False)
+    not_pdf = make_attachment_file(
+        str(PdfRestFileID.generate()),
+        "image.png",
+        "image/png",
+    )
+    attachment = make_attachment_file(str(PdfRestFileID.generate()), "note.txt")
+
+    def handler(_: httpx.Request) -> httpx.Response:
+        pytest.fail("Request should not be sent when validation fails.")
+
+    transport = httpx.MockTransport(handler)
+    async with AsyncPdfRestClient(api_key=ASYNC_API_KEY, transport=transport) as client:
+        with pytest.raises(ValidationError, match="Must be a PDF file"):
+            await client.add_attachment_to_pdf(not_pdf, attachment=attachment)
+
+
+@pytest.mark.asyncio
+async def test_async_add_attachment_to_pdf_rejects_multiple_input_files(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.delenv("PDFREST_API_KEY", raising=False)
+
+    def handler(_: httpx.Request) -> httpx.Response:
+        pytest.fail("Request should not be sent when validation fails.")
+
+    transport = httpx.MockTransport(handler)
+    async with AsyncPdfRestClient(api_key=ASYNC_API_KEY, transport=transport) as client:
+        with pytest.raises(ValidationError, match="at most 1 item"):
+            await client.add_attachment_to_pdf(
+                [
+                    make_pdf_file(PdfRestFileID.generate(1)),
+                    make_pdf_file(PdfRestFileID.generate(2)),
+                ],
+                attachment=make_attachment_file(str(PdfRestFileID.generate())),
+            )
+
+
+@pytest.mark.asyncio
+async def test_async_add_attachment_to_pdf_rejects_multiple_attachments(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.delenv("PDFREST_API_KEY", raising=False)
+
+    def handler(_: httpx.Request) -> httpx.Response:
+        pytest.fail("Request should not be sent when validation fails.")
+
+    transport = httpx.MockTransport(handler)
+    async with AsyncPdfRestClient(api_key=ASYNC_API_KEY, transport=transport) as client:
+        with pytest.raises(ValidationError, match="at most 1 item"):
+            await client.add_attachment_to_pdf(
+                make_pdf_file(PdfRestFileID.generate(1)),
+                attachment=[
+                    make_attachment_file(str(PdfRestFileID.generate(2))),
+                    make_attachment_file(str(PdfRestFileID.generate(2)), "more.txt"),
+                ],
+            )
