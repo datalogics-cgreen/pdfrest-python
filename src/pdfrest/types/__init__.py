@@ -3,6 +3,7 @@
 from .public import (
     ALL_OCR_LANGUAGES,
     ALL_PDF_INFO_QUERIES,
+    ALL_PDF_RESTRICTIONS,
     BmpColorModel,
     CompressionLevel,
     ExtractTextGranularity,
@@ -19,6 +20,7 @@ from .public import (
     PdfRedactionInstruction,
     PdfRedactionPreset,
     PdfRedactionType,
+    PdfRestriction,
     PdfRGBColor,
     PdfXType,
     PngColorModel,
@@ -32,6 +34,7 @@ from .public import (
 __all__ = [
     "ALL_OCR_LANGUAGES",
     "ALL_PDF_INFO_QUERIES",
+    "ALL_PDF_RESTRICTIONS",
     "BmpColorModel",
     "CompressionLevel",
     "ExtractTextGranularity",
@@ -49,6 +52,7 @@ __all__ = [
     "PdfRedactionInstruction",
     "PdfRedactionPreset",
     "PdfRedactionType",
+    "PdfRestriction",
     "PdfXType",
     "PngColorModel",
     "SummaryFormat",

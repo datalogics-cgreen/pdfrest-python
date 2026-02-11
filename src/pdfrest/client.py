@@ -82,6 +82,8 @@ from .models._internal import (
     JpegPdfRestPayload,
     OcrPdfPayload,
     PdfCompressPayload,
+    PdfDecryptPayload,
+    PdfEncryptPayload,
     PdfFlattenAnnotationsPayload,
     PdfFlattenFormsPayload,
     PdfFlattenTransparenciesPayload,
@@ -92,12 +94,14 @@ from .models._internal import (
     PdfRedactionApplyPayload,
     PdfRedactionPreviewPayload,
     PdfRestRawFileResponse,
+    PdfRestrictPayload,
     PdfSplitPayload,
     PdfToExcelPayload,
     PdfToPdfaPayload,
     PdfToPdfxPayload,
     PdfToPowerpointPayload,
     PdfToWordPayload,
+    PdfUnrestrictPayload,
     PdfXfaToAcroformsPayload,
     PngPdfRestPayload,
     SummarizePdfTextPayload,
@@ -120,6 +124,7 @@ from .types import (
     PdfMergeInput,
     PdfPageSelection,
     PdfRedactionInstruction,
+    PdfRestriction,
     PdfRGBColor,
     PdfXType,
     PngColorModel,
@@ -2684,6 +2689,214 @@ class PdfRestClient(_SyncApiClient):
             timeout=timeout,
         )
 
+    def add_permissions_password(
+        self,
+        file: PdfRestFile | Sequence[PdfRestFile],
+        *,
+        new_permissions_password: str,
+        restrictions: Sequence[PdfRestriction] | None = None,
+        current_open_password: str | None = None,
+        output: str | None = None,
+        extra_query: Query | None = None,
+        extra_headers: AnyMapping | None = None,
+        extra_body: Body | None = None,
+        timeout: TimeoutTypes | None = None,
+    ) -> PdfRestFileBasedResponse:
+        """Add a permissions password and optional restrictions to a PDF."""
+
+        payload: dict[str, Any] = {
+            "files": file,
+            "new_permissions_password": new_permissions_password,
+        }
+        if restrictions is not None:
+            payload["restrictions"] = restrictions
+        if current_open_password is not None:
+            payload["current_open_password"] = current_open_password
+        if output is not None:
+            payload["output"] = output
+
+        return self._post_file_operation(
+            endpoint="/restricted-pdf",
+            payload=payload,
+            payload_model=PdfRestrictPayload,
+            extra_query=extra_query,
+            extra_headers=extra_headers,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
+
+    def change_permissions_password(
+        self,
+        file: PdfRestFile | Sequence[PdfRestFile],
+        *,
+        current_permissions_password: str,
+        new_permissions_password: str,
+        restrictions: Sequence[PdfRestriction] | None = None,
+        current_open_password: str | None = None,
+        output: str | None = None,
+        extra_query: Query | None = None,
+        extra_headers: AnyMapping | None = None,
+        extra_body: Body | None = None,
+        timeout: TimeoutTypes | None = None,
+    ) -> PdfRestFileBasedResponse:
+        """Rotate the permissions password and optionally update restrictions."""
+
+        payload: dict[str, Any] = {
+            "files": file,
+            "current_permissions_password": current_permissions_password,
+            "new_permissions_password": new_permissions_password,
+        }
+        if restrictions is not None:
+            payload["restrictions"] = restrictions
+        if current_open_password is not None:
+            payload["current_open_password"] = current_open_password
+        if output is not None:
+            payload["output"] = output
+
+        return self._post_file_operation(
+            endpoint="/restricted-pdf",
+            payload=payload,
+            payload_model=PdfRestrictPayload,
+            extra_query=extra_query,
+            extra_headers=extra_headers,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
+
+    def add_open_password(
+        self,
+        file: PdfRestFile | Sequence[PdfRestFile],
+        *,
+        new_open_password: str,
+        current_permissions_password: str | None = None,
+        output: str | None = None,
+        extra_query: Query | None = None,
+        extra_headers: AnyMapping | None = None,
+        extra_body: Body | None = None,
+        timeout: TimeoutTypes | None = None,
+    ) -> PdfRestFileBasedResponse:
+        """Encrypt a PDF with a new open password."""
+
+        payload: dict[str, Any] = {
+            "files": file,
+            "new_open_password": new_open_password,
+        }
+        if current_permissions_password is not None:
+            payload["current_permissions_password"] = current_permissions_password
+        if output is not None:
+            payload["output"] = output
+
+        return self._post_file_operation(
+            endpoint="/encrypted-pdf",
+            payload=payload,
+            payload_model=PdfEncryptPayload,
+            extra_query=extra_query,
+            extra_headers=extra_headers,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
+
+    def change_open_password(
+        self,
+        file: PdfRestFile | Sequence[PdfRestFile],
+        *,
+        current_open_password: str,
+        new_open_password: str,
+        current_permissions_password: str | None = None,
+        output: str | None = None,
+        extra_query: Query | None = None,
+        extra_headers: AnyMapping | None = None,
+        extra_body: Body | None = None,
+        timeout: TimeoutTypes | None = None,
+    ) -> PdfRestFileBasedResponse:
+        """Rotate the open password for an encrypted PDF."""
+
+        payload: dict[str, Any] = {
+            "files": file,
+            "current_open_password": current_open_password,
+            "new_open_password": new_open_password,
+        }
+        if current_permissions_password is not None:
+            payload["current_permissions_password"] = current_permissions_password
+        if output is not None:
+            payload["output"] = output
+
+        return self._post_file_operation(
+            endpoint="/encrypted-pdf",
+            payload=payload,
+            payload_model=PdfEncryptPayload,
+            extra_query=extra_query,
+            extra_headers=extra_headers,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
+
+    def remove_open_password(
+        self,
+        file: PdfRestFile | Sequence[PdfRestFile],
+        *,
+        current_open_password: str,
+        current_permissions_password: str | None = None,
+        output: str | None = None,
+        extra_query: Query | None = None,
+        extra_headers: AnyMapping | None = None,
+        extra_body: Body | None = None,
+        timeout: TimeoutTypes | None = None,
+    ) -> PdfRestFileBasedResponse:
+        """Decrypt a PDF by removing its open password."""
+
+        payload: dict[str, Any] = {
+            "files": file,
+            "current_open_password": current_open_password,
+        }
+        if current_permissions_password is not None:
+            payload["current_permissions_password"] = current_permissions_password
+        if output is not None:
+            payload["output"] = output
+
+        return self._post_file_operation(
+            endpoint="/decrypted-pdf",
+            payload=payload,
+            payload_model=PdfDecryptPayload,
+            extra_query=extra_query,
+            extra_headers=extra_headers,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
+
+    def remove_permissions_password(
+        self,
+        file: PdfRestFile | Sequence[PdfRestFile],
+        *,
+        current_permissions_password: str,
+        current_open_password: str | None = None,
+        output: str | None = None,
+        extra_query: Query | None = None,
+        extra_headers: AnyMapping | None = None,
+        extra_body: Body | None = None,
+        timeout: TimeoutTypes | None = None,
+    ) -> PdfRestFileBasedResponse:
+        """Remove permissions restrictions from a PDF."""
+
+        payload: dict[str, Any] = {
+            "files": file,
+            "current_permissions_password": current_permissions_password,
+        }
+        if current_open_password is not None:
+            payload["current_open_password"] = current_open_password
+        if output is not None:
+            payload["output"] = output
+
+        return self._post_file_operation(
+            endpoint="/unrestricted-pdf",
+            payload=payload,
+            payload_model=PdfUnrestrictPayload,
+            extra_query=extra_query,
+            extra_headers=extra_headers,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
+
     def compress_pdf(
         self,
         file: PdfRestFile | Sequence[PdfRestFile],
@@ -3715,6 +3928,214 @@ class AsyncPdfRestClient(_AsyncApiClient):
             endpoint="/flattened-forms-pdf",
             payload=payload,
             payload_model=PdfFlattenFormsPayload,
+            extra_query=extra_query,
+            extra_headers=extra_headers,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
+
+    async def add_permissions_password(
+        self,
+        file: PdfRestFile | Sequence[PdfRestFile],
+        *,
+        new_permissions_password: str,
+        restrictions: Sequence[PdfRestriction] | None = None,
+        current_open_password: str | None = None,
+        output: str | None = None,
+        extra_query: Query | None = None,
+        extra_headers: AnyMapping | None = None,
+        extra_body: Body | None = None,
+        timeout: TimeoutTypes | None = None,
+    ) -> PdfRestFileBasedResponse:
+        """Asynchronously add a permissions password and optional restrictions to a PDF."""
+
+        payload: dict[str, Any] = {
+            "files": file,
+            "new_permissions_password": new_permissions_password,
+        }
+        if restrictions is not None:
+            payload["restrictions"] = restrictions
+        if current_open_password is not None:
+            payload["current_open_password"] = current_open_password
+        if output is not None:
+            payload["output"] = output
+
+        return await self._post_file_operation(
+            endpoint="/restricted-pdf",
+            payload=payload,
+            payload_model=PdfRestrictPayload,
+            extra_query=extra_query,
+            extra_headers=extra_headers,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
+
+    async def change_permissions_password(
+        self,
+        file: PdfRestFile | Sequence[PdfRestFile],
+        *,
+        current_permissions_password: str,
+        new_permissions_password: str,
+        restrictions: Sequence[PdfRestriction] | None = None,
+        current_open_password: str | None = None,
+        output: str | None = None,
+        extra_query: Query | None = None,
+        extra_headers: AnyMapping | None = None,
+        extra_body: Body | None = None,
+        timeout: TimeoutTypes | None = None,
+    ) -> PdfRestFileBasedResponse:
+        """Asynchronously rotate the permissions password and optionally update restrictions."""
+
+        payload: dict[str, Any] = {
+            "files": file,
+            "current_permissions_password": current_permissions_password,
+            "new_permissions_password": new_permissions_password,
+        }
+        if restrictions is not None:
+            payload["restrictions"] = restrictions
+        if current_open_password is not None:
+            payload["current_open_password"] = current_open_password
+        if output is not None:
+            payload["output"] = output
+
+        return await self._post_file_operation(
+            endpoint="/restricted-pdf",
+            payload=payload,
+            payload_model=PdfRestrictPayload,
+            extra_query=extra_query,
+            extra_headers=extra_headers,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
+
+    async def remove_permissions_password(
+        self,
+        file: PdfRestFile | Sequence[PdfRestFile],
+        *,
+        current_permissions_password: str,
+        current_open_password: str | None = None,
+        output: str | None = None,
+        extra_query: Query | None = None,
+        extra_headers: AnyMapping | None = None,
+        extra_body: Body | None = None,
+        timeout: TimeoutTypes | None = None,
+    ) -> PdfRestFileBasedResponse:
+        """Asynchronously remove permissions restrictions from a PDF."""
+
+        payload: dict[str, Any] = {
+            "files": file,
+            "current_permissions_password": current_permissions_password,
+        }
+        if current_open_password is not None:
+            payload["current_open_password"] = current_open_password
+        if output is not None:
+            payload["output"] = output
+
+        return await self._post_file_operation(
+            endpoint="/unrestricted-pdf",
+            payload=payload,
+            payload_model=PdfUnrestrictPayload,
+            extra_query=extra_query,
+            extra_headers=extra_headers,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
+
+    async def add_open_password(
+        self,
+        file: PdfRestFile | Sequence[PdfRestFile],
+        *,
+        new_open_password: str,
+        current_permissions_password: str | None = None,
+        output: str | None = None,
+        extra_query: Query | None = None,
+        extra_headers: AnyMapping | None = None,
+        extra_body: Body | None = None,
+        timeout: TimeoutTypes | None = None,
+    ) -> PdfRestFileBasedResponse:
+        """Asynchronously encrypt a PDF with a new open password."""
+
+        payload: dict[str, Any] = {
+            "files": file,
+            "new_open_password": new_open_password,
+        }
+        if current_permissions_password is not None:
+            payload["current_permissions_password"] = current_permissions_password
+        if output is not None:
+            payload["output"] = output
+
+        return await self._post_file_operation(
+            endpoint="/encrypted-pdf",
+            payload=payload,
+            payload_model=PdfEncryptPayload,
+            extra_query=extra_query,
+            extra_headers=extra_headers,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
+
+    async def change_open_password(
+        self,
+        file: PdfRestFile | Sequence[PdfRestFile],
+        *,
+        current_open_password: str,
+        new_open_password: str,
+        current_permissions_password: str | None = None,
+        output: str | None = None,
+        extra_query: Query | None = None,
+        extra_headers: AnyMapping | None = None,
+        extra_body: Body | None = None,
+        timeout: TimeoutTypes | None = None,
+    ) -> PdfRestFileBasedResponse:
+        """Asynchronously rotate the open password for an encrypted PDF."""
+
+        payload: dict[str, Any] = {
+            "files": file,
+            "current_open_password": current_open_password,
+            "new_open_password": new_open_password,
+        }
+        if current_permissions_password is not None:
+            payload["current_permissions_password"] = current_permissions_password
+        if output is not None:
+            payload["output"] = output
+
+        return await self._post_file_operation(
+            endpoint="/encrypted-pdf",
+            payload=payload,
+            payload_model=PdfEncryptPayload,
+            extra_query=extra_query,
+            extra_headers=extra_headers,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
+
+    async def remove_open_password(
+        self,
+        file: PdfRestFile | Sequence[PdfRestFile],
+        *,
+        current_open_password: str,
+        current_permissions_password: str | None = None,
+        output: str | None = None,
+        extra_query: Query | None = None,
+        extra_headers: AnyMapping | None = None,
+        extra_body: Body | None = None,
+        timeout: TimeoutTypes | None = None,
+    ) -> PdfRestFileBasedResponse:
+        """Asynchronously decrypt a PDF by removing its open password."""
+
+        payload: dict[str, Any] = {
+            "files": file,
+            "current_open_password": current_open_password,
+        }
+        if current_permissions_password is not None:
+            payload["current_permissions_password"] = current_permissions_password
+        if output is not None:
+            payload["output"] = output
+
+        return await self._post_file_operation(
+            endpoint="/decrypted-pdf",
+            payload=payload,
+            payload_model=PdfDecryptPayload,
             extra_query=extra_query,
             extra_headers=extra_headers,
             extra_body=extra_body,

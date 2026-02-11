@@ -15,6 +15,7 @@ else:  # pragma: no cover - used only for typing at runtime
 __all__ = (
     "ALL_OCR_LANGUAGES",
     "ALL_PDF_INFO_QUERIES",
+    "ALL_PDF_RESTRICTIONS",
     "BmpColorModel",
     "CompressionLevel",
     "ExtractTextGranularity",
@@ -32,6 +33,7 @@ __all__ = (
     "PdfRedactionInstruction",
     "PdfRedactionPreset",
     "PdfRedactionType",
+    "PdfRestriction",
     "PdfXType",
     "PngColorModel",
     "SummaryFormat",
@@ -159,4 +161,19 @@ OcrLanguage = Literal[
 
 ALL_OCR_LANGUAGES: tuple[OcrLanguage, ...] = cast(
     tuple[OcrLanguage, ...], get_args(OcrLanguage)
+)
+
+PdfRestriction = Literal[
+    "print_low",
+    "print_high",
+    "edit_document_assembly",
+    "edit_fill_and_sign_form_fields",
+    "edit_annotations",
+    "edit_content",
+    "copy_content",
+    "accessibility_off",
+]
+
+ALL_PDF_RESTRICTIONS: tuple[PdfRestriction, ...] = cast(
+    tuple[PdfRestriction, ...], get_args(PdfRestriction)
 )
