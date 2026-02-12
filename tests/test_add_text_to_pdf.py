@@ -15,6 +15,7 @@ from .graphics_test_helpers import (
     ASYNC_API_KEY,
     VALID_API_KEY,
     build_file_info_payload,
+    make_image_file,
     make_pdf_file,
 )
 
@@ -213,6 +214,62 @@ def test_add_text_to_pdf_requires_color(monkeypatch: pytest.MonkeyPatch) -> None
         client.add_text_to_pdf(
             make_pdf_file(PdfRestFileID.generate(1)),
             text_objects=[text_object],
+        )
+
+
+def test_add_text_to_pdf_pdf_mime_validation(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("PDFREST_API_KEY", raising=False)
+
+    def handler(_: httpx.Request) -> httpx.Response:
+        pytest.fail("Request should not be sent when validation fails.")
+
+    transport = httpx.MockTransport(handler)
+    with (
+        PdfRestClient(api_key=VALID_API_KEY, transport=transport) as client,
+        pytest.raises(ValidationError, match="Must be a PDF file"),
+    ):
+        client.add_text_to_pdf(
+            make_image_file(PdfRestFileID.generate(1)),
+            text_objects=[make_text_object()],
+        )
+
+
+def test_add_text_to_pdf_page_minimum(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("PDFREST_API_KEY", raising=False)
+
+    def handler(_: httpx.Request) -> httpx.Response:
+        pytest.fail("Request should not be sent when validation fails.")
+
+    transport = httpx.MockTransport(handler)
+    with (
+        PdfRestClient(api_key=VALID_API_KEY, transport=transport) as client,
+        pytest.raises(ValidationError, match="greater than or equal to 1"),
+    ):
+        client.add_text_to_pdf(
+            make_pdf_file(PdfRestFileID.generate(1)),
+            text_objects=[make_text_object(page=0)],
+        )
+
+
+def test_add_text_to_pdf_rejects_both_color_modes(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.delenv("PDFREST_API_KEY", raising=False)
+
+    def handler(_: httpx.Request) -> httpx.Response:
+        pytest.fail("Request should not be sent when validation fails.")
+
+    transport = httpx.MockTransport(handler)
+    with (
+        PdfRestClient(api_key=VALID_API_KEY, transport=transport) as client,
+        pytest.raises(
+            ValidationError,
+            match=re.escape("Provide only one of text_color_rgb or text_color_cmyk."),
+        ),
+    ):
+        client.add_text_to_pdf(
+            make_pdf_file(PdfRestFileID.generate(1)),
+            text_objects=[make_text_object(text_color_cmyk=(0, 0, 0, 0))],
         )
 
 
@@ -426,6 +483,63 @@ async def test_async_add_text_to_pdf_invalid_cmyk_range(
                         text_color_rgb=None, text_color_cmyk=(0, 0, 0, 101)
                     )
                 ],
+            )
+
+
+@pytest.mark.asyncio
+async def test_async_add_text_to_pdf_pdf_mime_validation(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.delenv("PDFREST_API_KEY", raising=False)
+
+    def handler(_: httpx.Request) -> httpx.Response:
+        pytest.fail("Request should not be sent when validation fails.")
+
+    transport = httpx.MockTransport(handler)
+    async with AsyncPdfRestClient(api_key=ASYNC_API_KEY, transport=transport) as client:
+        with pytest.raises(ValidationError, match="Must be a PDF file"):
+            await client.add_text_to_pdf(
+                make_image_file(PdfRestFileID.generate(1)),
+                text_objects=[make_text_object()],
+            )
+
+
+@pytest.mark.asyncio
+async def test_async_add_text_to_pdf_page_minimum(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.delenv("PDFREST_API_KEY", raising=False)
+
+    def handler(_: httpx.Request) -> httpx.Response:
+        pytest.fail("Request should not be sent when validation fails.")
+
+    transport = httpx.MockTransport(handler)
+    async with AsyncPdfRestClient(api_key=ASYNC_API_KEY, transport=transport) as client:
+        with pytest.raises(ValidationError, match="greater than or equal to 1"):
+            await client.add_text_to_pdf(
+                make_pdf_file(PdfRestFileID.generate(1)),
+                text_objects=[make_text_object(page=0)],
+            )
+
+
+@pytest.mark.asyncio
+async def test_async_add_text_to_pdf_rejects_both_color_modes(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.delenv("PDFREST_API_KEY", raising=False)
+
+    def handler(_: httpx.Request) -> httpx.Response:
+        pytest.fail("Request should not be sent when validation fails.")
+
+    transport = httpx.MockTransport(handler)
+    async with AsyncPdfRestClient(api_key=ASYNC_API_KEY, transport=transport) as client:
+        with pytest.raises(
+            ValidationError,
+            match=re.escape("Provide only one of text_color_rgb or text_color_cmyk."),
+        ):
+            await client.add_text_to_pdf(
+                make_pdf_file(PdfRestFileID.generate(1)),
+                text_objects=[make_text_object(text_color_cmyk=(0, 0, 0, 0))],
             )
 
 
