@@ -113,16 +113,16 @@ PdfCmykColor = tuple[int, int, int, int]
 
 class PdfAddTextObject(TypedDict, total=False):
     font: Required[str]
-    max_width: Required[float | int | str]
-    opacity: Required[float | int | str]
-    page: Required[int | str]
-    rotation: Required[float | int | str]
+    max_width: Required[float | str]
+    opacity: Required[float | str]
+    page: Required[Literal["all"] | int]
+    rotation: Required[float | str]
     text: Required[str]
     text_color_rgb: PdfRGBColor
     text_color_cmyk: PdfCmykColor
-    text_size: Required[float | int | str]
-    x: Required[float | int | str]
-    y: Required[float | int | str]
+    text_size: Required[float | str]
+    x: Required[float | str]
+    y: Required[float | str]
     is_rtl: bool
 
 
