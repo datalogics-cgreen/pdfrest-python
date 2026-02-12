@@ -3233,8 +3233,8 @@ class PdfRestClient(_SyncApiClient):
         payload: dict[str, Any] = {
             "files": file,
             "signature_configuration": signature_configuration,
+            "credentials": credentials,
         }
-        payload.update(credentials)
 
         if logo is not None:
             payload["logo"] = logo
@@ -5166,8 +5166,8 @@ class AsyncPdfRestClient(_AsyncApiClient):
         payload: dict[str, Any] = {
             "files": file,
             "signature_configuration": signature_configuration,
+            "credentials": credentials,
         }
-        payload.update(credentials)
 
         if logo is not None:
             payload["logo"] = logo

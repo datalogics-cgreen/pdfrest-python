@@ -1606,6 +1606,31 @@ class PdfSignPayload(BaseModel):
         AfterValidator(_validate_output_prefix),
     ] = None
 
+    @model_validator(mode="before")
+    @classmethod
+    def _normalize_credentials(cls, data: Any) -> Any:
+        if not isinstance(data, Mapping):
+            return data
+
+        payload = cast(Mapping[object, Any], data)
+        credentials = payload.get("credentials")
+        if credentials is None:
+            return {str(key): value for key, value in payload.items()}
+        if not isinstance(credentials, Mapping):
+            msg = (
+                "credentials must be a mapping with either pfx/passphrase or "
+                "certificate/private_key."
+            )
+            raise TypeError(msg)
+
+        normalized: dict[str, Any] = {str(key): value for key, value in payload.items()}
+        credential_map = cast(Mapping[object, Any], credentials)
+        for raw_key, value in credential_map.items():
+            key = str(raw_key)
+            if key not in normalized:
+                normalized[key] = value
+        return normalized
+
     @model_validator(mode="after")
     def _validate_credentials(self) -> PdfSignPayload:
         has_pfx = self.pfx_credential is not None or self.pfx_passphrase is not None

@@ -73,8 +73,7 @@ def test_sign_pdf_with_pfx_credentials(monkeypatch: pytest.MonkeyPatch) -> None:
         {
             "files": [input_file],
             "signature_configuration": signature_configuration,
-            "pfx_credential": [pfx_file],
-            "pfx_passphrase": [passphrase_file],
+            "credentials": {"pfx": pfx_file, "passphrase": passphrase_file},
             "output": "signed-pdf",
         }
     ).model_dump(mode="json", by_alias=True, exclude_none=True, exclude_unset=True)
@@ -140,8 +139,10 @@ def test_sign_pdf_with_certificate_credentials_and_logo(
         {
             "files": [input_file],
             "signature_configuration": signature_configuration,
-            "certificate": [certificate_file],
-            "private_key": [private_key_file],
+            "credentials": {
+                "certificate": certificate_file,
+                "private_key": private_key_file,
+            },
             "logo": [logo_file],
         }
     ).model_dump(mode="json", by_alias=True, exclude_none=True, exclude_unset=True)
