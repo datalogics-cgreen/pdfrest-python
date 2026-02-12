@@ -9,7 +9,7 @@ from pydantic import ValidationError
 
 from pdfrest import AsyncPdfRestClient, PdfRestClient
 from pdfrest.models import PdfRestFile, PdfRestFileBasedResponse, PdfRestFileID
-from pdfrest.models._internal import PdfWatermarkPayload
+from pdfrest.models._internal import PdfImageWatermarkPayload, PdfTextWatermarkPayload
 
 from .graphics_test_helpers import (
     ASYNC_API_KEY,
@@ -24,7 +24,7 @@ def test_watermark_pdf_with_text(monkeypatch: pytest.MonkeyPatch) -> None:
     input_file = make_pdf_file(PdfRestFileID.generate(1))
     output_id = str(PdfRestFileID.generate())
 
-    payload_dump = PdfWatermarkPayload.model_validate(
+    payload_dump = PdfTextWatermarkPayload.model_validate(
         {
             "files": [input_file],
             "watermark_text": "Confidential",
@@ -64,7 +64,7 @@ def test_watermark_pdf_with_text(monkeypatch: pytest.MonkeyPatch) -> None:
 
     transport = httpx.MockTransport(handler)
     with PdfRestClient(api_key=VALID_API_KEY, transport=transport) as client:
-        response = client.watermark_pdf(
+        response = client.watermark_pdf_with_text(
             input_file,
             watermark_text="Confidential",
             text_color_rgb=(255, 0, 0),
@@ -79,13 +79,13 @@ def test_watermark_pdf_with_text(monkeypatch: pytest.MonkeyPatch) -> None:
     assert str(response.input_id) == str(input_file.id)
 
 
-def test_watermark_pdf_with_file(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_watermark_pdf_with_image(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.delenv("PDFREST_API_KEY", raising=False)
     input_file = make_pdf_file(PdfRestFileID.generate(1))
     watermark_file = make_pdf_file(PdfRestFileID.generate(1), name="stamp.pdf")
     output_id = str(PdfRestFileID.generate())
 
-    payload_dump = PdfWatermarkPayload.model_validate(
+    payload_dump = PdfImageWatermarkPayload.model_validate(
         {
             "files": [input_file],
             "watermark_file": [watermark_file],
@@ -126,7 +126,7 @@ def test_watermark_pdf_with_file(monkeypatch: pytest.MonkeyPatch) -> None:
 
     transport = httpx.MockTransport(handler)
     with PdfRestClient(api_key=VALID_API_KEY, transport=transport) as client:
-        response = client.watermark_pdf(
+        response = client.watermark_pdf_with_image(
             input_file,
             watermark_file=watermark_file,
             watermark_file_scale=0.8,
@@ -140,13 +140,13 @@ def test_watermark_pdf_with_file(monkeypatch: pytest.MonkeyPatch) -> None:
     assert response.output_file.name == "stamped.pdf"
     assert response.output_file.type == "application/pdf"
     assert response.warning is None
-    assert [str(value) for value in response.input_id] == [
+    assert [str(value) for value in response.input_ids] == [
         str(input_file.id),
         str(watermark_file.id),
     ]
 
 
-def test_watermark_pdf_request_customization(
+def test_watermark_pdf_with_text_request_customization(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.delenv("PDFREST_API_KEY", raising=False)
@@ -190,7 +190,7 @@ def test_watermark_pdf_request_customization(
 
     transport = httpx.MockTransport(handler)
     with PdfRestClient(api_key=VALID_API_KEY, transport=transport) as client:
-        response = client.watermark_pdf(
+        response = client.watermark_pdf_with_text(
             input_file,
             watermark_text="Draft",
             text_color_cmyk=(0, 0, 0, 50),
@@ -214,26 +214,9 @@ def test_watermark_pdf_request_customization(
         assert timeout_value == pytest.approx(0.31)
 
 
-def test_watermark_pdf_validation_requires_single_source(
+def test_watermark_pdf_with_text_validation_color_choice(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.delenv("PDFREST_API_KEY", raising=False)
-    input_file = make_pdf_file(PdfRestFileID.generate(1))
-    transport = httpx.MockTransport(
-        lambda _: (_ for _ in ()).throw(RuntimeError("Should not be called"))
-    )
-    client = PdfRestClient(api_key=VALID_API_KEY, transport=transport)
-    with (
-        client,
-        pytest.raises(
-            ValidationError,
-            match=re.escape("Provide exactly one of watermark_text or watermark_file."),
-        ),
-    ):
-        client.watermark_pdf(input_file)
-
-
-def test_watermark_pdf_validation_color_choice(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.delenv("PDFREST_API_KEY", raising=False)
     input_file = make_pdf_file(PdfRestFileID.generate(1))
     with (
@@ -248,7 +231,7 @@ def test_watermark_pdf_validation_color_choice(monkeypatch: pytest.MonkeyPatch) 
             match=re.escape("Specify only one of text_color_rgb or text_color_cmyk."),
         ),
     ):
-        client.watermark_pdf(
+        client.watermark_pdf_with_text(
             input_file,
             watermark_text="Confidential",
             text_color_rgb=(0, 0, 0),
@@ -256,7 +239,7 @@ def test_watermark_pdf_validation_color_choice(monkeypatch: pytest.MonkeyPatch) 
         )
 
 
-def test_watermark_pdf_validation_rejects_non_pdf(
+def test_watermark_pdf_with_text_validation_rejects_non_pdf(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.delenv("PDFREST_API_KEY", raising=False)
@@ -279,10 +262,37 @@ def test_watermark_pdf_validation_rejects_non_pdf(
         ) as client,
         pytest.raises(ValidationError, match="Must be a PDF file"),
     ):
-        client.watermark_pdf(bad_file, watermark_text="Hi")
+        client.watermark_pdf_with_text(bad_file, watermark_text="Hi")
 
 
-def test_watermark_pdf_validation_rejects_short_text_size(
+def test_watermark_pdf_with_image_validation_rejects_non_pdf_watermark(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.delenv("PDFREST_API_KEY", raising=False)
+    input_file = make_pdf_file(PdfRestFileID.generate(1))
+    bad_watermark = PdfRestFile.model_validate(
+        {
+            "id": str(PdfRestFileID.generate()),
+            "name": "overlay.png",
+            "type": "image/png",
+            "url": "https://example.com/overlay.png",
+            "size": 12,
+            "modified": "2024-01-01T00:00:00Z",
+        }
+    )
+    with (
+        PdfRestClient(
+            api_key=VALID_API_KEY,
+            transport=httpx.MockTransport(
+                lambda _: (_ for _ in ()).throw(RuntimeError("Should not be called"))
+            ),
+        ) as client,
+        pytest.raises(ValidationError, match="Must be a PDF file"),
+    ):
+        client.watermark_pdf_with_image(input_file, watermark_file=bad_watermark)
+
+
+def test_watermark_pdf_with_text_validation_rejects_short_text_size(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.delenv("PDFREST_API_KEY", raising=False)
@@ -298,7 +308,7 @@ def test_watermark_pdf_validation_rejects_short_text_size(
             ValidationError, match="Input should be greater than or equal to 5"
         ),
     ):
-        client.watermark_pdf(input_file, watermark_text="Hi", text_size=4)
+        client.watermark_pdf_with_text(input_file, watermark_text="Hi", text_size=4)
 
 
 @pytest.mark.asyncio
@@ -307,7 +317,7 @@ async def test_async_watermark_pdf_with_text(monkeypatch: pytest.MonkeyPatch) ->
     input_file = make_pdf_file(PdfRestFileID.generate(2))
     output_id = str(PdfRestFileID.generate())
 
-    payload_dump = PdfWatermarkPayload.model_validate(
+    payload_dump = PdfTextWatermarkPayload.model_validate(
         {
             "files": [input_file],
             "watermark_text": "Async",
@@ -345,7 +355,7 @@ async def test_async_watermark_pdf_with_text(monkeypatch: pytest.MonkeyPatch) ->
 
     transport = httpx.MockTransport(handler)
     async with AsyncPdfRestClient(api_key=ASYNC_API_KEY, transport=transport) as client:
-        response = await client.watermark_pdf(
+        response = await client.watermark_pdf_with_text(
             input_file,
             watermark_text="Async",
             opacity=0.6,
@@ -359,7 +369,70 @@ async def test_async_watermark_pdf_with_text(monkeypatch: pytest.MonkeyPatch) ->
 
 
 @pytest.mark.asyncio
-async def test_async_watermark_pdf_request_customization(
+async def test_async_watermark_pdf_with_image(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("PDFREST_API_KEY", raising=False)
+    input_file = make_pdf_file(PdfRestFileID.generate(2))
+    watermark_file = make_pdf_file(PdfRestFileID.generate(2), name="async-stamp.pdf")
+    output_id = str(PdfRestFileID.generate())
+
+    payload_dump = PdfImageWatermarkPayload.model_validate(
+        {
+            "files": [input_file],
+            "watermark_file": [watermark_file],
+            "opacity": 0.2,
+            "pages": ["2-last"],
+        }
+    ).model_dump(mode="json", by_alias=True, exclude_none=True, exclude_unset=True)
+
+    seen: dict[str, int] = {"post": 0, "get": 0}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.method == "POST" and request.url.path == "/watermarked-pdf":
+            seen["post"] += 1
+            payload = json.loads(request.content.decode("utf-8"))
+            assert payload == payload_dump
+            return httpx.Response(
+                200,
+                json={
+                    "inputId": [input_file.id, watermark_file.id],
+                    "outputId": [output_id],
+                },
+            )
+        if request.method == "GET" and request.url.path == f"/resource/{output_id}":
+            seen["get"] += 1
+            assert request.url.params["format"] == "info"
+            return httpx.Response(
+                200,
+                json=build_file_info_payload(
+                    output_id,
+                    "async-stamped.pdf",
+                    "application/pdf",
+                ),
+            )
+        msg = f"Unexpected request {request.method} {request.url}"
+        raise AssertionError(msg)
+
+    transport = httpx.MockTransport(handler)
+    async with AsyncPdfRestClient(api_key=ASYNC_API_KEY, transport=transport) as client:
+        response = await client.watermark_pdf_with_image(
+            input_file,
+            watermark_file=watermark_file,
+            opacity=0.2,
+            pages=["2-last"],
+        )
+
+    assert seen == {"post": 1, "get": 1}
+    assert isinstance(response, PdfRestFileBasedResponse)
+    assert response.output_file.name == "async-stamped.pdf"
+    assert response.output_file.type == "application/pdf"
+    assert [str(value) for value in response.input_ids] == [
+        str(input_file.id),
+        str(watermark_file.id),
+    ]
+
+
+@pytest.mark.asyncio
+async def test_async_watermark_pdf_with_text_request_customization(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.delenv("PDFREST_API_KEY", raising=False)
@@ -403,7 +476,7 @@ async def test_async_watermark_pdf_request_customization(
 
     transport = httpx.MockTransport(handler)
     async with AsyncPdfRestClient(api_key=ASYNC_API_KEY, transport=transport) as client:
-        response = await client.watermark_pdf(
+        response = await client.watermark_pdf_with_text(
             input_file,
             watermark_text="AsyncDraft",
             horizontal_alignment="left",

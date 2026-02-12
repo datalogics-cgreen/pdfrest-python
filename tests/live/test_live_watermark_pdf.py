@@ -55,7 +55,7 @@ def test_live_watermark_pdf_text_success(
         api_key=pdfrest_api_key,
         base_url=pdfrest_live_base_url,
     ) as client:
-        response = client.watermark_pdf(
+        response = client.watermark_pdf_with_text(
             uploaded_pdf_for_watermark,
             watermark_text="CONFIDENTIAL",
             opacity=0.6,
@@ -73,7 +73,7 @@ def test_live_watermark_pdf_text_success(
         assert output_file.name.endswith(".pdf")
 
 
-def test_live_watermark_pdf_file_success(
+def test_live_watermark_pdf_image_success(
     pdfrest_api_key: str,
     pdfrest_live_base_url: str,
     uploaded_pdf_for_watermark: PdfRestFile,
@@ -83,7 +83,7 @@ def test_live_watermark_pdf_file_success(
         api_key=pdfrest_api_key,
         base_url=pdfrest_live_base_url,
     ) as client:
-        response = client.watermark_pdf(
+        response = client.watermark_pdf_with_image(
             uploaded_pdf_for_watermark,
             watermark_file=uploaded_watermark_pdf,
             watermark_file_scale=0.75,
@@ -95,7 +95,7 @@ def test_live_watermark_pdf_file_success(
     assert output_file.type == "application/pdf"
     assert output_file.size > 0
     assert output_file.name.startswith("watermark-file")
-    assert [str(value) for value in response.input_id] == [
+    assert [str(value) for value in response.input_ids] == [
         str(uploaded_pdf_for_watermark.id),
         str(uploaded_watermark_pdf.id),
     ]
@@ -111,7 +111,7 @@ async def test_live_async_watermark_pdf_text_success(
         api_key=pdfrest_api_key,
         base_url=pdfrest_live_base_url,
     ) as client:
-        response = await client.watermark_pdf(
+        response = await client.watermark_pdf_with_text(
             uploaded_pdf_for_watermark,
             watermark_text="ASYNC",
             horizontal_alignment="right",
@@ -140,7 +140,7 @@ def test_live_watermark_pdf_invalid_alignment(
         ) as client,
         pytest.raises(PdfRestApiError, match=r"(?i)alignment"),
     ):
-        client.watermark_pdf(
+        client.watermark_pdf_with_text(
             uploaded_pdf_for_watermark,
             watermark_text="BadAlignment",
             extra_body={"horizontal_alignment": "diagonal"},
@@ -158,7 +158,7 @@ async def test_live_async_watermark_pdf_invalid_file_id(
         base_url=pdfrest_live_base_url,
     ) as client:
         with pytest.raises(PdfRestApiError, match=r"(?i)(id|file)"):
-            await client.watermark_pdf(
+            await client.watermark_pdf_with_text(
                 uploaded_pdf_for_watermark,
                 watermark_text="AsyncInvalid",
                 extra_body={"id": "00000000-0000-0000-0000-000000000000"},

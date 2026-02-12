@@ -1606,8 +1606,8 @@ class PdfAddImagePayload(BaseModel):
     ] = None
 
 
-class PdfWatermarkPayload(BaseModel):
-    """Adapt caller options into a pdfRest-ready watermark request payload."""
+class _BasePdfWatermarkPayload(BaseModel):
+    """Shared fields for watermark request payloads."""
 
     files: Annotated[
         list[PdfRestFile],
@@ -1623,51 +1623,11 @@ class PdfWatermarkPayload(BaseModel):
         ),
         PlainSerializer(_serialize_as_first_file_id),
     ]
-    watermark_text: Annotated[
-        str | None,
-        Field(serialization_alias="watermark_text", min_length=1, default=None),
-    ] = None
-    watermark_file: Annotated[
-        list[PdfRestFile] | None,
-        Field(
-            default=None,
-            min_length=1,
-            max_length=1,
-            serialization_alias="watermark_file_id",
-        ),
-        BeforeValidator(_ensure_list),
-        AfterValidator(
-            _allowed_mime_types("application/pdf", error_msg="Must be a PDF file")
-        ),
-        PlainSerializer(_serialize_as_first_file_id),
-    ] = None
     output: Annotated[
         str | None,
         Field(serialization_alias="output", min_length=1, default=None),
         AfterValidator(_validate_output_prefix),
     ] = None
-    font: Annotated[
-        str | None, Field(serialization_alias="font", min_length=1, default=None)
-    ] = None
-    text_size: Annotated[
-        int,
-        Field(serialization_alias="text_size", ge=5, le=100, default=72),
-    ] = 72
-    text_color_rgb: Annotated[
-        tuple[RgbChannel, RgbChannel, RgbChannel] | None,
-        Field(serialization_alias="text_color_rgb", default=None),
-        BeforeValidator(_split_comma_string),
-        PlainSerializer(_serialize_as_comma_separated_string),
-    ] = None
-    text_color_cmyk: Annotated[
-        tuple[CmykChannel, CmykChannel, CmykChannel, CmykChannel] | None,
-        Field(serialization_alias="text_color_cmyk", default=None),
-        BeforeValidator(_split_comma_string),
-        PlainSerializer(_serialize_as_comma_separated_string),
-    ] = None
-    watermark_file_scale: Annotated[
-        float, Field(serialization_alias="watermark_file_scale", ge=0, default=0.5)
-    ] = 0.5
     opacity: Annotated[
         float, Field(serialization_alias="opacity", ge=0, le=1, default=0.5)
     ] = 0.5
@@ -1694,17 +1654,61 @@ class PdfWatermarkPayload(BaseModel):
         bool, Field(serialization_alias="behind_page", default=False)
     ] = False
 
+
+class PdfTextWatermarkPayload(_BasePdfWatermarkPayload):
+    """Adapt caller options into a text watermark request payload."""
+
+    watermark_text: Annotated[
+        str,
+        Field(serialization_alias="watermark_text", min_length=1),
+    ]
+    font: Annotated[
+        str | None, Field(serialization_alias="font", min_length=1, default=None)
+    ] = None
+    text_size: Annotated[
+        int,
+        Field(serialization_alias="text_size", ge=5, le=100, default=72),
+    ] = 72
+    text_color_rgb: Annotated[
+        tuple[RgbChannel, RgbChannel, RgbChannel] | None,
+        Field(serialization_alias="text_color_rgb", default=None),
+        BeforeValidator(_split_comma_string),
+        PlainSerializer(_serialize_as_comma_separated_string),
+    ] = None
+    text_color_cmyk: Annotated[
+        tuple[CmykChannel, CmykChannel, CmykChannel, CmykChannel] | None,
+        Field(serialization_alias="text_color_cmyk", default=None),
+        BeforeValidator(_split_comma_string),
+        PlainSerializer(_serialize_as_comma_separated_string),
+    ] = None
+
     @model_validator(mode="after")
-    def _validate_watermark_payload(self) -> PdfWatermarkPayload:
-        has_text = self.watermark_text is not None
-        has_file = self.watermark_file is not None
-        if has_text == has_file:
-            msg = "Provide exactly one of watermark_text or watermark_file."
-            raise ValueError(msg)
+    def _validate_text_colors(self) -> PdfTextWatermarkPayload:
         if self.text_color_rgb is not None and self.text_color_cmyk is not None:
             msg = "Specify only one of text_color_rgb or text_color_cmyk."
             raise ValueError(msg)
         return self
+
+
+class PdfImageWatermarkPayload(_BasePdfWatermarkPayload):
+    """Adapt caller options into an image watermark request payload."""
+
+    watermark_file: Annotated[
+        list[PdfRestFile],
+        Field(
+            min_length=1,
+            max_length=1,
+            serialization_alias="watermark_file_id",
+        ),
+        BeforeValidator(_ensure_list),
+        AfterValidator(
+            _allowed_mime_types("application/pdf", error_msg="Must be a PDF file")
+        ),
+        PlainSerializer(_serialize_as_first_file_id),
+    ]
+    watermark_file_scale: Annotated[
+        float, Field(serialization_alias="watermark_file_scale", ge=0, default=0.5)
+    ] = 0.5
 
 
 class PdfXfaToAcroformsPayload(BaseModel):
