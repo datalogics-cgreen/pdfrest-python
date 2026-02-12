@@ -349,6 +349,7 @@ async def test_async_add_text_to_pdf_success(
             seen["post"] += 1
             payload = json.loads(request.content.decode("utf-8"))
             assert payload["id"] == str(pdf_file.id)
+            assert payload["output"] == "async-with-text"
             assert (
                 payload["text_objects"]
                 == to_json(
@@ -384,6 +385,7 @@ async def test_async_add_text_to_pdf_success(
         response = await client.add_text_to_pdf(
             pdf_file,
             text_objects=[make_text_object(page="all", is_right_to_left=True)],
+            output="async-with-text",
         )
 
     assert seen == {"post": 1, "get": 1}

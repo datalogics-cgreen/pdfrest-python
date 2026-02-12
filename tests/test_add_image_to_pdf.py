@@ -285,6 +285,7 @@ async def test_async_add_image_to_pdf_success(
             assert payload["x"] == 5
             assert payload["y"] == 6
             assert payload["page"] == 7
+            assert payload["output"] == "async-with-image"
             return httpx.Response(
                 200,
                 json={
@@ -311,6 +312,7 @@ async def test_async_add_image_to_pdf_success(
             x=5,
             y=6,
             page=7,
+            output="async-with-image",
         )
 
     assert seen == {"post": 1, "get": 1}
