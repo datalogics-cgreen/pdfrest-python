@@ -410,7 +410,9 @@ def test_blank_pdf_success(monkeypatch: pytest.MonkeyPatch) -> None:
     assert output_file.name == "blank.pdf"
     assert output_file.type == "application/pdf"
     assert response.warning is None
-    assert str(response.input_id) == output_id
+    assert response.input_ids == []
+    with pytest.raises(ValueError, match=r"no input id was specified"):
+        _ = response.input_id
 
 
 def test_blank_pdf_request_customization(
@@ -531,7 +533,9 @@ async def test_async_blank_pdf_success(monkeypatch: pytest.MonkeyPatch) -> None:
     assert isinstance(response, PdfRestFileBasedResponse)
     assert response.output_file.name == "async.pdf"
     assert response.output_file.type == "application/pdf"
-    assert str(response.input_id) == output_id
+    assert response.input_ids == []
+    with pytest.raises(ValueError, match=r"no input id was specified"):
+        _ = response.input_id
 
 
 @pytest.mark.asyncio
