@@ -125,6 +125,47 @@ def test_live_sign_pdf_with_pfx_credentials(
     assert str(uploaded_pdf_for_signing.id) in response.input_ids
 
 
+def test_live_sign_pdf_with_existing_signature_field(
+    pdfrest_api_key: str,
+    pdfrest_live_base_url: str,
+    uploaded_pdf_for_signing: PdfRestFile,
+    uploaded_certificate: PdfRestFile,
+    uploaded_private_key: PdfRestFile,
+) -> None:
+    signature_name = "sdk-existing-live"
+    with PdfRestClient(
+        api_key=pdfrest_api_key,
+        base_url=pdfrest_live_base_url,
+    ) as client:
+        first_response = client.sign_pdf(
+            uploaded_pdf_for_signing,
+            signature_configuration={
+                "type": "new",
+                "name": signature_name,
+                "location": make_signature_location(),
+            },
+            credentials={
+                "certificate": uploaded_certificate,
+                "private_key": uploaded_private_key,
+            },
+            output="live-signed-new-for-existing",
+        )
+
+        existing_response = client.sign_pdf(
+            first_response.output_file,
+            signature_configuration={"type": "existing", "name": signature_name},
+            credentials={
+                "certificate": uploaded_certificate,
+                "private_key": uploaded_private_key,
+            },
+            output="live-signed-existing",
+        )
+
+    assert existing_response.output_file.type == "application/pdf"
+    assert existing_response.output_file.name == "live-signed-existing.pdf"
+    assert str(first_response.output_file.id) in existing_response.input_ids
+
+
 @pytest.mark.asyncio
 async def test_live_async_sign_pdf_with_certificate(
     pdfrest_api_key: str,
@@ -138,11 +179,7 @@ async def test_live_async_sign_pdf_with_certificate(
         "type": "new",
         "name": "live-async-signature",
         "logo_opacity": 0.5,
-        "location": {
-            "bottom_left": {"x": 1, "y": 1},
-            "top_right": {"x": 217, "y": 73},
-            "page": 1,
-        },
+        "location": make_signature_location(),
     }
     async with AsyncPdfRestClient(
         api_key=pdfrest_api_key,
