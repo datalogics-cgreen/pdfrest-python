@@ -627,21 +627,6 @@ def _validate_cmyk_values(value: Any) -> tuple[int, int, int, int] | None:
     return (channels[0], channels[1], channels[2], channels[3])
 
 
-def _validate_add_text_page(value: str | int) -> str | int:
-    if isinstance(value, str):
-        if value.lower() == "all":
-            return "all"
-        if value.isdigit():
-            numeric_page = int(value)
-            if numeric_page >= 1:
-                return numeric_page
-    else:
-        if value >= 1:
-            return value
-    msg = 'page must be a positive integer or "all".'
-    raise ValueError(msg)
-
-
 class PdfLiteralRedactionModel(BaseModel):
     type: Literal["literal"]
     value: Annotated[str, Field(min_length=1)]
@@ -1111,9 +1096,8 @@ class PdfAddTextObjectModel(BaseModel):
         Field(serialization_alias="opacity", ge=0.0, le=1.0),
     ]
     page: Annotated[
-        str | int,
+        Literal["all"] | Annotated[int, Field(ge=1)],
         Field(serialization_alias="page"),
-        AfterValidator(_validate_add_text_page),
     ]
     rotation: Annotated[float, Field(serialization_alias="rotation")]
     text: Annotated[str, Field(min_length=1, serialization_alias="text")]
