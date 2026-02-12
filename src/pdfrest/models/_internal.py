@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import json
 import re
 from collections.abc import Callable, Sequence
 from pathlib import PurePath
@@ -19,6 +18,7 @@ from pydantic import (
     model_serializer,
     model_validator,
 )
+from pydantic_core import to_json
 
 from pdfrest.types.public import PdfRedactionPreset
 
@@ -144,14 +144,17 @@ def _serialize_grouped_page_ranges(
 
 
 def _serialize_redactions(value: list[_PdfRedactionVariant]) -> str:
-    payload = [entry.model_dump(mode="json", exclude_none=True) for entry in value]
-    return json.dumps(payload, separators=(",", ":"))
+    return (
+        "["
+        + ",".join(entry.model_dump_json(exclude_none=True) for entry in value)
+        + "]"
+    )
 
 
 def _serialize_text_object_value(value: Any) -> Any:
     if isinstance(value, str):
         return value
-    return json.dumps(value, separators=(",", ":"))
+    return to_json(value).decode()
 
 
 def _serialize_text_objects(value: list[BaseModel]) -> str:
@@ -164,7 +167,7 @@ def _serialize_text_objects(value: list[BaseModel]) -> str:
         }
         for entry in value
     ]
-    return json.dumps(payload, separators=(",", ":"))
+    return to_json(payload).decode()
 
 
 def _allowed_mime_types(

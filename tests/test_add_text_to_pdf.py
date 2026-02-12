@@ -6,6 +6,7 @@ import re
 import httpx
 import pytest
 from pydantic import ValidationError
+from pydantic_core import to_json
 
 from pdfrest import AsyncPdfRestClient, PdfRestClient
 from pdfrest.models import PdfRestFileBasedResponse, PdfRestFileID
@@ -56,7 +57,7 @@ def _serialize_text_object_for_request(
     # Add-text payloads now quote non-string values inside the text_objects JSON.
     for key, value in list(serialized.items()):
         if not isinstance(value, str):
-            serialized[key] = json.dumps(value, separators=(",", ":"))
+            serialized[key] = to_json(value).decode()
     return serialized
 
 
@@ -73,13 +74,15 @@ def test_add_text_to_pdf_success(monkeypatch: pytest.MonkeyPatch) -> None:
             payload = json.loads(request.content.decode("utf-8"))
             assert payload["id"] == str(pdf_file.id)
             assert payload["output"] == "with-text"
-            assert payload["text_objects"] == json.dumps(
-                [
-                    _serialize_text_object_for_request(
-                        make_text_object(is_right_to_left=True)
-                    )
-                ],
-                separators=(",", ":"),
+            assert (
+                payload["text_objects"]
+                == to_json(
+                    [
+                        _serialize_text_object_for_request(
+                            make_text_object(is_right_to_left=True)
+                        )
+                    ]
+                ).decode()
             )
             return httpx.Response(
                 200,
@@ -132,9 +135,11 @@ def test_add_text_to_pdf_request_customization(
             assert request.headers["X-Debug"] == "1"
             payload = json.loads(request.content.decode("utf-8"))
             assert payload["rotation"] == 15
-            assert payload["text_objects"] == json.dumps(
-                [_serialize_text_object_for_request(overridden_text_object)],
-                separators=(",", ":"),
+            assert (
+                payload["text_objects"]
+                == to_json(
+                    [_serialize_text_object_for_request(overridden_text_object)],
+                ).decode()
             )
             captured_timeout["value"] = request.extensions.get("timeout")
             return httpx.Response(
@@ -167,10 +172,9 @@ def test_add_text_to_pdf_request_customization(
             extra_headers={"X-Debug": "1"},
             extra_body={
                 "rotation": 15,
-                "text_objects": json.dumps(
+                "text_objects": to_json(
                     [_serialize_text_object_for_request(overridden_text_object)],
-                    separators=(",", ":"),
-                ),
+                ).decode(),
             },
             timeout=0.25,
         )
@@ -288,13 +292,15 @@ async def test_async_add_text_to_pdf_success(
             seen["post"] += 1
             payload = json.loads(request.content.decode("utf-8"))
             assert payload["id"] == str(pdf_file.id)
-            assert payload["text_objects"] == json.dumps(
-                [
-                    _serialize_text_object_for_request(
-                        make_text_object(page="all", is_right_to_left=True)
-                    )
-                ],
-                separators=(",", ":"),
+            assert (
+                payload["text_objects"]
+                == to_json(
+                    [
+                        _serialize_text_object_for_request(
+                            make_text_object(page="all", is_right_to_left=True)
+                        )
+                    ]
+                ).decode()
             )
             return httpx.Response(
                 200,
@@ -343,9 +349,11 @@ async def test_async_add_text_to_pdf_request_customization(
             assert request.headers["X-Test"] == "async"
             payload = json.loads(request.content.decode("utf-8"))
             assert payload["text_size"] == 18
-            assert payload["text_objects"] == json.dumps(
-                [_serialize_text_object_for_request(overridden_text_object)],
-                separators=(",", ":"),
+            assert (
+                payload["text_objects"]
+                == to_json(
+                    [_serialize_text_object_for_request(overridden_text_object)],
+                ).decode()
             )
             captured_timeout["value"] = request.extensions.get("timeout")
             return httpx.Response(
@@ -378,10 +386,9 @@ async def test_async_add_text_to_pdf_request_customization(
             extra_headers={"X-Test": "async"},
             extra_body={
                 "text_size": 18,
-                "text_objects": json.dumps(
+                "text_objects": to_json(
                     [_serialize_text_object_for_request(overridden_text_object)],
-                    separators=(",", ":"),
-                ),
+                ).decode(),
             },
             timeout=1.0,
         )

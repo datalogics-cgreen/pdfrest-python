@@ -1,8 +1,7 @@
 from __future__ import annotations
 
-import json
-
 import pytest
+from pydantic_core import to_json
 
 from pdfrest import AsyncPdfRestClient, PdfRestApiError, PdfRestClient
 from pdfrest.models import PdfRestFile
@@ -57,7 +56,7 @@ def _serialize_text_object_for_extra_body(
     # Match add-text wire format where each non-string value is JSON-quoted.
     for key, value in list(serialized.items()):
         if not isinstance(value, str):
-            serialized[key] = json.dumps(value, separators=(",", ":"))
+            serialized[key] = to_json(value).decode()
     return serialized
 
 
@@ -120,7 +119,7 @@ def test_live_add_text_to_pdf_invalid_page(
             uploaded_pdf_for_text,
             text_objects=[_default_text_object()],
             extra_body={
-                "text_objects": json.dumps(
+                "text_objects": to_json(
                     [
                         _serialize_text_object_for_extra_body(
                             {
@@ -128,9 +127,8 @@ def test_live_add_text_to_pdf_invalid_page(
                                 "page": 0,
                             }
                         )
-                    ],
-                    separators=(",", ":"),
-                )
+                    ]
+                ).decode()
             },
         )
 
@@ -150,7 +148,7 @@ async def test_live_async_add_text_to_pdf_invalid_page(
                 uploaded_pdf_for_text,
                 text_objects=[_default_text_object()],
                 extra_body={
-                    "text_objects": json.dumps(
+                    "text_objects": to_json(
                         [
                             _serialize_text_object_for_extra_body(
                                 {
@@ -158,8 +156,7 @@ async def test_live_async_add_text_to_pdf_invalid_page(
                                     "page": 0,
                                 }
                             )
-                        ],
-                        separators=(",", ":"),
-                    )
+                        ]
+                    ).decode()
                 },
             )
