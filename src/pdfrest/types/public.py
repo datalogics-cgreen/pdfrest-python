@@ -123,7 +123,7 @@ class PdfAddTextObject(TypedDict, total=False):
     text_size: Required[float | str]
     x: Required[float | str]
     y: Required[float | str]
-    is_rtl: bool
+    is_right_to_left: bool
 
 
 PdfPageSelection = str | int | Sequence[str | int]

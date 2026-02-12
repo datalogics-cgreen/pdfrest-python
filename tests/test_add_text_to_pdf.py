@@ -51,6 +51,8 @@ def _serialize_text_object_for_request(
     cmyk = serialized.get("text_color_cmyk")
     if isinstance(cmyk, (list, tuple)):
         serialized["text_color_cmyk"] = ",".join(str(channel) for channel in cmyk)
+    if "is_right_to_left" in serialized:
+        serialized["is_rtl"] = serialized.pop("is_right_to_left")
     # Add-text payloads now quote non-string values inside the text_objects JSON.
     for key, value in list(serialized.items()):
         if not isinstance(value, str):
@@ -72,7 +74,11 @@ def test_add_text_to_pdf_success(monkeypatch: pytest.MonkeyPatch) -> None:
             assert payload["id"] == str(pdf_file.id)
             assert payload["output"] == "with-text"
             assert payload["text_objects"] == json.dumps(
-                [_serialize_text_object_for_request(make_text_object())],
+                [
+                    _serialize_text_object_for_request(
+                        make_text_object(is_right_to_left=True)
+                    )
+                ],
                 separators=(",", ":"),
             )
             return httpx.Response(
@@ -99,7 +105,7 @@ def test_add_text_to_pdf_success(monkeypatch: pytest.MonkeyPatch) -> None:
     with PdfRestClient(api_key=VALID_API_KEY, transport=transport) as client:
         response = client.add_text_to_pdf(
             pdf_file,
-            text_objects=[make_text_object()],
+            text_objects=[make_text_object(is_right_to_left=True)],
             output="with-text",
         )
 
@@ -283,7 +289,11 @@ async def test_async_add_text_to_pdf_success(
             payload = json.loads(request.content.decode("utf-8"))
             assert payload["id"] == str(pdf_file.id)
             assert payload["text_objects"] == json.dumps(
-                [_serialize_text_object_for_request(make_text_object(page="all"))],
+                [
+                    _serialize_text_object_for_request(
+                        make_text_object(page="all", is_right_to_left=True)
+                    )
+                ],
                 separators=(",", ":"),
             )
             return httpx.Response(
@@ -310,7 +320,7 @@ async def test_async_add_text_to_pdf_success(
     async with AsyncPdfRestClient(api_key=ASYNC_API_KEY, transport=transport) as client:
         response = await client.add_text_to_pdf(
             pdf_file,
-            text_objects=[make_text_object(page="all")],
+            text_objects=[make_text_object(page="all", is_right_to_left=True)],
         )
 
     assert seen == {"post": 1, "get": 1}

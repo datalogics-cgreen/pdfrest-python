@@ -1121,7 +1121,11 @@ class PdfAddTextObjectModel(BaseModel):
     y: Annotated[float, Field(serialization_alias="y")]
     is_rtl: Annotated[
         bool | None,
-        Field(serialization_alias="is_rtl", default=None),
+        Field(
+            validation_alias=AliasChoices("is_right_to_left", "is_rtl"),
+            serialization_alias="is_rtl",
+            default=None,
+        ),
     ] = None
 
     @model_validator(mode="after")
