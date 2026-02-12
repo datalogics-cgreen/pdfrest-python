@@ -284,7 +284,7 @@ def test_add_text_to_pdf_rgb_bounds(monkeypatch: pytest.MonkeyPatch) -> None:
         PdfRestClient(api_key=VALID_API_KEY, transport=transport) as client,
         pytest.raises(
             ValidationError,
-            match=re.escape("text_color_rgb values must be between 0 and 255."),
+            match="less than or equal to 255",
         ),
     ):
         client.add_text_to_pdf(
@@ -474,7 +474,7 @@ async def test_async_add_text_to_pdf_invalid_cmyk_range(
     async with AsyncPdfRestClient(api_key=ASYNC_API_KEY, transport=transport) as client:
         with pytest.raises(
             ValidationError,
-            match=re.escape("text_color_cmyk values must be between 0 and 100."),
+            match="less than or equal to 100",
         ):
             await client.add_text_to_pdf(
                 make_pdf_file(PdfRestFileID.generate(1)),
@@ -582,7 +582,7 @@ async def test_async_add_text_to_pdf_rgb_bounds(
     async with AsyncPdfRestClient(api_key=ASYNC_API_KEY, transport=transport) as client:
         with pytest.raises(
             ValidationError,
-            match=re.escape("text_color_rgb values must be between 0 and 255."),
+            match="less than or equal to 255",
         ):
             await client.add_text_to_pdf(
                 make_pdf_file(PdfRestFileID.generate(1)),

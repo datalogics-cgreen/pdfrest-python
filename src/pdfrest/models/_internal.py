@@ -588,48 +588,6 @@ RgbChannel = Annotated[int, Field(ge=0, le=255)]
 CmykChannel = Annotated[int, Field(ge=0, le=100)]
 
 
-def _validate_rgb_values(value: Any) -> tuple[int, int, int] | None:
-    normalized = _split_comma_string(value)
-    if normalized is None:
-        return None
-    if len(normalized) != 3:
-        msg = "text_color_rgb must have exactly 3 values."
-        raise ValueError(msg)
-    channels: list[int] = []
-    for channel in normalized:
-        try:
-            numeric = int(channel)
-        except (TypeError, ValueError) as exc:
-            msg = "text_color_rgb values must be integers."
-            raise ValueError(msg) from exc
-        if not 0 <= numeric <= 255:
-            msg = "text_color_rgb values must be between 0 and 255."
-            raise ValueError(msg)
-        channels.append(numeric)
-    return (channels[0], channels[1], channels[2])
-
-
-def _validate_cmyk_values(value: Any) -> tuple[int, int, int, int] | None:
-    normalized = _split_comma_string(value)
-    if normalized is None:
-        return None
-    if len(normalized) != 4:
-        msg = "text_color_cmyk must have exactly 4 values."
-        raise ValueError(msg)
-    channels: list[int] = []
-    for channel in normalized:
-        try:
-            numeric = int(channel)
-        except (TypeError, ValueError) as exc:
-            msg = "text_color_cmyk values must be integers."
-            raise ValueError(msg) from exc
-        if not 0 <= numeric <= 100:
-            msg = "text_color_cmyk values must be between 0 and 100."
-            raise ValueError(msg)
-        channels.append(numeric)
-    return (channels[0], channels[1], channels[2], channels[3])
-
-
 class PdfLiteralRedactionModel(BaseModel):
     type: Literal["literal"]
     value: Annotated[str, Field(min_length=1)]
@@ -1107,13 +1065,13 @@ class PdfAddTextObjectModel(BaseModel):
     text_color_rgb: Annotated[
         tuple[RgbChannel, RgbChannel, RgbChannel] | None,
         Field(serialization_alias="text_color_rgb", default=None),
-        BeforeValidator(_validate_rgb_values),
+        BeforeValidator(_split_comma_string),
         PlainSerializer(_serialize_as_comma_separated_string),
     ] = None
     text_color_cmyk: Annotated[
         tuple[CmykChannel, CmykChannel, CmykChannel, CmykChannel] | None,
         Field(serialization_alias="text_color_cmyk", default=None),
-        BeforeValidator(_validate_cmyk_values),
+        BeforeValidator(_split_comma_string),
         PlainSerializer(_serialize_as_comma_separated_string),
     ] = None
     text_size: Annotated[
