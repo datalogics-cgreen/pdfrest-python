@@ -232,8 +232,7 @@ def _serialize_text_objects(value: list[BaseModel]) -> str:
 def _serialize_signature_configuration(
     value: _PdfSignatureConfigurationModel,
 ) -> str:
-    payload = value.model_dump(mode="json", exclude_none=True)
-    return to_json(payload).decode()
+    return value.model_dump_json(exclude_none=True)
 
 
 def _allowed_mime_types(
