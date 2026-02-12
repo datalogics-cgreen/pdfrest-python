@@ -10,8 +10,8 @@ from ..resources import get_test_resource_path
 
 def make_signature_location() -> dict[str, dict[str, int] | int]:
     return {
-        "bottom_left": {"x": 0, "y": 0},
-        "top_right": {"x": 216, "y": 72},
+        "bottom_left": {"x": 1, "y": 1},
+        "top_right": {"x": 217, "y": 73},
         "page": 1,
     }
 
@@ -136,10 +136,11 @@ async def test_live_async_sign_pdf_with_certificate(
 ) -> None:
     signature_configuration = {
         "type": "new",
+        "name": "live-async-signature",
         "logo_opacity": 0.5,
         "location": {
-            "bottom_left": {"x": 0, "y": 0},
-            "top_right": {"x": 216, "y": 72},
+            "bottom_left": {"x": 1, "y": 1},
+            "top_right": {"x": 217, "y": 73},
             "page": 1,
         },
     }
