@@ -49,7 +49,7 @@ def test_import_form_data_success(monkeypatch: pytest.MonkeyPatch) -> None:
             return httpx.Response(
                 200,
                 json={
-                    "inputId": [input_file.id],
+                    "inputId": [input_file.id, data_file.id],
                     "outputId": [output_id],
                 },
             )
@@ -79,7 +79,8 @@ def test_import_form_data_success(monkeypatch: pytest.MonkeyPatch) -> None:
     assert isinstance(response, PdfRestFileBasedResponse)
     assert response.output_file.name == "filled-form.pdf"
     assert response.output_file.type == "application/pdf"
-    assert str(response.input_id) == str(input_file.id)
+    assert str(input_file.id) in {str(file_id) for file_id in response.input_ids}
+    assert str(data_file.id) in {str(file_id) for file_id in response.input_ids}
     assert response.warning is None
 
 
@@ -108,7 +109,7 @@ def test_import_form_data_request_customization(
             return httpx.Response(
                 200,
                 json={
-                    "inputId": [input_file.id],
+                    "inputId": [input_file.id, data_file.id],
                     "outputId": [output_id],
                 },
             )
@@ -177,7 +178,7 @@ async def test_async_import_form_data_success(
             return httpx.Response(
                 200,
                 json={
-                    "inputId": [input_file.id],
+                    "inputId": [input_file.id, data_file.id],
                     "outputId": [output_id],
                 },
             )
@@ -203,7 +204,8 @@ async def test_async_import_form_data_success(
     assert isinstance(response, PdfRestFileBasedResponse)
     assert response.output_file.name == "async.pdf"
     assert response.output_file.type == "application/pdf"
-    assert str(response.input_id) == str(input_file.id)
+    assert str(input_file.id) in {str(file_id) for file_id in response.input_ids}
+    assert str(data_file.id) in {str(file_id) for file_id in response.input_ids}
 
 
 @pytest.mark.asyncio

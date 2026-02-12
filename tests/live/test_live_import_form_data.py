@@ -65,7 +65,12 @@ def test_live_import_form_data(
     assert response.output_files
     output_file = response.output_file
     assert output_file.type == "application/pdf"
-    assert str(response.input_id) == str(uploaded_pdf_with_forms.id)
+    assert str(uploaded_pdf_with_forms.id) in {
+        str(file_id) for file_id in response.input_ids
+    }
+    assert str(uploaded_form_data_file.id) in {
+        str(file_id) for file_id in response.input_ids
+    }
     if output_name is not None:
         assert output_file.name.startswith(output_name)
     else:
@@ -93,7 +98,12 @@ async def test_live_async_import_form_data_success(
     output_file = response.output_file
     assert output_file.name.startswith("async-imported")
     assert output_file.type == "application/pdf"
-    assert str(response.input_id) == str(uploaded_pdf_with_forms.id)
+    assert str(uploaded_pdf_with_forms.id) in {
+        str(file_id) for file_id in response.input_ids
+    }
+    assert str(uploaded_form_data_file.id) in {
+        str(file_id) for file_id in response.input_ids
+    }
 
 
 def test_live_import_form_data_invalid_data_file_id(
