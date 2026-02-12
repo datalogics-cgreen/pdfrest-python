@@ -45,3 +45,17 @@ uvx nox -s class-coverage
 
 To reuse an existing `coverage/py<version>/coverage.json` without rerunning
 tests, add `-- --no-tests` (and optional `--coverage-json path`).
+
+## Documentation
+
+Run the docs site locally:
+
+```bash
+uv run mkdocs serve
+```
+
+Build the static documentation site:
+
+```bash
+uv run mkdocs build --strict
+```
