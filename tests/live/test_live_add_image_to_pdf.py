@@ -57,6 +57,8 @@ def test_live_add_image_to_pdf(
     output_file = response.output_file
     assert output_file.type == "application/pdf"
     assert output_file.name.startswith("live-added-image")
+    assert output_file.size > 0
+    assert response.warning is None
     assert uploaded_pdf_for_image_addition.id in response.input_ids
     assert uploaded_image.id in response.input_ids
 
@@ -83,6 +85,8 @@ async def test_live_async_add_image_to_pdf(
     assert response.output_files
     output_file = response.output_file
     assert output_file.type == "application/pdf"
+    assert output_file.size > 0
+    assert response.warning is None
     assert uploaded_pdf_for_image_addition.id in response.input_ids
     assert uploaded_image.id in response.input_ids
 

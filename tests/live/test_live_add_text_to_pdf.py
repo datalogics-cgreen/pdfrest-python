@@ -79,6 +79,8 @@ def test_live_add_text_to_pdf(
     output_file = response.output_file
     assert output_file.type == "application/pdf"
     assert output_file.name.startswith("live-added-text")
+    assert output_file.size > 0
+    assert response.warning is None
     assert uploaded_pdf_for_text.id in response.input_ids
 
 
@@ -100,6 +102,8 @@ async def test_live_async_add_text_to_pdf(
     assert response.output_files
     output_file = response.output_file
     assert output_file.type == "application/pdf"
+    assert output_file.size > 0
+    assert response.warning is None
     assert uploaded_pdf_for_text.id in response.input_ids
 
 
