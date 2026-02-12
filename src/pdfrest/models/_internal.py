@@ -585,14 +585,15 @@ RgbChannel = Annotated[int, Field(ge=0, le=255)]
 CmykChannel = Annotated[int, Field(ge=0, le=100)]
 
 
-def _validate_rgb_values(value: list[Any] | tuple[Any, ...] | None) -> list[int] | None:
-    if value is None:
+def _validate_rgb_values(value: Any) -> tuple[int, int, int] | None:
+    normalized = _split_comma_string(value)
+    if normalized is None:
         return None
-    if len(value) != 3:
+    if len(normalized) != 3:
         msg = "text_color_rgb must have exactly 3 values."
         raise ValueError(msg)
     channels: list[int] = []
-    for channel in value:
+    for channel in normalized:
         try:
             numeric = int(channel)
         except (TypeError, ValueError) as exc:
@@ -602,19 +603,18 @@ def _validate_rgb_values(value: list[Any] | tuple[Any, ...] | None) -> list[int]
             msg = "text_color_rgb values must be between 0 and 255."
             raise ValueError(msg)
         channels.append(numeric)
-    return channels
+    return (channels[0], channels[1], channels[2])
 
 
-def _validate_cmyk_values(
-    value: list[Any] | tuple[Any, ...] | None,
-) -> list[int] | None:
-    if value is None:
+def _validate_cmyk_values(value: Any) -> tuple[int, int, int, int] | None:
+    normalized = _split_comma_string(value)
+    if normalized is None:
         return None
-    if len(value) != 4:
+    if len(normalized) != 4:
         msg = "text_color_cmyk must have exactly 4 values."
         raise ValueError(msg)
     channels: list[int] = []
-    for channel in value:
+    for channel in normalized:
         try:
             numeric = int(channel)
         except (TypeError, ValueError) as exc:
@@ -624,7 +624,7 @@ def _validate_cmyk_values(
             msg = "text_color_cmyk values must be between 0 and 100."
             raise ValueError(msg)
         channels.append(numeric)
-    return channels
+    return (channels[0], channels[1], channels[2], channels[3])
 
 
 def _validate_add_text_page(value: str | int) -> str | int:
@@ -1118,17 +1118,15 @@ class PdfAddTextObjectModel(BaseModel):
     rotation: Annotated[float, Field(serialization_alias="rotation")]
     text: Annotated[str, Field(min_length=1, serialization_alias="text")]
     text_color_rgb: Annotated[
-        list[int] | tuple[int, ...] | None,
+        tuple[RgbChannel, RgbChannel, RgbChannel] | None,
         Field(serialization_alias="text_color_rgb", default=None),
-        BeforeValidator(_split_comma_string),
-        AfterValidator(_validate_rgb_values),
+        BeforeValidator(_validate_rgb_values),
         PlainSerializer(_serialize_as_comma_separated_string),
     ] = None
     text_color_cmyk: Annotated[
-        list[int] | tuple[int, ...] | None,
+        tuple[CmykChannel, CmykChannel, CmykChannel, CmykChannel] | None,
         Field(serialization_alias="text_color_cmyk", default=None),
-        BeforeValidator(_split_comma_string),
-        AfterValidator(_validate_cmyk_values),
+        BeforeValidator(_validate_cmyk_values),
         PlainSerializer(_serialize_as_comma_separated_string),
     ] = None
     text_size: Annotated[
