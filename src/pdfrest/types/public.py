@@ -189,7 +189,7 @@ class PdfSignatureDisplay(TypedDict, total=False):
 
 
 class PdfSignatureConfiguration(TypedDict, total=False):
-    type: Required[Literal["new"]]
+    type: Required[Literal["new", "existing"]]
     location: Required[PdfSignatureLocation]
     name: str
     logo_opacity: float

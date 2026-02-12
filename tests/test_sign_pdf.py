@@ -305,3 +305,36 @@ async def test_async_sign_pdf_request_customization(
         assert all(pytest.approx(0.5) == value for value in timeout_value.values())
     else:
         assert timeout_value == pytest.approx(0.5)
+
+
+def test_sign_payload_requires_location_when_type_new() -> None:
+    input_file = make_pdf_file(PdfRestFileID.generate())
+    pfx_file = make_pfx_file(str(PdfRestFileID.generate()))
+    passphrase_file = make_passphrase_file(str(PdfRestFileID.generate()))
+
+    with pytest.raises(
+        ValidationError,
+        match=r"Missing location information for a new digital signature field",
+    ):
+        PdfSignPayload.model_validate(
+            {
+                "files": [input_file],
+                "signature_configuration": {"type": "new", "name": "sig"},
+                "credentials": {"pfx": pfx_file, "passphrase": passphrase_file},
+            }
+        )
+
+
+def test_sign_payload_allows_existing_without_location() -> None:
+    input_file = make_pdf_file(PdfRestFileID.generate())
+    pfx_file = make_pfx_file(str(PdfRestFileID.generate()))
+    passphrase_file = make_passphrase_file(str(PdfRestFileID.generate()))
+
+    payload = PdfSignPayload.model_validate(
+        {
+            "files": [input_file],
+            "signature_configuration": {"type": "existing", "name": "sig"},
+            "credentials": {"pfx": pfx_file, "passphrase": passphrase_file},
+        }
+    )
+    assert payload.signature_configuration.type == "existing"

@@ -1005,16 +1005,19 @@ class _PdfSignatureDisplayModel(BaseModel):
 
 
 class _PdfSignatureConfigurationModel(BaseModel):
-    type: Literal["new"]
+    type: Literal["new", "existing"]
     name: str | None = None
     logo_opacity: Annotated[float | None, Field(ge=0, le=1, default=None)] = None
     location: _PdfSignatureLocationModel | None = None
     display: _PdfSignatureDisplayModel | None = None
 
     @model_validator(mode="after")
-    def _validate_location_for_new_type(self) -> _PdfSignatureConfigurationModel:
+    def _validate_location_requirements(self) -> _PdfSignatureConfigurationModel:
         if self.type == "new" and self.location is None:
-            msg = "Missing location information for a new digital signature field."
+            msg = (
+                "Missing location information for a new digital signature field. "
+                "See documentation for required fields."
+            )
             raise ValueError(msg)
         return self
 
