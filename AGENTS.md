@@ -8,9 +8,9 @@
   `tests/test_client.py`).
 - Workflow definitions are in `.github/workflows/`; adjust only when CI
   requirements change.
-- Documentation and contributor notes reside at the repo root (`README.md`,
-  `AGENTS.md`). Automation sessions live in `noxfile.py`; keep shared task logic
-  there.
+- Contributor notes reside at the repo root (`README.md`, `AGENTS.md`), while
+  the documentation site content lives in `docs/`. Automation sessions live in
+  `noxfile.py`; keep shared task logic there.
 
 ## Build, Test, and Development Commands
 
@@ -285,8 +285,9 @@
 
 ## CI & Publishing Notes
 
-- GitHub Actions run two workflows: `pre-commit` (no AWS credentials) and
-  `Test and Publish` (Python 3.10–3.14 matrix).
+- GitHub Actions run three workflows: `pre-commit` (no AWS credentials),
+  `Test and Publish` (Python 3.10–3.14 matrix), and `Docs` (GitHub Pages build
+  and deploy on `main` push/manual dispatch).
 - Only the release job assumes the AWS OIDC role to `uv build` and publish with
   `uv publish`.
 - Keep CodeArtifact credentials out of source control; day-to-day development
