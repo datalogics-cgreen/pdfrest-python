@@ -18,12 +18,26 @@ from .graphics_test_helpers import (
     make_pdf_file,
 )
 
+IMAGE_MIME_VARIANTS = (
+    pytest.param("image/jpeg", "logo.jpg", id="jpeg"),
+    pytest.param("image/png", "logo.png", id="png"),
+    pytest.param("image/tiff", "logo.tif", id="tiff"),
+    pytest.param("image/gif", "logo.gif", id="gif"),
+)
 
-def test_add_image_to_pdf_success(monkeypatch: pytest.MonkeyPatch) -> None:
+
+@pytest.mark.parametrize(("image_mime_type", "image_name"), IMAGE_MIME_VARIANTS)
+def test_add_image_to_pdf_success(
+    monkeypatch: pytest.MonkeyPatch,
+    image_mime_type: str,
+    image_name: str,
+) -> None:
     monkeypatch.delenv("PDFREST_API_KEY", raising=False)
     pdf_file = make_pdf_file(PdfRestFileID.generate(1))
     image_file = make_image_file(
-        PdfRestFileID.generate(2), mime_type="image/jpeg", name="logo.jpg"
+        PdfRestFileID.generate(2),
+        mime_type=image_mime_type,
+        name=image_name,
     )
     output_id = str(PdfRestFileID.generate())
 
@@ -266,12 +280,19 @@ def test_add_image_to_pdf_rejects_multiple_images(
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize(("image_mime_type", "image_name"), IMAGE_MIME_VARIANTS)
 async def test_async_add_image_to_pdf_success(
     monkeypatch: pytest.MonkeyPatch,
+    image_mime_type: str,
+    image_name: str,
 ) -> None:
     monkeypatch.delenv("PDFREST_API_KEY", raising=False)
     pdf_file = make_pdf_file(PdfRestFileID.generate(1))
-    image_file = make_image_file(PdfRestFileID.generate(2), mime_type="image/gif")
+    image_file = make_image_file(
+        PdfRestFileID.generate(2),
+        mime_type=image_mime_type,
+        name=image_name,
+    )
     output_id = str(PdfRestFileID.generate())
 
     seen: dict[str, int] = {"post": 0, "get": 0}
