@@ -31,7 +31,6 @@ __all__ = (
     "PdfAddTextObject",
     "PdfCmykColor",
     "PdfColorProfile",
-    "PdfColorProfileInput",
     "PdfConversionCompression",
     "PdfConversionDownsample",
     "PdfConversionLocale",
@@ -238,5 +237,3 @@ PdfColorProfile = Literal[
     "acrobat9-cmyk",
     "custom",
 ]
-
-PdfColorProfileInput = PdfColorProfile | PdfRestFile | Sequence[PdfRestFile]
