@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import json
 import re
 from collections.abc import Callable, Sequence
 from pathlib import PurePath
@@ -19,6 +18,7 @@ from pydantic import (
     model_serializer,
     model_validator,
 )
+from pydantic_core import to_json
 
 from pdfrest.types.public import PdfRedactionPreset
 
@@ -144,8 +144,30 @@ def _serialize_grouped_page_ranges(
 
 
 def _serialize_redactions(value: list[_PdfRedactionVariant]) -> str:
-    payload = [entry.model_dump(mode="json", exclude_none=True) for entry in value]
-    return json.dumps(payload, separators=(",", ":"))
+    return (
+        "["
+        + ",".join(entry.model_dump_json(exclude_none=True) for entry in value)
+        + "]"
+    )
+
+
+def _serialize_text_object_value(value: Any) -> Any:
+    if isinstance(value, str):
+        return value
+    return to_json(value).decode()
+
+
+def _serialize_text_objects(value: list[BaseModel]) -> str:
+    payload = [
+        {
+            key: _serialize_text_object_value(field_value)
+            for key, field_value in entry.model_dump(
+                mode="json", exclude_none=True
+            ).items()
+        }
+        for entry in value
+    ]
+    return to_json(payload).decode()
 
 
 def _allowed_mime_types(
@@ -563,6 +585,7 @@ class ExtractImagesPayload(BaseModel):
 
 
 RgbChannel = Annotated[int, Field(ge=0, le=255)]
+CmykChannel = Annotated[int, Field(ge=0, le=100)]
 
 
 class PdfLiteralRedactionModel(BaseModel):
@@ -1021,6 +1044,142 @@ class PdfCompressPayload(BaseModel):
         return self
 
 
+class PdfAddTextObjectModel(BaseModel):
+    """Adapt caller text options for insertion into a PDF."""
+
+    font: Annotated[str, Field(min_length=1, serialization_alias="font")]
+    max_width: Annotated[
+        float,
+        Field(serialization_alias="max_width", gt=0),
+    ]
+    opacity: Annotated[
+        float,
+        Field(serialization_alias="opacity", ge=0.0, le=1.0),
+    ]
+    page: Annotated[
+        Literal["all"] | Annotated[int, Field(ge=1)],
+        Field(serialization_alias="page"),
+    ]
+    rotation: Annotated[float, Field(serialization_alias="rotation")]
+    text: Annotated[str, Field(min_length=1, serialization_alias="text")]
+    text_color_rgb: Annotated[
+        tuple[RgbChannel, RgbChannel, RgbChannel] | None,
+        Field(serialization_alias="text_color_rgb", default=None),
+        BeforeValidator(_split_comma_string),
+        PlainSerializer(_serialize_as_comma_separated_string),
+    ] = None
+    text_color_cmyk: Annotated[
+        tuple[CmykChannel, CmykChannel, CmykChannel, CmykChannel] | None,
+        Field(serialization_alias="text_color_cmyk", default=None),
+        BeforeValidator(_split_comma_string),
+        PlainSerializer(_serialize_as_comma_separated_string),
+    ] = None
+    text_size: Annotated[
+        float,
+        Field(serialization_alias="text_size", ge=5, le=100),
+    ]
+    x: Annotated[float, Field(serialization_alias="x")]
+    y: Annotated[float, Field(serialization_alias="y")]
+    is_rtl: Annotated[
+        bool | None,
+        Field(
+            validation_alias=AliasChoices("is_right_to_left", "is_rtl"),
+            serialization_alias="is_rtl",
+            default=None,
+        ),
+    ] = None
+
+    @model_validator(mode="after")
+    def _ensure_single_color_option(self) -> PdfAddTextObjectModel:
+        if self.text_color_rgb is None and self.text_color_cmyk is None:
+            msg = "Either text_color_rgb or text_color_cmyk must be provided."
+            raise ValueError(msg)
+        if self.text_color_rgb is not None and self.text_color_cmyk is not None:
+            msg = "Provide only one of text_color_rgb or text_color_cmyk."
+            raise ValueError(msg)
+        return self
+
+
+class PdfAddTextPayload(BaseModel):
+    """Adapt caller options into a pdfRest-ready add-text request payload."""
+
+    files: Annotated[
+        list[PdfRestFile],
+        Field(
+            min_length=1,
+            max_length=1,
+            validation_alias=AliasChoices("file", "files"),
+            serialization_alias="id",
+        ),
+        BeforeValidator(_ensure_list),
+        AfterValidator(
+            _allowed_mime_types("application/pdf", error_msg="Must be a PDF file")
+        ),
+        PlainSerializer(_serialize_as_first_file_id),
+    ]
+    text_objects: Annotated[
+        list[PdfAddTextObjectModel],
+        Field(
+            serialization_alias="text_objects",
+            min_length=1,
+        ),
+        BeforeValidator(_ensure_list),
+        PlainSerializer(_serialize_text_objects),
+    ]
+    output: Annotated[
+        str | None,
+        Field(serialization_alias="output", min_length=1, default=None),
+        AfterValidator(_validate_output_prefix),
+    ] = None
+
+
+class PdfAddImagePayload(BaseModel):
+    """Adapt caller options into a pdfRest-ready add-image request payload."""
+
+    files: Annotated[
+        list[PdfRestFile],
+        Field(
+            min_length=1,
+            max_length=1,
+            validation_alias=AliasChoices("file", "files"),
+            serialization_alias="id",
+        ),
+        BeforeValidator(_ensure_list),
+        AfterValidator(
+            _allowed_mime_types("application/pdf", error_msg="Must be a PDF file")
+        ),
+        PlainSerializer(_serialize_as_first_file_id),
+    ]
+    image: Annotated[
+        list[PdfRestFile],
+        Field(
+            min_length=1,
+            max_length=1,
+            validation_alias=AliasChoices("image", "images", "image_file", "image_id"),
+            serialization_alias="image_id",
+        ),
+        BeforeValidator(_ensure_list),
+        AfterValidator(
+            _allowed_mime_types(
+                "image/jpeg",
+                "image/png",
+                "image/tiff",
+                "image/gif",
+                error_msg="Image must be JPEG, PNG, TIFF, or GIF",
+            )
+        ),
+        PlainSerializer(_serialize_as_first_file_id),
+    ]
+    x: Annotated[int, Field(serialization_alias="x")]
+    y: Annotated[int, Field(serialization_alias="y")]
+    page: Annotated[int, Field(serialization_alias="page", ge=1)]
+    output: Annotated[
+        str | None,
+        Field(serialization_alias="output", min_length=1, default=None),
+        AfterValidator(_validate_output_prefix),
+    ] = None
+
+
 class PdfXfaToAcroformsPayload(BaseModel):
     """Adapt caller options into a pdfRest-ready XFA-to-AcroForms request payload."""
 
@@ -1133,6 +1292,46 @@ class PdfFlattenAnnotationsPayload(BaseModel):
         AfterValidator(
             _allowed_mime_types("application/pdf", error_msg="Must be a PDF file")
         ),
+        PlainSerializer(_serialize_as_first_file_id),
+    ]
+    output: Annotated[
+        str | None,
+        Field(serialization_alias="output", min_length=1, default=None),
+        AfterValidator(_validate_output_prefix),
+    ] = None
+
+
+class PdfAddAttachmentPayload(BaseModel):
+    """Adapt caller options into a pdfRest-ready add-attachment request payload."""
+
+    files: Annotated[
+        list[PdfRestFile],
+        Field(
+            min_length=1,
+            max_length=1,
+            validation_alias=AliasChoices("file", "files"),
+            serialization_alias="id",
+        ),
+        BeforeValidator(_ensure_list),
+        AfterValidator(
+            _allowed_mime_types("application/pdf", error_msg="Must be a PDF file")
+        ),
+        PlainSerializer(_serialize_as_first_file_id),
+    ]
+    attachments: Annotated[
+        list[PdfRestFile],
+        Field(
+            min_length=1,
+            max_length=1,
+            validation_alias=AliasChoices(
+                "attachment",
+                "attachments",
+                "file_to_attach",
+                "files_to_attach",
+            ),
+            serialization_alias="id_to_attach",
+        ),
+        BeforeValidator(_ensure_list),
         PlainSerializer(_serialize_as_first_file_id),
     ]
     output: Annotated[

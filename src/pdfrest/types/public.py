@@ -25,6 +25,8 @@ __all__ = (
     "JpegColorModel",
     "OcrLanguage",
     "PdfAType",
+    "PdfAddTextObject",
+    "PdfCmykColor",
     "PdfInfoQuery",
     "PdfMergeInput",
     "PdfMergeSource",
@@ -105,6 +107,24 @@ class PdfRedactionInstruction(TypedDict):
 
 
 PdfRGBColor = tuple[int, int, int]
+
+PdfCmykColor = tuple[int, int, int, int]
+
+
+class PdfAddTextObject(TypedDict, total=False):
+    font: Required[str]
+    max_width: Required[float]
+    opacity: Required[float]
+    page: Required[Literal["all"] | int]
+    rotation: Required[float]
+    text: Required[str]
+    text_color_rgb: PdfRGBColor
+    text_color_cmyk: PdfCmykColor
+    text_size: Required[float]
+    x: Required[float]
+    y: Required[float]
+    is_right_to_left: bool
+
 
 PdfPageSelection = str | int | Sequence[str | int]
 

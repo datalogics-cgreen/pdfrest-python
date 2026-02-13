@@ -12,6 +12,7 @@ from typing import Any, cast
 import httpx
 import pytest
 import pytest_asyncio
+from pydantic_core import to_json
 from typing_extensions import override
 
 from pdfrest import AsyncPdfRestClient, PdfRestClient
@@ -654,7 +655,7 @@ class TestDownloadHelpers:
             if request.method == "GET" and request.url.path == "/resource/file-id":
                 return httpx.Response(200, stream=_StaticStream(binary_content))
             if request.method == "GET" and request.url.path == "/resource/file-id-json":
-                payload = json.dumps(json_payload).encode("utf-8")
+                payload = to_json(json_payload)
                 return httpx.Response(200, stream=_StaticStream(payload))
             msg = f"Unexpected request: {request.method} {request.url}"
             raise AssertionError(msg)
@@ -739,7 +740,7 @@ class TestAsyncDownloadHelpers:
             if request.method == "GET" and request.url.path == "/resource/file-id":
                 return httpx.Response(200, stream=_StaticAsyncStream(binary_content))
             if request.method == "GET" and request.url.path == "/resource/file-id-json":
-                payload = json.dumps(json_payload).encode("utf-8")
+                payload = to_json(json_payload)
                 return httpx.Response(200, stream=_StaticAsyncStream(payload))
             msg = f"Unexpected request: {request.method} {request.url}"
             raise AssertionError(msg)

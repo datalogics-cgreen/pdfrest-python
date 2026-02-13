@@ -5,6 +5,7 @@ import json
 import httpx
 import pytest
 from pydantic import ValidationError
+from pydantic_core import to_json
 
 from pdfrest import PdfRestClient
 from pdfrest.models import PdfRestFileBasedResponse, PdfRestFileID
@@ -107,7 +108,7 @@ def test_preview_redactions_reject_json_string(monkeypatch: pytest.MonkeyPatch) 
     ):
         client.preview_redactions(
             input_file,
-            redactions=json.dumps([{"type": "literal", "value": "secret"}]),  # type: ignore[arg-type]
+            redactions=to_json([{"type": "literal", "value": "secret"}]).decode(),  # type: ignore[arg-type]
         )
 
 

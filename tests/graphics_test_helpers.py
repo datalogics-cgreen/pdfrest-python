@@ -40,6 +40,26 @@ def make_pdf_file(file_id: str, name: str = "example.pdf") -> PdfRestFile:
     )
 
 
+def make_image_file(
+    file_id: str,
+    mime_type: str = "image/png",
+    name: str = "example.png",
+) -> PdfRestFile:
+    return PdfRestFile.model_validate(
+        {
+            "id": file_id,
+            "name": name,
+            "url": f"https://api.pdfrest.com/resource/{file_id}",
+            "type": mime_type,
+            "size": 2048,
+            "modified": datetime(2024, 1, 1, tzinfo=timezone.utc)
+            .isoformat()
+            .replace("+00:00", "Z"),
+            "scheduledDeletionTimeUtc": None,
+        }
+    )
+
+
 def assert_conversion_payload(
     payload: dict[str, Any],
     expected: dict[str, Any],
