@@ -71,6 +71,14 @@
 - Avoid `@field_validator` on payload models. Prefer existing `BeforeValidator`
   helpers (e.g., `_allowed_mime_types`) so validation remains declarative and
   consistent across schemas.
+- Keep user-facing `PdfRestClient` and `AsyncPdfRestClient` endpoint helpers
+  thin: they should primarily assemble payload dicts and delegate validation to
+  payload models (`model_validate`). Avoid duplicating payload validation in
+  client methods or raising configuration errors for payload-shape issues that
+  Pydantic validators can enforce.
+- Prefer Pydantic-backed JSON serialization for performance: use
+  `model_dump_json()` for Pydantic models, and use `pydantic_core.to_json()` for
+  non-model payloads instead of `json.dumps()` where practical.
 - Treat `PdfRestClient` and `AsyncPdfRestClient` as context managers in both
   production code and tests so transports are disposed deterministically.
 - When uploading content, always send the multipart field name `file`; when
@@ -144,6 +152,23 @@
   `AfterValidator` for relational checks). Reserve standalone normalization
   functions for behaviour that cannot live on the schema—simpler models produce
   clearer errors and are easier for new contributors to understand.
+- When `Annotated` field constraints (for example tuple length and `ge`/`le`
+  bounds) fully capture an input contract, prefer those native constraints over
+  redundant custom validators that only restate the same rules.
+- Prefer the newer add-text color pattern over legacy helper-style validation:
+  `_validate_rgb_values` / `_validate_cmyk_values` were replaced by tuple
+  channel aliases (`RgbChannel`/`CmykChannel`) plus field constraints and should
+  remain the default approach. Add custom validators only when they provide
+  behavior native constraints cannot (for example, parsing alternate wire
+  formats or enforcing cross-field dependencies).
+- Keep `BeforeValidator`/`AfterValidator` helpers and field serializers short
+  and shape-focused. They should primarily adapt nonconforming inputs or handle
+  pdfRest wire quirks (for example, splitting comma-separated values or
+  serializing only the first uploaded file ID), not re-implement constraint
+  logic already expressed by Pydantic field types/annotations.
+- Prefer reusable validator factories that take parameters (for example
+  allowed-value/extension helpers with keyword-configured fallbacks) over
+  bespoke one-off validator functions tied to a single field.
 - When adding new services, provide per-endpoint test modules mirroring PNG’s
   coverage: parameterized successes for every allowed literal value, request
   customization (sync + async), validation failures, and multi-file guards. Add
@@ -216,9 +241,10 @@
 - Avoid manual loops over test parameters; prefer `@pytest.mark.parametrize`
   with explicit `id=` values so each combination is visible and reproducible.
 
-- Always couple `pytest.raises` with an explicit `match=` regex that reflects
-  the intended validation error wording—mirror the human-readable text rather
-  than relying on default exception formatting.
+- Always couple `pytest.raises` with an explicit `match=` regex. For SDK-owned
+  validation messages, mirror the human-readable wording; for native Pydantic
+  constraint errors, match stable fragments (field path + core bound/type
+  phrase) rather than brittle full-text output.
 
 - Mirror PNG’s request/response scenarios for each graphic conversion endpoint:
   maintain per-endpoint test modules (`test_convert_to_png.py`,
