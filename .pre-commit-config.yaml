@@ -36,7 +36,7 @@ repos:
     hooks:
       - id: mdformat
         name: mdformat on non-.github files
-        exclude: ^.github/
+        exclude: ^(.github/|docs/)
         args: ["--wrap", "80", "--number"]
         additional_dependencies:
           - mdformat-gfm
