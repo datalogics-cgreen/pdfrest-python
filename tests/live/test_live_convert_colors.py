@@ -61,7 +61,7 @@ def test_live_convert_colors_color_profiles_success(
             pdfrest_api_key,
             pdfrest_live_base_url,
         )
-        kwargs["profile"] = custom_profile
+        kwargs["color_profile"] = custom_profile
 
     with PdfRestClient(
         api_key=pdfrest_api_key,
@@ -141,7 +141,7 @@ async def test_live_async_convert_colors_color_profiles_success(
             pdfrest_api_key,
             pdfrest_live_base_url,
         )
-        kwargs["profile"] = custom_profile
+        kwargs["color_profile"] = custom_profile
 
     async with AsyncPdfRestClient(
         api_key=pdfrest_api_key,

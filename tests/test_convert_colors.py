@@ -165,8 +165,7 @@ def test_convert_colors_request_customization(
     with PdfRestClient(api_key=VALID_API_KEY, transport=transport) as client:
         response = client.convert_colors(
             input_file,
-            color_profile="custom",
-            profile=profile_file,
+            color_profile=profile_file,
             preserve_black=True,
             output="custom",
             extra_query={"trace": "true"},
@@ -312,8 +311,7 @@ async def test_async_convert_colors_request_customization(
     async with AsyncPdfRestClient(api_key=ASYNC_API_KEY, transport=transport) as client:
         response = await client.convert_colors(
             input_file,
-            color_profile="custom",
-            profile=profile_file,
+            color_profile=profile_file,
             extra_query={"trace": "async"},
             extra_headers={"X-Debug": "async"},
             extra_body={"debug": "yes"},
@@ -398,8 +396,20 @@ def test_convert_colors_validation(monkeypatch: pytest.MonkeyPatch) -> None:
     ):
         client.convert_colors(
             pdf_file,
-            color_profile="custom",
-            profile=wrong_profile_file,
+            color_profile=wrong_profile_file,
+        )
+
+    with (
+        PdfRestClient(api_key=VALID_API_KEY, transport=transport) as client,
+        pytest.raises(
+            ValueError,
+            match=r"Provide the custom profile file via color_profile only",
+        ),
+    ):
+        client.convert_colors(
+            pdf_file,
+            color_profile=_make_icc_file(),
+            profile=_make_icc_file(),
         )
 
 
@@ -457,8 +467,17 @@ async def test_async_convert_colors_validation(monkeypatch: pytest.MonkeyPatch) 
         with pytest.raises(ValidationError, match="Profile must be an ICC file"):
             await client.convert_colors(
                 pdf_file,
-                color_profile="custom",
-                profile=wrong_profile_file,
+                color_profile=wrong_profile_file,
+            )
+
+        with pytest.raises(
+            ValueError,
+            match=r"Provide the custom profile file via color_profile only",
+        ):
+            await client.convert_colors(
+                pdf_file,
+                color_profile=_make_icc_file(),
+                profile=_make_icc_file(),
             )
 
 

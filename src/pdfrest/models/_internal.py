@@ -55,6 +55,14 @@ def _ensure_list(value: Any) -> Any:
     return [value]
 
 
+def _is_uploaded_file_value(value: Any) -> bool:
+    if isinstance(value, PdfRestFile):
+        return True
+    if isinstance(value, Sequence) and not isinstance(value, (str, bytes, bytearray)):
+        return all(isinstance(item, PdfRestFile) for item in value)
+    return False
+
+
 def _list_of_strings(value: list[Any]) -> list[str]:
     return [str(e) for e in value]
 
@@ -1837,6 +1845,28 @@ class PdfConvertColorsPayload(BaseModel):
         Field(serialization_alias="output", min_length=1, default=None),
         AfterValidator(_validate_output_prefix),
     ] = None
+
+    @model_validator(mode="before")
+    @classmethod
+    def _normalize_color_profile(cls, value: Any) -> Any:
+        if not isinstance(value, dict):
+            return value
+
+        payload = cast(dict[str, Any], value).copy()
+        color_profile = payload.get("color_profile")
+        if not _is_uploaded_file_value(color_profile):
+            return payload
+
+        if payload.get("profile") is not None or payload.get("profiles") is not None:
+            msg = (
+                "Provide the custom profile file via color_profile only when "
+                "color_profile is a file."
+            )
+            raise ValueError(msg)
+
+        payload["color_profile"] = "custom"
+        payload["profile"] = color_profile
+        return payload
 
     @model_validator(mode="after")
     def _validate_profile_dependency(self) -> PdfConvertColorsPayload:
