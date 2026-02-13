@@ -1,9 +1,9 @@
 from __future__ import annotations
 
 import re
-from collections.abc import Callable, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from pathlib import PurePath
-from typing import Annotated, Any, Generic, Literal, TypeVar
+from typing import Annotated, Any, Generic, Literal, TypeVar, cast
 
 from langcodes import tag_is_valid
 from pydantic import (
@@ -1371,7 +1371,7 @@ class PdfBlankPayload(BaseModel):
     """Adapt caller options into a pdfRest-ready blank PDF request payload."""
 
     page_size: Annotated[
-        PdfPageSize,
+        PdfPageSize | Literal["custom"],
         Field(serialization_alias="page_size"),
     ]
     page_count: Annotated[
@@ -1395,6 +1395,33 @@ class PdfBlankPayload(BaseModel):
         Field(serialization_alias="output", min_length=1, default=None),
         AfterValidator(_validate_output_prefix),
     ] = None
+
+    @model_validator(mode="before")
+    @classmethod
+    def _normalize_custom_page_size(cls, data: Any) -> Any:
+        if not isinstance(data, Mapping):
+            return data
+
+        request_data = cast(Mapping[str, Any], data)
+        page_size = request_data.get("page_size")
+        if not isinstance(page_size, Sequence) or isinstance(
+            page_size, (str, bytes, bytearray)
+        ):
+            return request_data
+
+        custom_dimensions = list(page_size)
+        if len(custom_dimensions) != 2:
+            msg = (
+                "Custom page sizes must contain exactly two values: "
+                "custom_height and custom_width."
+            )
+            raise ValueError(msg)
+
+        normalized_data: dict[str, Any] = dict(request_data)
+        normalized_data["page_size"] = "custom"
+        normalized_data["custom_height"] = custom_dimensions[0]
+        normalized_data["custom_width"] = custom_dimensions[1]
+        return normalized_data
 
     @model_validator(mode="after")
     def _validate_page_configuration(self) -> PdfBlankPayload:

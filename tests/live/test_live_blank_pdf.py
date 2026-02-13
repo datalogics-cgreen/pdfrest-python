@@ -8,56 +8,42 @@ BLANK_PDF_LITERAL_CASES = [
     pytest.param(
         "letter",
         "portrait",
-        None,
-        None,
         "blank-letter",
         id="letter-portrait",
     ),
     pytest.param(
         "legal",
         "landscape",
-        None,
-        None,
         "blank-legal",
         id="legal-landscape",
     ),
     pytest.param(
         "ledger",
         "portrait",
-        None,
-        None,
         "blank-ledger",
         id="ledger-portrait",
     ),
     pytest.param(
         "A3",
         "landscape",
-        None,
-        None,
         "blank-a3",
         id="a3-landscape",
     ),
     pytest.param(
         "A4",
         "portrait",
-        None,
-        None,
         "blank-a4",
         id="a4-portrait",
     ),
     pytest.param(
         "A5",
         "landscape",
-        None,
-        None,
         "blank-a5",
         id="a5-landscape",
     ),
     pytest.param(
-        "custom",
+        (792.0, 612.0),
         None,
-        792.0,
-        612.0,
         "blank-custom",
         id="custom-dimensions",
     ),
@@ -65,29 +51,23 @@ BLANK_PDF_LITERAL_CASES = [
 
 
 @pytest.mark.parametrize(
-    ("page_size", "page_orientation", "custom_height", "custom_width", "output_name"),
+    ("page_size", "page_orientation", "output_name"),
     BLANK_PDF_LITERAL_CASES,
 )
 def test_live_blank_pdf_success(
     pdfrest_api_key: str,
     pdfrest_live_base_url: str,
-    page_size: str,
+    page_size: str | tuple[float, float],
     page_orientation: str | None,
-    custom_height: float | None,
-    custom_width: float | None,
     output_name: str,
 ) -> None:
-    kwargs: dict[str, str | int | float] = {
+    kwargs: dict[str, str | int | float | tuple[float, float]] = {
         "page_size": page_size,
         "page_count": 1,
         "output": output_name,
     }
     if page_orientation is not None:
         kwargs["page_orientation"] = page_orientation
-    if custom_height is not None:
-        kwargs["custom_height"] = custom_height
-    if custom_width is not None:
-        kwargs["custom_width"] = custom_width
 
     with PdfRestClient(
         api_key=pdfrest_api_key,
@@ -105,29 +85,23 @@ def test_live_blank_pdf_success(
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize(
-    ("page_size", "page_orientation", "custom_height", "custom_width", "output_name"),
+    ("page_size", "page_orientation", "output_name"),
     BLANK_PDF_LITERAL_CASES,
 )
 async def test_live_async_blank_pdf_success(
     pdfrest_api_key: str,
     pdfrest_live_base_url: str,
-    page_size: str,
+    page_size: str | tuple[float, float],
     page_orientation: str | None,
-    custom_height: float | None,
-    custom_width: float | None,
     output_name: str,
 ) -> None:
-    kwargs: dict[str, str | int | float] = {
+    kwargs: dict[str, str | int | float | tuple[float, float]] = {
         "page_size": page_size,
         "page_count": 2,
         "output": output_name,
     }
     if page_orientation is not None:
         kwargs["page_orientation"] = page_orientation
-    if custom_height is not None:
-        kwargs["custom_height"] = custom_height
-    if custom_width is not None:
-        kwargs["custom_width"] = custom_width
 
     async with AsyncPdfRestClient(
         api_key=pdfrest_api_key,

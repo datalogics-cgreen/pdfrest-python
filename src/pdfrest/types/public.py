@@ -199,5 +199,7 @@ PdfRestriction = Literal[
 ALL_PDF_RESTRICTIONS: tuple[PdfRestriction, ...] = cast(
     tuple[PdfRestriction, ...], get_args(PdfRestriction)
 )
-PdfPageSize = Literal["letter", "legal", "ledger", "A3", "A4", "A5", "custom"]
+PdfPageSize = (
+    Literal["letter", "legal", "ledger", "A3", "A4", "A5"] | tuple[float, float]
+)
 PdfPageOrientation = Literal["portrait", "landscape"]

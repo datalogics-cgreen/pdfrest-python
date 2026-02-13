@@ -3080,8 +3080,6 @@ class PdfRestClient(_SyncApiClient):
         page_size: PdfPageSize,
         page_count: int,
         page_orientation: PdfPageOrientation | None = None,
-        custom_height: float | None = None,
-        custom_width: float | None = None,
         output: str | None = None,
         extra_query: Query | None = None,
         extra_headers: AnyMapping | None = None,
@@ -3096,10 +3094,6 @@ class PdfRestClient(_SyncApiClient):
         }
         if page_orientation is not None:
             payload["page_orientation"] = page_orientation
-        if custom_height is not None:
-            payload["custom_height"] = custom_height
-        if custom_width is not None:
-            payload["custom_width"] = custom_width
         if output is not None:
             payload["output"] = output
 
@@ -4525,8 +4519,6 @@ class AsyncPdfRestClient(_AsyncApiClient):
         page_size: PdfPageSize,
         page_count: int,
         page_orientation: PdfPageOrientation | None = None,
-        custom_height: float | None = None,
-        custom_width: float | None = None,
         output: str | None = None,
         extra_query: Query | None = None,
         extra_headers: AnyMapping | None = None,
@@ -4541,10 +4533,6 @@ class AsyncPdfRestClient(_AsyncApiClient):
         }
         if page_orientation is not None:
             payload["page_orientation"] = page_orientation
-        if custom_height is not None:
-            payload["custom_height"] = custom_height
-        if custom_width is not None:
-            payload["custom_width"] = custom_width
         if output is not None:
             payload["output"] = output
 
