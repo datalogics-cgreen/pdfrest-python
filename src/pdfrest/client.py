@@ -75,8 +75,12 @@ from .models import (
 from .models._internal import (
     BasePdfRestGraphicPayload,
     BmpPdfRestPayload,
+    ConvertEmailToPdfPayload,
+    ConvertHtmlToPdfPayload,
+    ConvertImageToPdfPayload,
+    ConvertOfficeToPdfPayload,
+    ConvertPostscriptToPdfPayload,
     ConvertToMarkdownPayload,
-    ConvertToPdfPayload,
     ConvertUrlsToPdfPayload,
     DeletePayload,
     ExtractImagesPayload,
@@ -3300,7 +3304,7 @@ class PdfRestClient(_SyncApiClient):
             timeout=timeout,
         )
 
-    def convert_to_pdf(
+    def convert_office_to_pdf(
         self,
         file: PdfRestFile | Sequence[PdfRestFile],
         *,
@@ -3318,7 +3322,7 @@ class PdfRestClient(_SyncApiClient):
         extra_body: Body | None = None,
         timeout: TimeoutTypes | None = None,
     ) -> PdfRestFileBasedResponse:
-        """Convert a supported file type to PDF."""
+        """Convert a Microsoft Office file (Word, Excel, PowerPoint) to PDF."""
 
         payload: dict[str, Any] = {"files": file}
         if output is not None:
@@ -3343,7 +3347,135 @@ class PdfRestClient(_SyncApiClient):
         return self._post_file_operation(
             endpoint="/pdf",
             payload=payload,
-            payload_model=ConvertToPdfPayload,
+            payload_model=ConvertOfficeToPdfPayload,
+            extra_query=extra_query,
+            extra_headers=extra_headers,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
+
+    def convert_postscript_to_pdf(
+        self,
+        file: PdfRestFile | Sequence[PdfRestFile],
+        *,
+        output: str | None = None,
+        compression: PdfConversionCompression | None = None,
+        downsample: PdfConversionDownsample | None = None,
+        extra_query: Query | None = None,
+        extra_headers: AnyMapping | None = None,
+        extra_body: Body | None = None,
+        timeout: TimeoutTypes | None = None,
+    ) -> PdfRestFileBasedResponse:
+        """Convert a PostScript or EPS file to PDF."""
+
+        payload: dict[str, Any] = {"files": file}
+        if output is not None:
+            payload["output"] = output
+        if compression is not None:
+            payload["compression"] = compression
+        if downsample is not None:
+            payload["downsample"] = downsample
+
+        return self._post_file_operation(
+            endpoint="/pdf",
+            payload=payload,
+            payload_model=ConvertPostscriptToPdfPayload,
+            extra_query=extra_query,
+            extra_headers=extra_headers,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
+
+    def convert_email_to_pdf(
+        self,
+        file: PdfRestFile | Sequence[PdfRestFile],
+        *,
+        output: str | None = None,
+        extra_query: Query | None = None,
+        extra_headers: AnyMapping | None = None,
+        extra_body: Body | None = None,
+        timeout: TimeoutTypes | None = None,
+    ) -> PdfRestFileBasedResponse:
+        """Convert an RFC822 email file to PDF."""
+
+        payload: dict[str, Any] = {"files": file}
+        if output is not None:
+            payload["output"] = output
+
+        return self._post_file_operation(
+            endpoint="/pdf",
+            payload=payload,
+            payload_model=ConvertEmailToPdfPayload,
+            extra_query=extra_query,
+            extra_headers=extra_headers,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
+
+    def convert_image_to_pdf(
+        self,
+        file: PdfRestFile | Sequence[PdfRestFile],
+        *,
+        output: str | None = None,
+        extra_query: Query | None = None,
+        extra_headers: AnyMapping | None = None,
+        extra_body: Body | None = None,
+        timeout: TimeoutTypes | None = None,
+    ) -> PdfRestFileBasedResponse:
+        """Convert a supported image file to PDF."""
+
+        payload: dict[str, Any] = {"files": file}
+        if output is not None:
+            payload["output"] = output
+
+        return self._post_file_operation(
+            endpoint="/pdf",
+            payload=payload,
+            payload_model=ConvertImageToPdfPayload,
+            extra_query=extra_query,
+            extra_headers=extra_headers,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
+
+    def convert_html_to_pdf(
+        self,
+        file: PdfRestFile | Sequence[PdfRestFile],
+        *,
+        output: str | None = None,
+        compression: PdfConversionCompression | None = None,
+        downsample: PdfConversionDownsample | None = None,
+        page_size: HtmlPageSize | None = None,
+        page_margin: str | None = None,
+        page_orientation: HtmlPageOrientation | None = None,
+        web_layout: HtmlWebLayout | None = None,
+        extra_query: Query | None = None,
+        extra_headers: AnyMapping | None = None,
+        extra_body: Body | None = None,
+        timeout: TimeoutTypes | None = None,
+    ) -> PdfRestFileBasedResponse:
+        """Convert an uploaded HTML file to PDF."""
+
+        payload: dict[str, Any] = {"files": file}
+        if output is not None:
+            payload["output"] = output
+        if compression is not None:
+            payload["compression"] = compression
+        if downsample is not None:
+            payload["downsample"] = downsample
+        if page_size is not None:
+            payload["page_size"] = page_size
+        if page_margin is not None:
+            payload["page_margin"] = page_margin
+        if page_orientation is not None:
+            payload["page_orientation"] = page_orientation
+        if web_layout is not None:
+            payload["web_layout"] = web_layout
+
+        return self._post_file_operation(
+            endpoint="/pdf",
+            payload=payload,
+            payload_model=ConvertHtmlToPdfPayload,
             extra_query=extra_query,
             extra_headers=extra_headers,
             extra_body=extra_body,
@@ -4885,7 +5017,7 @@ class AsyncPdfRestClient(_AsyncApiClient):
             timeout=timeout,
         )
 
-    async def convert_to_pdf(
+    async def convert_office_to_pdf(
         self,
         file: PdfRestFile | Sequence[PdfRestFile],
         *,
@@ -4903,7 +5035,7 @@ class AsyncPdfRestClient(_AsyncApiClient):
         extra_body: Body | None = None,
         timeout: TimeoutTypes | None = None,
     ) -> PdfRestFileBasedResponse:
-        """Asynchronously convert a supported file type to PDF."""
+        """Asynchronously convert a Microsoft Office file to PDF."""
 
         payload: dict[str, Any] = {"files": file}
         if output is not None:
@@ -4928,7 +5060,135 @@ class AsyncPdfRestClient(_AsyncApiClient):
         return await self._post_file_operation(
             endpoint="/pdf",
             payload=payload,
-            payload_model=ConvertToPdfPayload,
+            payload_model=ConvertOfficeToPdfPayload,
+            extra_query=extra_query,
+            extra_headers=extra_headers,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
+
+    async def convert_postscript_to_pdf(
+        self,
+        file: PdfRestFile | Sequence[PdfRestFile],
+        *,
+        output: str | None = None,
+        compression: PdfConversionCompression | None = None,
+        downsample: PdfConversionDownsample | None = None,
+        extra_query: Query | None = None,
+        extra_headers: AnyMapping | None = None,
+        extra_body: Body | None = None,
+        timeout: TimeoutTypes | None = None,
+    ) -> PdfRestFileBasedResponse:
+        """Asynchronously convert a PostScript or EPS file to PDF."""
+
+        payload: dict[str, Any] = {"files": file}
+        if output is not None:
+            payload["output"] = output
+        if compression is not None:
+            payload["compression"] = compression
+        if downsample is not None:
+            payload["downsample"] = downsample
+
+        return await self._post_file_operation(
+            endpoint="/pdf",
+            payload=payload,
+            payload_model=ConvertPostscriptToPdfPayload,
+            extra_query=extra_query,
+            extra_headers=extra_headers,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
+
+    async def convert_email_to_pdf(
+        self,
+        file: PdfRestFile | Sequence[PdfRestFile],
+        *,
+        output: str | None = None,
+        extra_query: Query | None = None,
+        extra_headers: AnyMapping | None = None,
+        extra_body: Body | None = None,
+        timeout: TimeoutTypes | None = None,
+    ) -> PdfRestFileBasedResponse:
+        """Asynchronously convert an RFC822 email file to PDF."""
+
+        payload: dict[str, Any] = {"files": file}
+        if output is not None:
+            payload["output"] = output
+
+        return await self._post_file_operation(
+            endpoint="/pdf",
+            payload=payload,
+            payload_model=ConvertEmailToPdfPayload,
+            extra_query=extra_query,
+            extra_headers=extra_headers,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
+
+    async def convert_image_to_pdf(
+        self,
+        file: PdfRestFile | Sequence[PdfRestFile],
+        *,
+        output: str | None = None,
+        extra_query: Query | None = None,
+        extra_headers: AnyMapping | None = None,
+        extra_body: Body | None = None,
+        timeout: TimeoutTypes | None = None,
+    ) -> PdfRestFileBasedResponse:
+        """Asynchronously convert a supported image file to PDF."""
+
+        payload: dict[str, Any] = {"files": file}
+        if output is not None:
+            payload["output"] = output
+
+        return await self._post_file_operation(
+            endpoint="/pdf",
+            payload=payload,
+            payload_model=ConvertImageToPdfPayload,
+            extra_query=extra_query,
+            extra_headers=extra_headers,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
+
+    async def convert_html_to_pdf(
+        self,
+        file: PdfRestFile | Sequence[PdfRestFile],
+        *,
+        output: str | None = None,
+        compression: PdfConversionCompression | None = None,
+        downsample: PdfConversionDownsample | None = None,
+        page_size: HtmlPageSize | None = None,
+        page_margin: str | None = None,
+        page_orientation: HtmlPageOrientation | None = None,
+        web_layout: HtmlWebLayout | None = None,
+        extra_query: Query | None = None,
+        extra_headers: AnyMapping | None = None,
+        extra_body: Body | None = None,
+        timeout: TimeoutTypes | None = None,
+    ) -> PdfRestFileBasedResponse:
+        """Asynchronously convert an uploaded HTML file to PDF."""
+
+        payload: dict[str, Any] = {"files": file}
+        if output is not None:
+            payload["output"] = output
+        if compression is not None:
+            payload["compression"] = compression
+        if downsample is not None:
+            payload["downsample"] = downsample
+        if page_size is not None:
+            payload["page_size"] = page_size
+        if page_margin is not None:
+            payload["page_margin"] = page_margin
+        if page_orientation is not None:
+            payload["page_orientation"] = page_orientation
+        if web_layout is not None:
+            payload["web_layout"] = web_layout
+
+        return await self._post_file_operation(
+            endpoint="/pdf",
+            payload=payload,
+            payload_model=ConvertHtmlToPdfPayload,
             extra_query=extra_query,
             extra_headers=extra_headers,
             extra_body=extra_body,

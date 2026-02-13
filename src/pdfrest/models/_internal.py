@@ -570,24 +570,6 @@ class ConvertToMarkdownPayload(BaseModel):
     ] = None
 
 
-_PDF_SUPPORTED_MIME_TYPES: tuple[str, ...] = (
-    "application/msword",
-    "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-    "application/vnd.ms-excel",
-    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-    "application/vnd.ms-powerpoint",
-    "application/vnd.openxmlformats-officedocument.presentationml.presentation",
-    "application/postscript",
-    "application/eps",
-    "application/x-eps",
-    "message/rfc822",
-    "image/jpeg",
-    "image/tiff",
-    "image/bmp",
-    "image/png",
-    "text/html",
-)
-
 _PDF_WORD_MIME_TYPES = {
     "application/msword",
     "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
@@ -608,14 +590,18 @@ _PDF_POSTSCRIPT_MIME_TYPES = {
     "application/eps",
     "application/x-eps",
 }
+_PDF_EMAIL_MIME_TYPES = {"message/rfc822"}
+_PDF_IMAGE_MIME_TYPES = {
+    "image/jpeg",
+    "image/tiff",
+    "image/bmp",
+    "image/png",
+}
 _PDF_HTML_MIME_TYPES = {"text/html"}
-_PDF_COMPRESSION_COMPATIBLE_MIME_TYPES = (
-    _PDF_OFFICE_MIME_TYPES | _PDF_POSTSCRIPT_MIME_TYPES | _PDF_HTML_MIME_TYPES
-)
 
 
-class ConvertToPdfPayload(BaseModel):
-    """Adapt caller options into a pdfRest-ready convert-to-pdf payload."""
+class ConvertOfficeToPdfPayload(BaseModel):
+    """Adapt caller options into a pdfRest-ready office-to-pdf payload."""
 
     files: Annotated[
         list[PdfRestFile],
@@ -628,9 +614,8 @@ class ConvertToPdfPayload(BaseModel):
         BeforeValidator(_ensure_list),
         AfterValidator(
             _allowed_mime_types(
-                _PDF_SUPPORTED_MIME_TYPES[0],
-                *_PDF_SUPPORTED_MIME_TYPES[1:],
-                error_msg="Must be a supported file type for PDF conversion.",
+                *_PDF_OFFICE_MIME_TYPES,
+                error_msg="Must be a Microsoft Office file.",
             )
         ),
         PlainSerializer(_serialize_as_first_file_id),
@@ -657,6 +642,138 @@ class ConvertToPdfPayload(BaseModel):
         PdfConversionLocale | None,
         Field(serialization_alias="locale", default=None),
     ] = None
+
+    @model_validator(mode="after")
+    def _validate_option_compatibility(self) -> ConvertOfficeToPdfPayload:
+        mime_type = self.files[0].type
+        if self.locale is not None and mime_type not in _PDF_EXCEL_MIME_TYPES:
+            msg = "locale is only supported for Excel inputs."
+            raise ValueError(msg)
+        return self
+
+
+class ConvertPostscriptToPdfPayload(BaseModel):
+    """Adapt caller options into a pdfRest-ready postscript-to-pdf payload."""
+
+    files: Annotated[
+        list[PdfRestFile],
+        Field(
+            min_length=1,
+            max_length=1,
+            validation_alias=AliasChoices("file", "files"),
+            serialization_alias="id",
+        ),
+        BeforeValidator(_ensure_list),
+        AfterValidator(
+            _allowed_mime_types(
+                *_PDF_POSTSCRIPT_MIME_TYPES,
+                error_msg="Must be a PostScript or EPS file.",
+            )
+        ),
+        PlainSerializer(_serialize_as_first_file_id),
+    ]
+    output: Annotated[
+        str | None,
+        Field(serialization_alias="output", min_length=1, default=None),
+        AfterValidator(_validate_output_prefix),
+    ] = None
+    compression: Annotated[
+        PdfConversionCompression | None,
+        Field(serialization_alias="compression", default=None),
+    ] = None
+    downsample: Annotated[
+        PdfConversionDownsample | None,
+        Field(serialization_alias="downsample", default=None),
+    ] = None
+
+
+class ConvertEmailToPdfPayload(BaseModel):
+    """Adapt caller options into a pdfRest-ready email-to-pdf payload."""
+
+    files: Annotated[
+        list[PdfRestFile],
+        Field(
+            min_length=1,
+            max_length=1,
+            validation_alias=AliasChoices("file", "files"),
+            serialization_alias="id",
+        ),
+        BeforeValidator(_ensure_list),
+        AfterValidator(
+            _allowed_mime_types(
+                *_PDF_EMAIL_MIME_TYPES,
+                error_msg="Must be an RFC822 email file.",
+            )
+        ),
+        PlainSerializer(_serialize_as_first_file_id),
+    ]
+    output: Annotated[
+        str | None,
+        Field(serialization_alias="output", min_length=1, default=None),
+        AfterValidator(_validate_output_prefix),
+    ] = None
+
+
+class ConvertImageToPdfPayload(BaseModel):
+    """Adapt caller options into a pdfRest-ready image-to-pdf payload."""
+
+    files: Annotated[
+        list[PdfRestFile],
+        Field(
+            min_length=1,
+            max_length=1,
+            validation_alias=AliasChoices("file", "files"),
+            serialization_alias="id",
+        ),
+        BeforeValidator(_ensure_list),
+        AfterValidator(
+            _allowed_mime_types(
+                *_PDF_IMAGE_MIME_TYPES,
+                error_msg="Must be a supported image file type.",
+            )
+        ),
+        PlainSerializer(_serialize_as_first_file_id),
+    ]
+    output: Annotated[
+        str | None,
+        Field(serialization_alias="output", min_length=1, default=None),
+        AfterValidator(_validate_output_prefix),
+    ] = None
+
+
+class ConvertHtmlToPdfPayload(BaseModel):
+    """Adapt caller options into a pdfRest-ready html-to-pdf payload."""
+
+    files: Annotated[
+        list[PdfRestFile],
+        Field(
+            min_length=1,
+            max_length=1,
+            validation_alias=AliasChoices("file", "files"),
+            serialization_alias="id",
+        ),
+        BeforeValidator(_ensure_list),
+        AfterValidator(
+            _allowed_mime_types(
+                *_PDF_HTML_MIME_TYPES,
+                error_msg="Must be an HTML file.",
+            )
+        ),
+        PlainSerializer(_serialize_as_first_file_id),
+    ]
+    output: Annotated[
+        str | None,
+        Field(serialization_alias="output", min_length=1, default=None),
+        AfterValidator(_validate_output_prefix),
+    ] = None
+    compression: Annotated[
+        PdfConversionCompression | None,
+        Field(serialization_alias="compression", default=None),
+    ] = None
+    downsample: Annotated[
+        PdfConversionDownsample | None,
+        Field(serialization_alias="downsample", default=None),
+    ] = None
     page_size: Annotated[
         HtmlPageSize | None,
         Field(serialization_alias="page_size", default=None),
@@ -674,42 +791,6 @@ class ConvertToPdfPayload(BaseModel):
         HtmlWebLayout | None,
         Field(serialization_alias="web_layout", default=None),
     ] = None
-
-    @model_validator(mode="after")
-    def _validate_option_compatibility(self) -> ConvertToPdfPayload:
-        mime_type = self.files[0].type
-        if self.locale is not None and mime_type not in _PDF_EXCEL_MIME_TYPES:
-            msg = "locale is only supported for Excel inputs."
-            raise ValueError(msg)
-
-        if self.tagged_pdf is not None and mime_type not in _PDF_OFFICE_MIME_TYPES:
-            msg = "tagged_pdf is only supported for Microsoft Office inputs."
-            raise ValueError(msg)
-
-        if mime_type not in _PDF_HTML_MIME_TYPES:
-            if self.page_size is not None:
-                msg = "page_size is only supported for HTML inputs."
-                raise ValueError(msg)
-            if self.page_margin is not None:
-                msg = "page_margin is only supported for HTML inputs."
-                raise ValueError(msg)
-            if self.page_orientation is not None:
-                msg = "page_orientation is only supported for HTML inputs."
-                raise ValueError(msg)
-            if self.web_layout is not None:
-                msg = "web_layout is only supported for HTML inputs."
-                raise ValueError(msg)
-
-        if (
-            self.compression is not None or self.downsample is not None
-        ) and mime_type not in _PDF_COMPRESSION_COMPATIBLE_MIME_TYPES:
-            msg = (
-                "compression and downsample are only supported for Microsoft Office, "
-                "PostScript, or HTML inputs."
-            )
-            raise ValueError(msg)
-
-        return self
 
 
 class ConvertUrlsToPdfPayload(BaseModel):

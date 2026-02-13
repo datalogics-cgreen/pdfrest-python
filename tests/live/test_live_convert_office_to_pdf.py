@@ -21,20 +21,6 @@ def uploaded_docx_for_pdf(
         return client.files.create_from_paths([resource])[0]
 
 
-@pytest.fixture(scope="module")
-def uploaded_html_url_for_pdf(
-    pdfrest_api_key: str,
-    pdfrest_live_base_url: str,
-) -> str:
-    resource = get_test_resource_path("sample.html")
-    with PdfRestClient(
-        api_key=pdfrest_api_key,
-        base_url=pdfrest_live_base_url,
-    ) as client:
-        uploaded = client.files.create_from_paths([resource])[0]
-        return str(uploaded.url)
-
-
 @pytest.mark.parametrize(
     ("output_name", "compression", "downsample"),
     [
@@ -42,7 +28,7 @@ def uploaded_html_url_for_pdf(
         pytest.param("live-docx", "lossless", 600, id="customized"),
     ],
 )
-def test_live_convert_to_pdf_success(
+def test_live_convert_office_to_pdf_success(
     pdfrest_api_key: str,
     pdfrest_live_base_url: str,
     uploaded_docx_for_pdf: PdfRestFile,
@@ -62,7 +48,7 @@ def test_live_convert_to_pdf_success(
         api_key=pdfrest_api_key,
         base_url=pdfrest_live_base_url,
     ) as client:
-        response = client.convert_to_pdf(uploaded_docx_for_pdf, **kwargs)
+        response = client.convert_office_to_pdf(uploaded_docx_for_pdf, **kwargs)
 
     assert response.output_files
     output_file = response.output_file
@@ -77,7 +63,7 @@ def test_live_convert_to_pdf_success(
 
 
 @pytest.mark.asyncio
-async def test_live_async_convert_to_pdf_success(
+async def test_live_async_convert_office_to_pdf_success(
     pdfrest_api_key: str,
     pdfrest_live_base_url: str,
     uploaded_docx_for_pdf: PdfRestFile,
@@ -86,7 +72,7 @@ async def test_live_async_convert_to_pdf_success(
         api_key=pdfrest_api_key,
         base_url=pdfrest_live_base_url,
     ) as client:
-        response = await client.convert_to_pdf(
+        response = await client.convert_office_to_pdf(
             uploaded_docx_for_pdf,
             output="async-docx",
             tagged_pdf=True,
@@ -101,34 +87,7 @@ async def test_live_async_convert_to_pdf_success(
     assert str(response.input_id) == str(uploaded_docx_for_pdf.id)
 
 
-def test_live_convert_urls_to_pdf_success(
-    pdfrest_api_key: str,
-    pdfrest_live_base_url: str,
-    uploaded_html_url_for_pdf: str,
-) -> None:
-    with PdfRestClient(
-        api_key=pdfrest_api_key,
-        base_url=pdfrest_live_base_url,
-    ) as client:
-        response = client.convert_urls_to_pdf(
-            [uploaded_html_url_for_pdf],
-            output="live-html",
-            page_size="letter",
-            page_margin="8mm",
-            page_orientation="portrait",
-            web_layout="desktop",
-        )
-
-    assert response.output_files
-    output_file = response.output_file
-    assert output_file.type == "application/pdf"
-    assert output_file.size > 0
-    assert response.warning is None
-    assert str(response.input_id)
-    assert output_file.name.startswith("live-html")
-
-
-def test_live_convert_to_pdf_invalid_downsample(
+def test_live_convert_office_to_pdf_invalid_downsample(
     pdfrest_api_key: str,
     pdfrest_live_base_url: str,
     uploaded_docx_for_pdf: PdfRestFile,
@@ -140,24 +99,7 @@ def test_live_convert_to_pdf_invalid_downsample(
         ) as client,
         pytest.raises(PdfRestApiError, match=r"(?i)downsample"),
     ):
-        client.convert_to_pdf(
+        client.convert_office_to_pdf(
             uploaded_docx_for_pdf,
             extra_body={"downsample": 0},
         )
-
-
-@pytest.mark.asyncio
-async def test_live_async_convert_urls_to_pdf_invalid_page_size(
-    pdfrest_api_key: str,
-    pdfrest_live_base_url: str,
-    uploaded_html_url_for_pdf: str,
-) -> None:
-    async with AsyncPdfRestClient(
-        api_key=pdfrest_api_key,
-        base_url=pdfrest_live_base_url,
-    ) as client:
-        with pytest.raises(PdfRestApiError, match=r"(?i)page_size|page size"):
-            await client.convert_urls_to_pdf(
-                [uploaded_html_url_for_pdf],
-                extra_body={"page_size": "poster"},
-            )
