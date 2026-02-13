@@ -3324,25 +3324,19 @@ class PdfRestClient(_SyncApiClient):
     ) -> PdfRestFileBasedResponse:
         """Convert a Microsoft Office file (Word, Excel, PowerPoint) to PDF."""
 
-        payload: dict[str, Any] = {"files": file}
-        if output is not None:
-            payload["output"] = output
-        if compression is not None:
-            payload["compression"] = compression
-        if downsample is not None:
-            payload["downsample"] = downsample
-        if tagged_pdf is not None:
-            payload["tagged_pdf"] = tagged_pdf
-        if locale is not None:
-            payload["locale"] = locale
-        if page_size is not None:
-            payload["page_size"] = page_size
-        if page_margin is not None:
-            payload["page_margin"] = page_margin
-        if page_orientation is not None:
-            payload["page_orientation"] = page_orientation
-        if web_layout is not None:
-            payload["web_layout"] = web_layout
+        payload: dict[str, Any] = {
+            "files": file,
+            "output": output,
+            "compression": compression,
+            "downsample": downsample,
+            "tagged_pdf": tagged_pdf,
+            "locale": locale,
+            "page_size": page_size,
+            "page_margin": page_margin,
+            "page_orientation": page_orientation,
+            "web_layout": web_layout,
+        }
+        payload = {key: value for key, value in payload.items() if value is not None}
 
         return self._post_file_operation(
             endpoint="/pdf",
@@ -3368,13 +3362,13 @@ class PdfRestClient(_SyncApiClient):
     ) -> PdfRestFileBasedResponse:
         """Convert a PostScript or EPS file to PDF."""
 
-        payload: dict[str, Any] = {"files": file}
-        if output is not None:
-            payload["output"] = output
-        if compression is not None:
-            payload["compression"] = compression
-        if downsample is not None:
-            payload["downsample"] = downsample
+        payload: dict[str, Any] = {
+            "files": file,
+            "output": output,
+            "compression": compression,
+            "downsample": downsample,
+        }
+        payload = {key: value for key, value in payload.items() if value is not None}
 
         return self._post_file_operation(
             endpoint="/pdf",
@@ -3398,9 +3392,11 @@ class PdfRestClient(_SyncApiClient):
     ) -> PdfRestFileBasedResponse:
         """Convert an RFC822 email file to PDF."""
 
-        payload: dict[str, Any] = {"files": file}
-        if output is not None:
-            payload["output"] = output
+        payload: dict[str, Any] = {
+            "files": file,
+            "output": output,
+        }
+        payload = {key: value for key, value in payload.items() if value is not None}
 
         return self._post_file_operation(
             endpoint="/pdf",
@@ -3424,9 +3420,11 @@ class PdfRestClient(_SyncApiClient):
     ) -> PdfRestFileBasedResponse:
         """Convert a supported image file to PDF."""
 
-        payload: dict[str, Any] = {"files": file}
-        if output is not None:
-            payload["output"] = output
+        payload: dict[str, Any] = {
+            "files": file,
+            "output": output,
+        }
+        payload = {key: value for key, value in payload.items() if value is not None}
 
         return self._post_file_operation(
             endpoint="/pdf",
@@ -3456,21 +3454,17 @@ class PdfRestClient(_SyncApiClient):
     ) -> PdfRestFileBasedResponse:
         """Convert an uploaded HTML file to PDF."""
 
-        payload: dict[str, Any] = {"files": file}
-        if output is not None:
-            payload["output"] = output
-        if compression is not None:
-            payload["compression"] = compression
-        if downsample is not None:
-            payload["downsample"] = downsample
-        if page_size is not None:
-            payload["page_size"] = page_size
-        if page_margin is not None:
-            payload["page_margin"] = page_margin
-        if page_orientation is not None:
-            payload["page_orientation"] = page_orientation
-        if web_layout is not None:
-            payload["web_layout"] = web_layout
+        payload: dict[str, Any] = {
+            "files": file,
+            "output": output,
+            "compression": compression,
+            "downsample": downsample,
+            "page_size": page_size,
+            "page_margin": page_margin,
+            "page_orientation": page_orientation,
+            "web_layout": web_layout,
+        }
+        payload = {key: value for key, value in payload.items() if value is not None}
 
         return self._post_file_operation(
             endpoint="/pdf",
@@ -3500,21 +3494,17 @@ class PdfRestClient(_SyncApiClient):
     ) -> PdfRestFileBasedResponse:
         """Convert HTML content from one or more URLs to PDF."""
 
-        payload: dict[str, Any] = {"url": urls}
-        if output is not None:
-            payload["output"] = output
-        if compression is not None:
-            payload["compression"] = compression
-        if downsample is not None:
-            payload["downsample"] = downsample
-        if page_size is not None:
-            payload["page_size"] = page_size
-        if page_margin is not None:
-            payload["page_margin"] = page_margin
-        if page_orientation is not None:
-            payload["page_orientation"] = page_orientation
-        if web_layout is not None:
-            payload["web_layout"] = web_layout
+        payload: dict[str, Any] = {
+            "url": urls,
+            "output": output,
+            "compression": compression,
+            "downsample": downsample,
+            "page_size": page_size,
+            "page_margin": page_margin,
+            "page_orientation": page_orientation,
+            "web_layout": web_layout,
+        }
+        payload = {key: value for key, value in payload.items() if value is not None}
 
         return self._post_file_operation(
             endpoint="/pdf",
@@ -5037,25 +5027,19 @@ class AsyncPdfRestClient(_AsyncApiClient):
     ) -> PdfRestFileBasedResponse:
         """Asynchronously convert a Microsoft Office file to PDF."""
 
-        payload: dict[str, Any] = {"files": file}
-        if output is not None:
-            payload["output"] = output
-        if compression is not None:
-            payload["compression"] = compression
-        if downsample is not None:
-            payload["downsample"] = downsample
-        if tagged_pdf is not None:
-            payload["tagged_pdf"] = tagged_pdf
-        if locale is not None:
-            payload["locale"] = locale
-        if page_size is not None:
-            payload["page_size"] = page_size
-        if page_margin is not None:
-            payload["page_margin"] = page_margin
-        if page_orientation is not None:
-            payload["page_orientation"] = page_orientation
-        if web_layout is not None:
-            payload["web_layout"] = web_layout
+        payload: dict[str, Any] = {
+            "files": file,
+            "output": output,
+            "compression": compression,
+            "downsample": downsample,
+            "tagged_pdf": tagged_pdf,
+            "locale": locale,
+            "page_size": page_size,
+            "page_margin": page_margin,
+            "page_orientation": page_orientation,
+            "web_layout": web_layout,
+        }
+        payload = {key: value for key, value in payload.items() if value is not None}
 
         return await self._post_file_operation(
             endpoint="/pdf",
@@ -5081,13 +5065,13 @@ class AsyncPdfRestClient(_AsyncApiClient):
     ) -> PdfRestFileBasedResponse:
         """Asynchronously convert a PostScript or EPS file to PDF."""
 
-        payload: dict[str, Any] = {"files": file}
-        if output is not None:
-            payload["output"] = output
-        if compression is not None:
-            payload["compression"] = compression
-        if downsample is not None:
-            payload["downsample"] = downsample
+        payload: dict[str, Any] = {
+            "files": file,
+            "output": output,
+            "compression": compression,
+            "downsample": downsample,
+        }
+        payload = {key: value for key, value in payload.items() if value is not None}
 
         return await self._post_file_operation(
             endpoint="/pdf",
@@ -5111,9 +5095,11 @@ class AsyncPdfRestClient(_AsyncApiClient):
     ) -> PdfRestFileBasedResponse:
         """Asynchronously convert an RFC822 email file to PDF."""
 
-        payload: dict[str, Any] = {"files": file}
-        if output is not None:
-            payload["output"] = output
+        payload: dict[str, Any] = {
+            "files": file,
+            "output": output,
+        }
+        payload = {key: value for key, value in payload.items() if value is not None}
 
         return await self._post_file_operation(
             endpoint="/pdf",
@@ -5137,9 +5123,11 @@ class AsyncPdfRestClient(_AsyncApiClient):
     ) -> PdfRestFileBasedResponse:
         """Asynchronously convert a supported image file to PDF."""
 
-        payload: dict[str, Any] = {"files": file}
-        if output is not None:
-            payload["output"] = output
+        payload: dict[str, Any] = {
+            "files": file,
+            "output": output,
+        }
+        payload = {key: value for key, value in payload.items() if value is not None}
 
         return await self._post_file_operation(
             endpoint="/pdf",
@@ -5169,21 +5157,17 @@ class AsyncPdfRestClient(_AsyncApiClient):
     ) -> PdfRestFileBasedResponse:
         """Asynchronously convert an uploaded HTML file to PDF."""
 
-        payload: dict[str, Any] = {"files": file}
-        if output is not None:
-            payload["output"] = output
-        if compression is not None:
-            payload["compression"] = compression
-        if downsample is not None:
-            payload["downsample"] = downsample
-        if page_size is not None:
-            payload["page_size"] = page_size
-        if page_margin is not None:
-            payload["page_margin"] = page_margin
-        if page_orientation is not None:
-            payload["page_orientation"] = page_orientation
-        if web_layout is not None:
-            payload["web_layout"] = web_layout
+        payload: dict[str, Any] = {
+            "files": file,
+            "output": output,
+            "compression": compression,
+            "downsample": downsample,
+            "page_size": page_size,
+            "page_margin": page_margin,
+            "page_orientation": page_orientation,
+            "web_layout": web_layout,
+        }
+        payload = {key: value for key, value in payload.items() if value is not None}
 
         return await self._post_file_operation(
             endpoint="/pdf",
@@ -5213,21 +5197,17 @@ class AsyncPdfRestClient(_AsyncApiClient):
     ) -> PdfRestFileBasedResponse:
         """Asynchronously convert HTML content from one or more URLs to PDF."""
 
-        payload: dict[str, Any] = {"url": urls}
-        if output is not None:
-            payload["output"] = output
-        if compression is not None:
-            payload["compression"] = compression
-        if downsample is not None:
-            payload["downsample"] = downsample
-        if page_size is not None:
-            payload["page_size"] = page_size
-        if page_margin is not None:
-            payload["page_margin"] = page_margin
-        if page_orientation is not None:
-            payload["page_orientation"] = page_orientation
-        if web_layout is not None:
-            payload["web_layout"] = web_layout
+        payload: dict[str, Any] = {
+            "url": urls,
+            "output": output,
+            "compression": compression,
+            "downsample": downsample,
+            "page_size": page_size,
+            "page_margin": page_margin,
+            "page_orientation": page_orientation,
+            "web_layout": web_layout,
+        }
+        payload = {key: value for key, value in payload.items() if value is not None}
 
         return await self._post_file_operation(
             endpoint="/pdf",
