@@ -200,7 +200,7 @@ def test_sign_pdf_requires_credential_pair(
 
     with (
         PdfRestClient(api_key=VALID_API_KEY, transport=transport) as client,
-        pytest.raises(ValidationError, match=r"pfx.*passphrase"),
+        pytest.raises(ValidationError, match=r"Both pfx and passphrase"),
     ):
         client.sign_pdf(
             input_file,
