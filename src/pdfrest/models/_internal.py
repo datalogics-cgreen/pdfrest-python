@@ -120,6 +120,10 @@ def _serialize_as_first_file_id(value: list[PdfRestFile]) -> str:
     return str(value[0].id)
 
 
+def _serialize_as_first_url(value: list[HttpUrl]) -> str:
+    return str(value[0])
+
+
 def _serialize_as_comma_separated_string(value: list[Any] | None) -> str | None:
     if value is None:
         return None
@@ -797,8 +801,10 @@ class ConvertUrlToPdfPayload(BaseModel):
     """Adapt caller options into a pdfRest-ready convert-to-pdf payload for one URL."""
 
     url: Annotated[
-        HttpUrl,
-        Field(serialization_alias="url"),
+        list[HttpUrl],
+        Field(serialization_alias="url", min_length=1, max_length=1),
+        BeforeValidator(_ensure_list),
+        PlainSerializer(_serialize_as_first_url),
     ]
     output: Annotated[
         str | None,
