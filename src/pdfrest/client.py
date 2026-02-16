@@ -28,6 +28,7 @@ from typing import (
     Any,
     Generic,
     Literal,
+    Protocol,
     TypeAlias,
     TypeVar,
     cast,
@@ -170,7 +171,12 @@ from .types import (
     WatermarkVerticalAlignment,
 )
 
-__all__ = ("AsyncPdfRestClient", "PdfRestClient")
+__all__ = (
+    "AsyncPdfRestClient",
+    "AsyncPdfRestFilesClient",
+    "PdfRestClient",
+    "PdfRestFilesClient",
+)
 FileResponseModel = TypeVar("FileResponseModel", bound=PdfRestFileBasedResponse)
 
 DEFAULT_BASE_URL = "https://api.pdfrest.com"
@@ -1494,6 +1500,210 @@ class AsyncPdfRestFileStream:
         await self.close()
 
 
+class PdfRestFilesClient(Protocol):
+    """Public interface for file operations returned by
+    [`PdfRestClient.files`][pdfrest.PdfRestClient.files].
+
+    Retrieve this helper from `client.files`; do not instantiate it directly.
+    """
+
+    def get(
+        self,
+        id: PdfRestFileID | str,
+        *,
+        extra_query: Query | None = None,
+        extra_headers: AnyMapping | None = None,
+        timeout: TimeoutTypes | None = None,
+    ) -> PdfRestFile: ...
+
+    def create(
+        self,
+        files: UploadFiles,
+        *,
+        extra_query: Query | None = None,
+        extra_headers: AnyMapping | None = None,
+        timeout: TimeoutTypes | None = None,
+    ) -> list[PdfRestFile]: ...
+
+    def create_from_paths(
+        self,
+        file_paths: FilePathInput,
+        *,
+        extra_query: Query | None = None,
+        extra_headers: AnyMapping | None = None,
+        timeout: TimeoutTypes | None = None,
+    ) -> list[PdfRestFile]: ...
+
+    def create_from_urls(
+        self,
+        urls: UrlInput,
+        *,
+        extra_query: Query | None = None,
+        extra_headers: AnyMapping | None = None,
+        extra_body: Body | None = None,
+        timeout: TimeoutTypes | None = None,
+    ) -> list[PdfRestFile]: ...
+
+    def delete(
+        self,
+        files: PdfRestFile | Sequence[PdfRestFile],
+        *,
+        extra_query: Query | None = None,
+        extra_headers: AnyMapping | None = None,
+        extra_body: Body | None = None,
+        timeout: TimeoutTypes | None = None,
+    ) -> None: ...
+
+    def read_bytes(
+        self,
+        file_ref: PdfRestFile | str,
+        *,
+        extra_query: Query | None = None,
+        extra_headers: AnyMapping | None = None,
+        timeout: TimeoutTypes | None = None,
+    ) -> bytes: ...
+
+    def read_text(
+        self,
+        file_ref: PdfRestFile | str,
+        *,
+        encoding: str = "utf-8",
+        extra_query: Query | None = None,
+        extra_headers: AnyMapping | None = None,
+        timeout: TimeoutTypes | None = None,
+    ) -> str: ...
+
+    def read_json(
+        self,
+        file_ref: PdfRestFile | str,
+        *,
+        extra_query: Query | None = None,
+        extra_headers: AnyMapping | None = None,
+        timeout: TimeoutTypes | None = None,
+    ) -> Any: ...
+
+    def write_bytes(
+        self,
+        file_ref: PdfRestFile | str,
+        destination: DestinationPath,
+        *,
+        extra_query: Query | None = None,
+        extra_headers: AnyMapping | None = None,
+        timeout: TimeoutTypes | None = None,
+    ) -> Path: ...
+
+    def stream(
+        self,
+        file_ref: PdfRestFile | str,
+        *,
+        extra_query: Query | None = None,
+        extra_headers: AnyMapping | None = None,
+        timeout: TimeoutTypes | None = None,
+    ) -> PdfRestFileStream: ...
+
+
+class AsyncPdfRestFilesClient(Protocol):
+    """Public interface for file operations returned by
+    [`AsyncPdfRestClient.files`][pdfrest.AsyncPdfRestClient.files].
+
+    Retrieve this helper from `client.files`; do not instantiate it directly.
+    """
+
+    async def get(
+        self,
+        id: PdfRestFileID | str,
+        *,
+        extra_query: Query | None = None,
+        extra_headers: AnyMapping | None = None,
+        timeout: TimeoutTypes | None = None,
+    ) -> PdfRestFile: ...
+
+    async def create(
+        self,
+        files: UploadFiles,
+        *,
+        extra_query: Query | None = None,
+        extra_headers: AnyMapping | None = None,
+        timeout: TimeoutTypes | None = None,
+    ) -> list[PdfRestFile]: ...
+
+    async def create_from_paths(
+        self,
+        file_paths: FilePathInput,
+        *,
+        extra_query: Query | None = None,
+        extra_headers: AnyMapping | None = None,
+        timeout: TimeoutTypes | None = None,
+    ) -> list[PdfRestFile]: ...
+
+    async def create_from_urls(
+        self,
+        urls: UrlInput,
+        *,
+        extra_query: Query | None = None,
+        extra_headers: AnyMapping | None = None,
+        extra_body: Body | None = None,
+        timeout: TimeoutTypes | None = None,
+    ) -> list[PdfRestFile]: ...
+
+    async def delete(
+        self,
+        files: PdfRestFile | Sequence[PdfRestFile],
+        *,
+        extra_query: Query | None = None,
+        extra_headers: AnyMapping | None = None,
+        extra_body: Body | None = None,
+        timeout: TimeoutTypes | None = None,
+    ) -> None: ...
+
+    async def read_bytes(
+        self,
+        file_ref: PdfRestFile | str,
+        *,
+        extra_query: Query | None = None,
+        extra_headers: AnyMapping | None = None,
+        timeout: TimeoutTypes | None = None,
+    ) -> bytes: ...
+
+    async def read_text(
+        self,
+        file_ref: PdfRestFile | str,
+        *,
+        encoding: str = "utf-8",
+        extra_query: Query | None = None,
+        extra_headers: AnyMapping | None = None,
+        timeout: TimeoutTypes | None = None,
+    ) -> str: ...
+
+    async def read_json(
+        self,
+        file_ref: PdfRestFile | str,
+        *,
+        extra_query: Query | None = None,
+        extra_headers: AnyMapping | None = None,
+        timeout: TimeoutTypes | None = None,
+    ) -> Any: ...
+
+    async def write_bytes(
+        self,
+        file_ref: PdfRestFile | str,
+        destination: DestinationPath,
+        *,
+        extra_query: Query | None = None,
+        extra_headers: AnyMapping | None = None,
+        timeout: TimeoutTypes | None = None,
+    ) -> Path: ...
+
+    async def stream(
+        self,
+        file_ref: PdfRestFile | str,
+        *,
+        extra_query: Query | None = None,
+        extra_headers: AnyMapping | None = None,
+        timeout: TimeoutTypes | None = None,
+    ) -> AsyncPdfRestFileStream: ...
+
+
 class _FilesClient:
     """Expose file-related operations for the synchronous client."""
 
@@ -2099,7 +2309,8 @@ class PdfRestClient(_SyncApiClient):
             transport=transport,
             max_retries=max_retries,
         )
-        self._files_client = _FilesClient(self)
+        files_client: PdfRestFilesClient = _FilesClient(self)
+        self._files_client = files_client
 
     @override
     def __enter__(self) -> PdfRestClient:
@@ -2111,7 +2322,13 @@ class PdfRestClient(_SyncApiClient):
         super().__exit__(exc_type, exc, traceback)
 
     @property
-    def files(self) -> _FilesClient:
+    def files(self) -> PdfRestFilesClient:
+        """File-management helper implementing
+        [`PdfRestFilesClient`][pdfrest.PdfRestFilesClient].
+
+        Retrieve this helper from `client.files`; do not instantiate it directly.
+        """
+
         return self._files_client
 
     def up(
@@ -4032,7 +4249,8 @@ class AsyncPdfRestClient(_AsyncApiClient):
             concurrency_limit=concurrency_limit,
             max_retries=max_retries,
         )
-        self._files_client = _AsyncFilesClient(self)
+        files_client: AsyncPdfRestFilesClient = _AsyncFilesClient(self)
+        self._files_client = files_client
 
     @override
     async def __aenter__(self) -> AsyncPdfRestClient:
@@ -4044,7 +4262,13 @@ class AsyncPdfRestClient(_AsyncApiClient):
         await super().__aexit__(exc_type, exc, traceback)
 
     @property
-    def files(self) -> _AsyncFilesClient:
+    def files(self) -> AsyncPdfRestFilesClient:
+        """Async file-management helper implementing
+        [`AsyncPdfRestFilesClient`][pdfrest.AsyncPdfRestFilesClient].
+
+        Retrieve this helper from `client.files`; do not instantiate it directly.
+        """
+
         return self._files_client
 
     async def query_pdf_info(
