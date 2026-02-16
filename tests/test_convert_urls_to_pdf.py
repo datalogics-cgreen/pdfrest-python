@@ -8,18 +8,18 @@ from pydantic import ValidationError
 
 from pdfrest import AsyncPdfRestClient, PdfRestClient
 from pdfrest.models import PdfRestFileBasedResponse, PdfRestFileID
-from pdfrest.models._internal import ConvertUrlsToPdfPayload
+from pdfrest.models._internal import ConvertUrlToPdfPayload
 
 from .graphics_test_helpers import ASYNC_API_KEY, VALID_API_KEY, build_file_info_payload
 
 
 def test_convert_urls_to_pdf_success(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.delenv("PDFREST_API_KEY", raising=False)
-    urls = ["https://example.com/page"]
+    url = "https://example.com/page"
     output_id = str(PdfRestFileID.generate())
-    payload_dump = ConvertUrlsToPdfPayload.model_validate(
+    payload_dump = ConvertUrlToPdfPayload.model_validate(
         {
-            "url": urls,
+            "url": url,
             "output": "url-out",
             "page_size": "letter",
             "page_margin": "2.5in",
@@ -52,8 +52,8 @@ def test_convert_urls_to_pdf_success(monkeypatch: pytest.MonkeyPatch) -> None:
 
     transport = httpx.MockTransport(handler)
     with PdfRestClient(api_key=VALID_API_KEY, transport=transport) as client:
-        response = client.convert_urls_to_pdf(
-            urls,
+        response = client.convert_url_to_pdf(
+            url,
             output="url-out",
             page_size="letter",
             page_margin="2.5in",
@@ -68,11 +68,11 @@ def test_convert_urls_to_pdf_success(monkeypatch: pytest.MonkeyPatch) -> None:
 
 def test_convert_urls_to_pdf_validation_errors() -> None:
     with pytest.raises(ValidationError, match="Input should be a valid URL"):
-        ConvertUrlsToPdfPayload.model_validate({"url": "not-a-url"})
+        ConvertUrlToPdfPayload.model_validate({"url": "not-a-url"})
 
     with pytest.raises(ValidationError, match="page_margin must be a number"):
-        ConvertUrlsToPdfPayload.model_validate(
-            {"url": ["https://example.com"], "page_margin": "mm"}
+        ConvertUrlToPdfPayload.model_validate(
+            {"url": "https://example.com", "page_margin": "mm"}
         )
 
 
@@ -81,7 +81,7 @@ async def test_async_convert_urls_to_pdf_request_customization(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.delenv("PDFREST_API_KEY", raising=False)
-    urls = ["https://example.com/page", "https://example.com/other"]
+    url = "https://example.com/page"
     output_id = str(PdfRestFileID.generate())
     captured_timeout: dict[str, float | dict[str, float] | None] = {}
 
@@ -91,7 +91,7 @@ async def test_async_convert_urls_to_pdf_request_customization(
             assert request.headers["X-Debug"] == "async"
             captured_timeout["value"] = request.extensions.get("timeout")
             payload = json.loads(request.content.decode("utf-8"))
-            assert payload["url"] == urls
+            assert payload["url"] == url
             assert payload["output"] == "async-url"
             assert payload["page_orientation"] == "portrait"
             assert payload["debug"] == "yes"
@@ -116,8 +116,8 @@ async def test_async_convert_urls_to_pdf_request_customization(
 
     transport = httpx.MockTransport(handler)
     async with AsyncPdfRestClient(api_key=ASYNC_API_KEY, transport=transport) as client:
-        response = await client.convert_urls_to_pdf(
-            urls,
+        response = await client.convert_url_to_pdf(
+            url,
             output="async-url",
             page_orientation="portrait",
             extra_query={"trace": "async"},

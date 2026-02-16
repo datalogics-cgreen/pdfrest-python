@@ -81,7 +81,7 @@ from .models._internal import (
     ConvertOfficeToPdfPayload,
     ConvertPostscriptToPdfPayload,
     ConvertToMarkdownPayload,
-    ConvertUrlsToPdfPayload,
+    ConvertUrlToPdfPayload,
     DeletePayload,
     ExtractImagesPayload,
     ExtractTextPayload,
@@ -3476,9 +3476,9 @@ class PdfRestClient(_SyncApiClient):
             timeout=timeout,
         )
 
-    def convert_urls_to_pdf(
+    def convert_url_to_pdf(
         self,
-        urls: UrlInput,
+        url: UrlValue,
         *,
         output: str | None = None,
         compression: PdfConversionCompression | None = None,
@@ -3492,10 +3492,10 @@ class PdfRestClient(_SyncApiClient):
         extra_body: Body | None = None,
         timeout: TimeoutTypes | None = None,
     ) -> PdfRestFileBasedResponse:
-        """Convert HTML content from one or more URLs to PDF."""
+        """Convert HTML content from one URL to PDF."""
 
         payload: dict[str, Any] = {
-            "url": urls,
+            "url": url,
             "output": output,
             "compression": compression,
             "downsample": downsample,
@@ -3509,7 +3509,7 @@ class PdfRestClient(_SyncApiClient):
         return self._post_file_operation(
             endpoint="/pdf",
             payload=payload,
-            payload_model=ConvertUrlsToPdfPayload,
+            payload_model=ConvertUrlToPdfPayload,
             extra_query=extra_query,
             extra_headers=extra_headers,
             extra_body=extra_body,
@@ -5179,9 +5179,9 @@ class AsyncPdfRestClient(_AsyncApiClient):
             timeout=timeout,
         )
 
-    async def convert_urls_to_pdf(
+    async def convert_url_to_pdf(
         self,
-        urls: UrlInput,
+        url: UrlValue,
         *,
         output: str | None = None,
         compression: PdfConversionCompression | None = None,
@@ -5195,10 +5195,10 @@ class AsyncPdfRestClient(_AsyncApiClient):
         extra_body: Body | None = None,
         timeout: TimeoutTypes | None = None,
     ) -> PdfRestFileBasedResponse:
-        """Asynchronously convert HTML content from one or more URLs to PDF."""
+        """Asynchronously convert HTML content from one URL to PDF."""
 
         payload: dict[str, Any] = {
-            "url": urls,
+            "url": url,
             "output": output,
             "compression": compression,
             "downsample": downsample,
@@ -5212,7 +5212,7 @@ class AsyncPdfRestClient(_AsyncApiClient):
         return await self._post_file_operation(
             endpoint="/pdf",
             payload=payload,
-            payload_model=ConvertUrlsToPdfPayload,
+            payload_model=ConvertUrlToPdfPayload,
             extra_query=extra_query,
             extra_headers=extra_headers,
             extra_body=extra_body,

@@ -793,14 +793,12 @@ class ConvertHtmlToPdfPayload(BaseModel):
     ] = None
 
 
-class ConvertUrlsToPdfPayload(BaseModel):
-    """Adapt caller options into a pdfRest-ready convert-to-pdf payload for URLs."""
+class ConvertUrlToPdfPayload(BaseModel):
+    """Adapt caller options into a pdfRest-ready convert-to-pdf payload for one URL."""
 
     url: Annotated[
-        list[HttpUrl],
-        Field(serialization_alias="url", min_length=1),
-        BeforeValidator(_list_of_strings),
-        BeforeValidator(_ensure_list),
+        HttpUrl,
+        Field(serialization_alias="url"),
     ]
     output: Annotated[
         str | None,
