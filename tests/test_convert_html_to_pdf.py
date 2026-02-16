@@ -154,7 +154,7 @@ def test_convert_html_to_pdf_validation_errors() -> None:
             }
         )
 
-    with pytest.raises(ValidationError, match="page_margin must be a number"):
+    with pytest.raises(ValidationError, match="String should match pattern"):
         ConvertHtmlToPdfPayload.model_validate(
             {
                 "files": [
@@ -165,6 +165,63 @@ def test_convert_html_to_pdf_validation_errors() -> None:
                     )
                 ],
                 "page_margin": "bad-margin",
+            }
+        )
+
+
+@pytest.mark.parametrize(
+    "page_margin",
+    [
+        pytest.param("8mm", id="whole-millimeters"),
+        pytest.param("2.5in", id="decimal-inches"),
+        pytest.param("10.25mm", id="long-decimal-millimeters"),
+        pytest.param("0in", id="zero-inches"),
+    ],
+)
+def test_convert_html_to_pdf_page_margin_accepts_documented_values(
+    page_margin: str,
+) -> None:
+    payload = ConvertHtmlToPdfPayload.model_validate(
+        {
+            "files": [
+                make_source_file(
+                    str(PdfRestFileID.generate()),
+                    "text/html",
+                    "example.html",
+                )
+            ],
+            "page_margin": page_margin,
+        }
+    )
+
+    assert payload.page_margin == page_margin
+
+
+@pytest.mark.parametrize(
+    "page_margin",
+    [
+        pytest.param("8", id="missing-unit"),
+        pytest.param("mm", id="missing-number"),
+        pytest.param("2.5 in", id="embedded-space"),
+        pytest.param("8MM", id="uppercase-unit"),
+        pytest.param(" 8mm", id="leading-space"),
+        pytest.param("8mm ", id="trailing-space"),
+    ],
+)
+def test_convert_html_to_pdf_page_margin_rejects_invalid_values(
+    page_margin: str,
+) -> None:
+    with pytest.raises(ValidationError, match="String should match pattern"):
+        ConvertHtmlToPdfPayload.model_validate(
+            {
+                "files": [
+                    make_source_file(
+                        str(PdfRestFileID.generate()),
+                        "text/html",
+                        "example.html",
+                    )
+                ],
+                "page_margin": page_margin,
             }
         )
 

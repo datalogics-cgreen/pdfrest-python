@@ -253,17 +253,7 @@ def _validate_output_language(value: str) -> str:
     return trimmed
 
 
-_PAGE_MARGIN_PATTERN = re.compile(r"^(?:\d+(?:\.\d+)?)(?:mm|in)$")
-
-
-def _validate_page_margin(value: str | None) -> str | None:
-    if value is None:
-        return None
-    trimmed = value.strip()
-    if not trimmed or not _PAGE_MARGIN_PATTERN.fullmatch(trimmed):
-        msg = "page_margin must be a number followed by 'in' or 'mm'."
-        raise ValueError(msg)
-    return trimmed
+_PAGE_MARGIN_REGEX = r"^(?:\d+(?:\.\d+)?)(?:mm|in)$"
 
 
 class UploadURLs(BaseModel):
@@ -784,8 +774,11 @@ class ConvertHtmlToPdfPayload(BaseModel):
     ] = None
     page_margin: Annotated[
         str | None,
-        Field(serialization_alias="page_margin", default=None),
-        AfterValidator(_validate_page_margin),
+        Field(
+            serialization_alias="page_margin",
+            pattern=_PAGE_MARGIN_REGEX,
+            default=None,
+        ),
     ] = None
     page_orientation: Annotated[
         HtmlPageOrientation | None,
@@ -825,8 +818,11 @@ class ConvertUrlToPdfPayload(BaseModel):
     ] = None
     page_margin: Annotated[
         str | None,
-        Field(serialization_alias="page_margin", default=None),
-        AfterValidator(_validate_page_margin),
+        Field(
+            serialization_alias="page_margin",
+            pattern=_PAGE_MARGIN_REGEX,
+            default=None,
+        ),
     ] = None
     page_orientation: Annotated[
         HtmlPageOrientation | None,
