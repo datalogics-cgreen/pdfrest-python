@@ -213,3 +213,71 @@ async def test_async_convert_postscript_to_pdf_success(
     assert response.output_file.name == "async-converted.pdf"
     assert response.output_file.type == "application/pdf"
     assert str(response.input_id) == str(input_file.id)
+
+
+@pytest.mark.asyncio
+async def test_async_convert_postscript_to_pdf_request_customization(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.delenv("PDFREST_API_KEY", raising=False)
+    input_file = make_source_file(
+        str(PdfRestFileID.generate(2)),
+        "application/postscript",
+        "graphic.ps",
+    )
+    output_id = str(PdfRestFileID.generate())
+    captured_timeout: dict[str, float | dict[str, float] | None] = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.method == "POST" and request.url.path == "/pdf":
+            assert request.url.params["trace"] == "async"
+            assert request.headers["X-Debug"] == "async"
+            captured_timeout["value"] = request.extensions.get("timeout")
+            payload = json.loads(request.content.decode("utf-8"))
+            assert payload["debug"] is True
+            assert payload["compression"] == "lossy"
+            assert payload["downsample"] == 600
+            assert payload["id"] == str(input_file.id)
+            assert payload["output"] == "async-custom"
+            return httpx.Response(
+                200,
+                json={
+                    "inputId": [input_file.id],
+                    "outputId": [output_id],
+                },
+            )
+        if request.method == "GET" and request.url.path == f"/resource/{output_id}":
+            assert request.url.params["trace"] == "async"
+            assert request.headers["X-Debug"] == "async"
+            return httpx.Response(
+                200,
+                json=build_file_info_payload(
+                    output_id, "async-custom.pdf", "application/pdf"
+                ),
+            )
+        msg = f"Unexpected request {request.method} {request.url}"
+        raise AssertionError(msg)
+
+    transport = httpx.MockTransport(handler)
+    async with AsyncPdfRestClient(api_key=ASYNC_API_KEY, transport=transport) as client:
+        response = await client.convert_postscript_to_pdf(
+            input_file,
+            output="async-custom",
+            compression="lossy",
+            downsample=600,
+            extra_query={"trace": "async"},
+            extra_headers={"X-Debug": "async"},
+            extra_body={"debug": True},
+            timeout=0.6,
+        )
+
+    assert isinstance(response, PdfRestFileBasedResponse)
+    assert response.output_file.name == "async-custom.pdf"
+    timeout_value = captured_timeout["value"]
+    assert timeout_value is not None
+    if isinstance(timeout_value, dict):
+        assert all(
+            component == pytest.approx(0.6) for component in timeout_value.values()
+        )
+    else:
+        assert timeout_value == pytest.approx(0.6)

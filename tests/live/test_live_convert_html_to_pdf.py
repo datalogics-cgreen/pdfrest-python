@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import pytest
 
-from pdfrest import AsyncPdfRestClient, PdfRestClient
+from pdfrest import AsyncPdfRestClient, PdfRestApiError, PdfRestClient
 from pdfrest.models import PdfRestFile
 
 from ..resources import get_test_resource_path
@@ -71,3 +71,38 @@ async def test_live_async_convert_html_to_pdf_success(
     assert response.warning is None
     assert str(response.input_id) == str(uploaded_html_for_pdf.id)
     assert output_file.name.startswith("live-html-file-async")
+
+
+def test_live_convert_html_to_pdf_invalid_page_size(
+    pdfrest_api_key: str,
+    pdfrest_live_base_url: str,
+    uploaded_html_for_pdf: PdfRestFile,
+) -> None:
+    with (
+        PdfRestClient(
+            api_key=pdfrest_api_key,
+            base_url=pdfrest_live_base_url,
+        ) as client,
+        pytest.raises(PdfRestApiError, match=r"(?i)page_size|page size"),
+    ):
+        client.convert_html_to_pdf(
+            uploaded_html_for_pdf,
+            extra_body={"page_size": "poster"},
+        )
+
+
+@pytest.mark.asyncio
+async def test_live_async_convert_html_to_pdf_invalid_page_size(
+    pdfrest_api_key: str,
+    pdfrest_live_base_url: str,
+    uploaded_html_for_pdf: PdfRestFile,
+) -> None:
+    async with AsyncPdfRestClient(
+        api_key=pdfrest_api_key,
+        base_url=pdfrest_live_base_url,
+    ) as client:
+        with pytest.raises(PdfRestApiError, match=r"(?i)page_size|page size"):
+            await client.convert_html_to_pdf(
+                uploaded_html_for_pdf,
+                extra_body={"page_size": "poster"},
+            )

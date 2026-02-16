@@ -71,10 +71,79 @@ def test_convert_url_to_pdf_validation_errors() -> None:
     with pytest.raises(ValidationError, match="Input should be a valid URL"):
         ConvertUrlToPdfPayload.model_validate({"url": "not-a-url"})
 
+    with pytest.raises(ValidationError, match="at least 1 item"):
+        ConvertUrlToPdfPayload.model_validate({"url": []})
+
+    with pytest.raises(ValidationError, match="at most 1 item"):
+        ConvertUrlToPdfPayload.model_validate(
+            {"url": ["https://example.com/one", "https://example.com/two"]}
+        )
+
     with pytest.raises(ValidationError, match="page_margin must be a number"):
         ConvertUrlToPdfPayload.model_validate(
             {"url": "https://example.com", "page_margin": "mm"}
         )
+
+
+def test_convert_url_to_pdf_request_customization(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.delenv("PDFREST_API_KEY", raising=False)
+    url = "https://example.com/page"
+    output_id = str(PdfRestFileID.generate())
+    captured_timeout: dict[str, float | dict[str, float] | None] = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.method == "POST" and request.url.path == "/pdf":
+            assert request.url.params["trace"] == "sync"
+            assert request.headers["X-Debug"] == "sync"
+            captured_timeout["value"] = request.extensions.get("timeout")
+            payload = json.loads(request.content.decode("utf-8"))
+            assert payload["url"] == url
+            assert payload["output"] == "sync-url"
+            assert payload["page_orientation"] == "portrait"
+            assert payload["debug"] == "yes"
+            return httpx.Response(
+                200,
+                json={
+                    "inputId": [PdfRestFileID.generate()],
+                    "outputId": [output_id],
+                },
+            )
+        if request.method == "GET" and request.url.path == f"/resource/{output_id}":
+            assert request.url.params["trace"] == "sync"
+            assert request.headers["X-Debug"] == "sync"
+            return httpx.Response(
+                200,
+                json=build_file_info_payload(
+                    output_id, "sync-url.pdf", "application/pdf"
+                ),
+            )
+        msg = f"Unexpected request {request.method} {request.url}"
+        raise AssertionError(msg)
+
+    transport = httpx.MockTransport(handler)
+    with PdfRestClient(api_key=VALID_API_KEY, transport=transport) as client:
+        response = client.convert_url_to_pdf(
+            url,
+            output="sync-url",
+            page_orientation="portrait",
+            extra_query={"trace": "sync"},
+            extra_headers={"X-Debug": "sync"},
+            extra_body={"debug": "yes"},
+            timeout=0.5,
+        )
+
+    assert isinstance(response, PdfRestFileBasedResponse)
+    assert response.output_file.name == "sync-url.pdf"
+    timeout_value = captured_timeout["value"]
+    assert timeout_value is not None
+    if isinstance(timeout_value, dict):
+        assert all(
+            component == pytest.approx(0.5) for component in timeout_value.values()
+        )
+    else:
+        assert timeout_value == pytest.approx(0.5)
 
 
 @pytest.mark.asyncio
