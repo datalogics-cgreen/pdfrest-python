@@ -48,11 +48,14 @@ def uploaded_passphrase(
     pdfrest_live_base_url: str,
 ) -> PdfRestFile:
     resource = get_test_resource_path("signing_passphrase.txt")
+    sanitized_passphrase = resource.read_text(encoding="utf-8").strip()
     with PdfRestClient(
         api_key=pdfrest_api_key,
         base_url=pdfrest_live_base_url,
     ) as client:
-        return client.files.create_from_paths([resource])[0]
+        return client.files.create(
+            [(resource.name, sanitized_passphrase.encode("utf-8"), "text/plain")]
+        )[0]
 
 
 @pytest.fixture(scope="module")
