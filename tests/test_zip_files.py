@@ -192,3 +192,87 @@ async def test_async_zip_files(monkeypatch: pytest.MonkeyPatch) -> None:
     assert isinstance(response, PdfRestFileBasedResponse)
     assert response.output_file.name == "async.zip"
     assert str(response.input_id) == str(source.id)
+
+
+@pytest.mark.asyncio
+async def test_async_zip_files_request_customization(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.delenv("PDFREST_API_KEY", raising=False)
+    source = make_pdf_file(PdfRestFileID.generate(1))
+    output_id = str(PdfRestFileID.generate())
+    captured_timeout: dict[str, float | dict[str, float] | None] = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.method == "POST" and request.url.path == "/zip":
+            assert request.url.params["trace"] == "async"
+            assert request.headers["X-Debug"] == "async"
+            captured_timeout["value"] = request.extensions.get("timeout")
+            payload = json.loads(request.content.decode("utf-8"))
+            assert payload["id"] == [str(source.id)]
+            assert payload["output"] == "async-custom-zip"
+            assert payload["diagnostics"] == "on"
+            return httpx.Response(
+                200,
+                json={
+                    "inputId": [source.id],
+                    "outputId": [output_id],
+                },
+            )
+        if request.method == "GET" and request.url.path == f"/resource/{output_id}":
+            assert request.url.params["format"] == "info"
+            assert request.url.params["trace"] == "async"
+            assert request.headers["X-Debug"] == "async"
+            return httpx.Response(
+                200,
+                json=build_file_info_payload(
+                    output_id,
+                    "async-custom-zip.zip",
+                    "application/zip",
+                ),
+            )
+        msg = f"Unexpected request {request.method} {request.url}"
+        raise AssertionError(msg)
+
+    transport = httpx.MockTransport(handler)
+    async with AsyncPdfRestClient(api_key=ASYNC_API_KEY, transport=transport) as client:
+        response = await client.zip_files(
+            source,
+            output="async-custom-zip",
+            extra_query={"trace": "async"},
+            extra_headers={"X-Debug": "async"},
+            extra_body={"diagnostics": "on"},
+            timeout=0.5,
+        )
+
+    assert isinstance(response, PdfRestFileBasedResponse)
+    assert response.output_file.name == "async-custom-zip.zip"
+    timeout_value = captured_timeout["value"]
+    assert timeout_value is not None
+    if isinstance(timeout_value, dict):
+        assert all(pytest.approx(0.5) == value for value in timeout_value.values())
+    else:
+        assert timeout_value == pytest.approx(0.5)
+
+
+@pytest.mark.asyncio
+async def test_async_zip_files_requires_input(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("PDFREST_API_KEY", raising=False)
+    transport = httpx.MockTransport(lambda request: (_ for _ in ()).throw(RuntimeError))
+
+    async with AsyncPdfRestClient(api_key=ASYNC_API_KEY, transport=transport) as client:
+        with pytest.raises(ValidationError, match="at least 1 item"):
+            await client.zip_files([])
+
+
+@pytest.mark.asyncio
+async def test_async_zip_files_rejects_invalid_output(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.delenv("PDFREST_API_KEY", raising=False)
+    source = make_pdf_file(PdfRestFileID.generate(1))
+    transport = httpx.MockTransport(lambda request: (_ for _ in ()).throw(RuntimeError))
+
+    async with AsyncPdfRestClient(api_key=ASYNC_API_KEY, transport=transport) as client:
+        with pytest.raises(ValidationError, match="must not start with a `\\.`"):
+            await client.zip_files(source, output=".hidden")

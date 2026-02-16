@@ -275,3 +275,30 @@ async def test_async_unzip_file_with_password_and_customization(
         assert all(pytest.approx(0.25) == value for value in timeout_value.values())
     else:
         assert timeout_value == pytest.approx(0.25)
+
+
+@pytest.mark.asyncio
+async def test_async_unzip_file_requires_zip(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("PDFREST_API_KEY", raising=False)
+    non_zip = PdfRestFile.model_validate(
+        build_file_info_payload(
+            str(PdfRestFileID.generate()), "document.pdf", "application/pdf"
+        )
+    )
+    transport = httpx.MockTransport(lambda request: (_ for _ in ()).throw(RuntimeError))
+
+    async with AsyncPdfRestClient(api_key=ASYNC_API_KEY, transport=transport) as client:
+        with pytest.raises(ValidationError, match="Must be a ZIP file"):
+            await client.unzip_file(non_zip)
+
+
+@pytest.mark.asyncio
+async def test_async_unzip_file_single_input(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("PDFREST_API_KEY", raising=False)
+    first = make_zip_file(str(PdfRestFileID.generate()))
+    second = make_zip_file(str(PdfRestFileID.generate()))
+    transport = httpx.MockTransport(lambda request: (_ for _ in ()).throw(RuntimeError))
+
+    async with AsyncPdfRestClient(api_key=ASYNC_API_KEY, transport=transport) as client:
+        with pytest.raises(ValidationError, match="at most 1 item"):
+            await client.unzip_file([first, second])
