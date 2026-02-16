@@ -7,7 +7,7 @@ from pdfrest import AsyncPdfRestClient, PdfRestApiError, PdfRestClient
 LIVE_HTML_URL = "https://example.com"
 
 
-def test_live_convert_urls_to_pdf_success(
+def test_live_convert_url_to_pdf_success(
     pdfrest_api_key: str,
     pdfrest_live_base_url: str,
 ) -> None:
@@ -34,7 +34,7 @@ def test_live_convert_urls_to_pdf_success(
 
 
 @pytest.mark.asyncio
-async def test_live_async_convert_urls_to_pdf_invalid_page_size(
+async def test_live_async_convert_url_to_pdf_invalid_page_size(
     pdfrest_api_key: str,
     pdfrest_live_base_url: str,
 ) -> None:

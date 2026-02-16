@@ -13,7 +13,7 @@ from pdfrest.models._internal import ConvertUrlToPdfPayload
 from .graphics_test_helpers import ASYNC_API_KEY, VALID_API_KEY, build_file_info_payload
 
 
-def test_convert_urls_to_pdf_success(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_convert_url_to_pdf_success(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.delenv("PDFREST_API_KEY", raising=False)
     url = "https://example.com/page"
     output_id = str(PdfRestFileID.generate())
@@ -67,7 +67,7 @@ def test_convert_urls_to_pdf_success(monkeypatch: pytest.MonkeyPatch) -> None:
     assert response.output_file.type == "application/pdf"
 
 
-def test_convert_urls_to_pdf_validation_errors() -> None:
+def test_convert_url_to_pdf_validation_errors() -> None:
     with pytest.raises(ValidationError, match="Input should be a valid URL"):
         ConvertUrlToPdfPayload.model_validate({"url": "not-a-url"})
 
@@ -78,7 +78,7 @@ def test_convert_urls_to_pdf_validation_errors() -> None:
 
 
 @pytest.mark.asyncio
-async def test_async_convert_urls_to_pdf_request_customization(
+async def test_async_convert_url_to_pdf_request_customization(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.delenv("PDFREST_API_KEY", raising=False)
