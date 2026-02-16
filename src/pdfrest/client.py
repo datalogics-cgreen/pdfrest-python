@@ -1514,7 +1514,19 @@ class PdfRestFilesClient(Protocol):
         extra_query: Query | None = None,
         extra_headers: AnyMapping | None = None,
         timeout: TimeoutTypes | None = None,
-    ) -> PdfRestFile: ...
+    ) -> PdfRestFile:
+        """Retrieve metadata for an uploaded file.
+
+        Args:
+            id: Uploaded file identifier.
+            extra_query: Additional query parameters appended to the request.
+            extra_headers: Additional headers merged into the request.
+            timeout: Optional request timeout override.
+
+        Returns:
+            The resolved file metadata.
+        """
+        ...
 
     def create(
         self,
@@ -1523,7 +1535,19 @@ class PdfRestFilesClient(Protocol):
         extra_query: Query | None = None,
         extra_headers: AnyMapping | None = None,
         timeout: TimeoutTypes | None = None,
-    ) -> list[PdfRestFile]: ...
+    ) -> list[PdfRestFile]:
+        """Upload one or more local file objects.
+
+        Args:
+            files: Multipart file payload(s) accepted by httpx upload APIs.
+            extra_query: Additional query parameters appended to the request.
+            extra_headers: Additional headers merged into the request.
+            timeout: Optional request timeout override.
+
+        Returns:
+            Metadata for uploaded files.
+        """
+        ...
 
     def create_from_paths(
         self,
@@ -1532,7 +1556,19 @@ class PdfRestFilesClient(Protocol):
         extra_query: Query | None = None,
         extra_headers: AnyMapping | None = None,
         timeout: TimeoutTypes | None = None,
-    ) -> list[PdfRestFile]: ...
+    ) -> list[PdfRestFile]:
+        """Upload one or more files by filesystem path.
+
+        Args:
+            file_paths: Path input(s), optionally with content type and headers.
+            extra_query: Additional query parameters appended to the request.
+            extra_headers: Additional headers merged into the request.
+            timeout: Optional request timeout override.
+
+        Returns:
+            Metadata for uploaded files.
+        """
+        ...
 
     def create_from_urls(
         self,
@@ -1542,7 +1578,20 @@ class PdfRestFilesClient(Protocol):
         extra_headers: AnyMapping | None = None,
         extra_body: Body | None = None,
         timeout: TimeoutTypes | None = None,
-    ) -> list[PdfRestFile]: ...
+    ) -> list[PdfRestFile]:
+        """Upload one or more files by remote URL.
+
+        Args:
+            urls: One URL or a sequence of URLs to upload.
+            extra_query: Additional query parameters appended to the request.
+            extra_headers: Additional headers merged into the request.
+            extra_body: Additional JSON body fields merged into the request.
+            timeout: Optional request timeout override.
+
+        Returns:
+            Metadata for uploaded files.
+        """
+        ...
 
     def delete(
         self,
@@ -1552,7 +1601,21 @@ class PdfRestFilesClient(Protocol):
         extra_headers: AnyMapping | None = None,
         extra_body: Body | None = None,
         timeout: TimeoutTypes | None = None,
-    ) -> None: ...
+    ) -> None:
+        """Delete one or more previously uploaded files.
+
+        Args:
+            files: File reference(s) to delete.
+            extra_query: Additional query parameters appended to the request.
+            extra_headers: Additional headers merged into the request.
+            extra_body: Additional JSON body fields merged into the request.
+            timeout: Optional request timeout override.
+
+        Raises:
+            PdfRestErrorGroup: Raised when one or more deletions fail. Individual
+                failures are reported as `PdfRestDeleteError` items in the group.
+        """
+        ...
 
     def read_bytes(
         self,
@@ -1561,7 +1624,19 @@ class PdfRestFilesClient(Protocol):
         extra_query: Query | None = None,
         extra_headers: AnyMapping | None = None,
         timeout: TimeoutTypes | None = None,
-    ) -> bytes: ...
+    ) -> bytes:
+        """Download a file and return its raw bytes.
+
+        Args:
+            file_ref: File object or file id to download.
+            extra_query: Additional query parameters appended to the request.
+            extra_headers: Additional headers merged into the request.
+            timeout: Optional request timeout override.
+
+        Returns:
+            The downloaded bytes.
+        """
+        ...
 
     def read_text(
         self,
@@ -1571,7 +1646,20 @@ class PdfRestFilesClient(Protocol):
         extra_query: Query | None = None,
         extra_headers: AnyMapping | None = None,
         timeout: TimeoutTypes | None = None,
-    ) -> str: ...
+    ) -> str:
+        """Download a file and decode it into text.
+
+        Args:
+            file_ref: File object or file id to download.
+            encoding: Text encoding used when decoding the response.
+            extra_query: Additional query parameters appended to the request.
+            extra_headers: Additional headers merged into the request.
+            timeout: Optional request timeout override.
+
+        Returns:
+            The decoded text content.
+        """
+        ...
 
     def read_json(
         self,
@@ -1580,7 +1668,19 @@ class PdfRestFilesClient(Protocol):
         extra_query: Query | None = None,
         extra_headers: AnyMapping | None = None,
         timeout: TimeoutTypes | None = None,
-    ) -> Any: ...
+    ) -> Any:
+        """Download a file and parse its content as JSON.
+
+        Args:
+            file_ref: File object or file id to download.
+            extra_query: Additional query parameters appended to the request.
+            extra_headers: Additional headers merged into the request.
+            timeout: Optional request timeout override.
+
+        Returns:
+            Parsed JSON value.
+        """
+        ...
 
     def write_bytes(
         self,
@@ -1590,7 +1690,20 @@ class PdfRestFilesClient(Protocol):
         extra_query: Query | None = None,
         extra_headers: AnyMapping | None = None,
         timeout: TimeoutTypes | None = None,
-    ) -> Path: ...
+    ) -> Path:
+        """Download a file and persist it to disk.
+
+        Args:
+            file_ref: File object or file id to download.
+            destination: Output path for the downloaded file.
+            extra_query: Additional query parameters appended to the request.
+            extra_headers: Additional headers merged into the request.
+            timeout: Optional request timeout override.
+
+        Returns:
+            The written destination path.
+        """
+        ...
 
     def stream(
         self,
@@ -1599,7 +1712,19 @@ class PdfRestFilesClient(Protocol):
         extra_query: Query | None = None,
         extra_headers: AnyMapping | None = None,
         timeout: TimeoutTypes | None = None,
-    ) -> PdfRestFileStream: ...
+    ) -> PdfRestFileStream:
+        """Open a streaming download for a file.
+
+        Args:
+            file_ref: File object or file id to download.
+            extra_query: Additional query parameters appended to the request.
+            extra_headers: Additional headers merged into the request.
+            timeout: Optional request timeout override.
+
+        Returns:
+            A synchronous streaming wrapper around the HTTP response.
+        """
+        ...
 
 
 class AsyncPdfRestFilesClient(Protocol):
@@ -1616,7 +1741,19 @@ class AsyncPdfRestFilesClient(Protocol):
         extra_query: Query | None = None,
         extra_headers: AnyMapping | None = None,
         timeout: TimeoutTypes | None = None,
-    ) -> PdfRestFile: ...
+    ) -> PdfRestFile:
+        """Retrieve metadata for an uploaded file.
+
+        Args:
+            id: Uploaded file identifier.
+            extra_query: Additional query parameters appended to the request.
+            extra_headers: Additional headers merged into the request.
+            timeout: Optional request timeout override.
+
+        Returns:
+            The resolved file metadata.
+        """
+        ...
 
     async def create(
         self,
@@ -1625,7 +1762,19 @@ class AsyncPdfRestFilesClient(Protocol):
         extra_query: Query | None = None,
         extra_headers: AnyMapping | None = None,
         timeout: TimeoutTypes | None = None,
-    ) -> list[PdfRestFile]: ...
+    ) -> list[PdfRestFile]:
+        """Upload one or more local file objects.
+
+        Args:
+            files: Multipart file payload(s) accepted by httpx upload APIs.
+            extra_query: Additional query parameters appended to the request.
+            extra_headers: Additional headers merged into the request.
+            timeout: Optional request timeout override.
+
+        Returns:
+            Metadata for uploaded files.
+        """
+        ...
 
     async def create_from_paths(
         self,
@@ -1634,7 +1783,19 @@ class AsyncPdfRestFilesClient(Protocol):
         extra_query: Query | None = None,
         extra_headers: AnyMapping | None = None,
         timeout: TimeoutTypes | None = None,
-    ) -> list[PdfRestFile]: ...
+    ) -> list[PdfRestFile]:
+        """Upload one or more files by filesystem path.
+
+        Args:
+            file_paths: Path input(s), optionally with content type and headers.
+            extra_query: Additional query parameters appended to the request.
+            extra_headers: Additional headers merged into the request.
+            timeout: Optional request timeout override.
+
+        Returns:
+            Metadata for uploaded files.
+        """
+        ...
 
     async def create_from_urls(
         self,
@@ -1644,7 +1805,20 @@ class AsyncPdfRestFilesClient(Protocol):
         extra_headers: AnyMapping | None = None,
         extra_body: Body | None = None,
         timeout: TimeoutTypes | None = None,
-    ) -> list[PdfRestFile]: ...
+    ) -> list[PdfRestFile]:
+        """Upload one or more files by remote URL.
+
+        Args:
+            urls: One URL or a sequence of URLs to upload.
+            extra_query: Additional query parameters appended to the request.
+            extra_headers: Additional headers merged into the request.
+            extra_body: Additional JSON body fields merged into the request.
+            timeout: Optional request timeout override.
+
+        Returns:
+            Metadata for uploaded files.
+        """
+        ...
 
     async def delete(
         self,
@@ -1654,7 +1828,21 @@ class AsyncPdfRestFilesClient(Protocol):
         extra_headers: AnyMapping | None = None,
         extra_body: Body | None = None,
         timeout: TimeoutTypes | None = None,
-    ) -> None: ...
+    ) -> None:
+        """Delete one or more previously uploaded files.
+
+        Args:
+            files: File reference(s) to delete.
+            extra_query: Additional query parameters appended to the request.
+            extra_headers: Additional headers merged into the request.
+            extra_body: Additional JSON body fields merged into the request.
+            timeout: Optional request timeout override.
+
+        Raises:
+            PdfRestErrorGroup: Raised when one or more deletions fail. Individual
+                failures are reported as `PdfRestDeleteError` items in the group.
+        """
+        ...
 
     async def read_bytes(
         self,
@@ -1663,7 +1851,19 @@ class AsyncPdfRestFilesClient(Protocol):
         extra_query: Query | None = None,
         extra_headers: AnyMapping | None = None,
         timeout: TimeoutTypes | None = None,
-    ) -> bytes: ...
+    ) -> bytes:
+        """Download a file and return its raw bytes.
+
+        Args:
+            file_ref: File object or file id to download.
+            extra_query: Additional query parameters appended to the request.
+            extra_headers: Additional headers merged into the request.
+            timeout: Optional request timeout override.
+
+        Returns:
+            The downloaded bytes.
+        """
+        ...
 
     async def read_text(
         self,
@@ -1673,7 +1873,20 @@ class AsyncPdfRestFilesClient(Protocol):
         extra_query: Query | None = None,
         extra_headers: AnyMapping | None = None,
         timeout: TimeoutTypes | None = None,
-    ) -> str: ...
+    ) -> str:
+        """Download a file and decode it into text.
+
+        Args:
+            file_ref: File object or file id to download.
+            encoding: Text encoding used when decoding the response.
+            extra_query: Additional query parameters appended to the request.
+            extra_headers: Additional headers merged into the request.
+            timeout: Optional request timeout override.
+
+        Returns:
+            The decoded text content.
+        """
+        ...
 
     async def read_json(
         self,
@@ -1682,7 +1895,19 @@ class AsyncPdfRestFilesClient(Protocol):
         extra_query: Query | None = None,
         extra_headers: AnyMapping | None = None,
         timeout: TimeoutTypes | None = None,
-    ) -> Any: ...
+    ) -> Any:
+        """Download a file and parse its content as JSON.
+
+        Args:
+            file_ref: File object or file id to download.
+            extra_query: Additional query parameters appended to the request.
+            extra_headers: Additional headers merged into the request.
+            timeout: Optional request timeout override.
+
+        Returns:
+            Parsed JSON value.
+        """
+        ...
 
     async def write_bytes(
         self,
@@ -1692,7 +1917,20 @@ class AsyncPdfRestFilesClient(Protocol):
         extra_query: Query | None = None,
         extra_headers: AnyMapping | None = None,
         timeout: TimeoutTypes | None = None,
-    ) -> Path: ...
+    ) -> Path:
+        """Download a file and persist it to disk.
+
+        Args:
+            file_ref: File object or file id to download.
+            destination: Output path for the downloaded file.
+            extra_query: Additional query parameters appended to the request.
+            extra_headers: Additional headers merged into the request.
+            timeout: Optional request timeout override.
+
+        Returns:
+            The written destination path.
+        """
+        ...
 
     async def stream(
         self,
@@ -1701,7 +1939,19 @@ class AsyncPdfRestFilesClient(Protocol):
         extra_query: Query | None = None,
         extra_headers: AnyMapping | None = None,
         timeout: TimeoutTypes | None = None,
-    ) -> AsyncPdfRestFileStream: ...
+    ) -> AsyncPdfRestFileStream:
+        """Open a streaming download for a file.
+
+        Args:
+            file_ref: File object or file id to download.
+            extra_query: Additional query parameters appended to the request.
+            extra_headers: Additional headers merged into the request.
+            timeout: Optional request timeout override.
+
+        Returns:
+            An asynchronous streaming wrapper around the HTTP response.
+        """
+        ...
 
 
 class _FilesClient:
