@@ -21,6 +21,7 @@ def test_convert_urls_to_pdf_success(monkeypatch: pytest.MonkeyPatch) -> None:
         {
             "url": url,
             "output": "url-out",
+            "compression": "lossy",
             "page_size": "letter",
             "page_margin": "2.5in",
             "page_orientation": "portrait",

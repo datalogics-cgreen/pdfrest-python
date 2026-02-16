@@ -189,6 +189,9 @@ async def test_async_convert_office_to_pdf_success(
         {
             "files": [input_file],
             "output": "async-converted",
+            "compression": "lossy",
+            "downsample": 300,
+            "tagged_pdf": False,
             "locale": "US",
         }
     ).model_dump(mode="json", by_alias=True, exclude_none=True, exclude_unset=True)

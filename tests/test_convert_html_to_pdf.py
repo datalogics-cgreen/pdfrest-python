@@ -32,6 +32,7 @@ def test_convert_html_to_pdf_success(monkeypatch: pytest.MonkeyPatch) -> None:
             "page_orientation": "landscape",
             "web_layout": "tablet",
             "compression": "lossy",
+            "downsample": 300,
         }
     ).model_dump(mode="json", by_alias=True, exclude_none=True, exclude_unset=True)
 
@@ -183,7 +184,12 @@ async def test_async_convert_html_to_pdf_success(
         {
             "files": [input_file],
             "output": "async-converted",
+            "compression": "lossy",
+            "downsample": 300,
+            "page_size": "letter",
+            "page_margin": "1.0in",
             "page_orientation": "portrait",
+            "web_layout": "desktop",
         }
     ).model_dump(mode="json", by_alias=True, exclude_none=True, exclude_unset=True)
 
