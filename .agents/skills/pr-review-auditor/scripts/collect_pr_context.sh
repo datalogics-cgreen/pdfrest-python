@@ -62,7 +62,7 @@ fi
 rm -f "${fetch_error_file}"
 
 merge_base="$(git merge-base "${base_remote}/${base_ref}" HEAD)"
-review_range="${base_remote}/${base_ref}..HEAD"
+review_range="${merge_base}..HEAD"
 
 echo "CONTEXT_SOURCE=${context_source}"
 echo "PR_NUMBER=${pr_number}"

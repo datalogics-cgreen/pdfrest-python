@@ -1,4 +1,4 @@
 interface:
   display_name: "PR Review Auditor"
-  short_description: "Review base..HEAD with GUIDELINES-first policy checks."
-  default_prompt: "Use $pr-review-auditor to review the current PR from upstream base to HEAD with findings-first output and strict GUIDELINES/AGENTS compliance checks."
+  short_description: "Review merge-base..HEAD with GUIDELINES-first policy checks."
+  default_prompt: "Use $pr-review-auditor to review the current PR from merge-base to HEAD with findings-first output and strict GUIDELINES/AGENTS compliance checks."
