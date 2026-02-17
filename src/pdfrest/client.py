@@ -85,6 +85,7 @@ from .models._internal import (
     PdfAddAttachmentPayload,
     PdfAddImagePayload,
     PdfAddTextPayload,
+    PdfBlankPayload,
     PdfCompressPayload,
     PdfDecryptPayload,
     PdfEncryptPayload,
@@ -128,7 +129,9 @@ from .types import (
     PdfAType,
     PdfInfoQuery,
     PdfMergeInput,
+    PdfPageOrientation,
     PdfPageSelection,
+    PdfPageSize,
     PdfRedactionInstruction,
     PdfRestriction,
     PdfRGBColor,
@@ -3071,6 +3074,39 @@ class PdfRestClient(_SyncApiClient):
             timeout=timeout,
         )
 
+    def blank_pdf(
+        self,
+        *,
+        page_size: PdfPageSize = "letter",
+        page_count: int = 1,
+        page_orientation: PdfPageOrientation | None = None,
+        output: str | None = None,
+        extra_query: Query | None = None,
+        extra_headers: AnyMapping | None = None,
+        extra_body: Body | None = None,
+        timeout: TimeoutTypes | None = None,
+    ) -> PdfRestFileBasedResponse:
+        """Create a blank PDF with configurable size, count, and orientation."""
+
+        payload: dict[str, Any] = {
+            "page_size": page_size,
+            "page_count": page_count,
+        }
+        if page_orientation is not None:
+            payload["page_orientation"] = page_orientation
+        if output is not None:
+            payload["output"] = output
+
+        return self._post_file_operation(
+            endpoint="/blank-pdf",
+            payload=payload,
+            payload_model=PdfBlankPayload,
+            extra_query=extra_query,
+            extra_headers=extra_headers,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
+
     def flatten_transparencies(
         self,
         file: PdfRestFile | Sequence[PdfRestFile],
@@ -4471,6 +4507,39 @@ class AsyncPdfRestClient(_AsyncApiClient):
             endpoint="/pdf-with-added-attachment",
             payload=payload,
             payload_model=PdfAddAttachmentPayload,
+            extra_query=extra_query,
+            extra_headers=extra_headers,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
+
+    async def blank_pdf(
+        self,
+        *,
+        page_size: PdfPageSize = "letter",
+        page_count: int = 1,
+        page_orientation: PdfPageOrientation | None = None,
+        output: str | None = None,
+        extra_query: Query | None = None,
+        extra_headers: AnyMapping | None = None,
+        extra_body: Body | None = None,
+        timeout: TimeoutTypes | None = None,
+    ) -> PdfRestFileBasedResponse:
+        """Asynchronously create a blank PDF with configurable size and count."""
+
+        payload: dict[str, Any] = {
+            "page_size": page_size,
+            "page_count": page_count,
+        }
+        if page_orientation is not None:
+            payload["page_orientation"] = page_orientation
+        if output is not None:
+            payload["output"] = output
+
+        return await self._post_file_operation(
+            endpoint="/blank-pdf",
+            payload=payload,
+            payload_model=PdfBlankPayload,
             extra_query=extra_query,
             extra_headers=extra_headers,
             extra_body=extra_body,

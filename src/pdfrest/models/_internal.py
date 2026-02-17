@@ -1,9 +1,9 @@
 from __future__ import annotations
 
 import re
-from collections.abc import Callable, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from pathlib import PurePath
-from typing import Annotated, Any, Generic, Literal, TypeVar
+from typing import Annotated, Any, Generic, Literal, TypeVar, cast
 
 from langcodes import tag_is_valid
 from pydantic import (
@@ -26,6 +26,8 @@ from ..types import (
     OcrLanguage,
     PdfAType,
     PdfInfoQuery,
+    PdfPageOrientation,
+    PdfPageSize,
     PdfRestriction,
     PdfXType,
     SummaryFormat,
@@ -1365,6 +1367,89 @@ class PdfAddAttachmentPayload(BaseModel):
     ] = None
 
 
+class PdfBlankPayload(BaseModel):
+    """Adapt caller options into a pdfRest-ready blank PDF request payload."""
+
+    page_size: Annotated[
+        PdfPageSize | Literal["custom"],
+        Field(serialization_alias="page_size"),
+    ]
+    page_count: Annotated[
+        int,
+        Field(serialization_alias="page_count", ge=1, le=1000),
+    ]
+    page_orientation: Annotated[
+        PdfPageOrientation | None,
+        Field(serialization_alias="page_orientation", default=None),
+    ] = None
+    custom_height: Annotated[
+        float | None,
+        Field(serialization_alias="custom_height", gt=0, default=None),
+    ] = None
+    custom_width: Annotated[
+        float | None,
+        Field(serialization_alias="custom_width", gt=0, default=None),
+    ] = None
+    output: Annotated[
+        str | None,
+        Field(serialization_alias="output", min_length=1, default=None),
+        AfterValidator(_validate_output_prefix),
+    ] = None
+
+    @model_validator(mode="before")
+    @classmethod
+    def _normalize_custom_page_size(cls, data: Any) -> Any:
+        if not isinstance(data, Mapping):
+            return data
+
+        normalized_data: dict[str, Any] = dict(cast(Mapping[str, Any], data))
+        page_size = normalized_data.get("page_size")
+        if isinstance(page_size, Mapping):
+            custom_page_size = cast(Mapping[str, Any], page_size)
+            if (
+                "custom_height" not in custom_page_size
+                or "custom_width" not in custom_page_size
+            ):
+                msg = (
+                    "Custom page sizes must include both custom_height and "
+                    "custom_width."
+                )
+                raise ValueError(msg)
+            normalized_data["page_size"] = "custom"
+            normalized_data["custom_height"] = custom_page_size["custom_height"]
+            normalized_data["custom_width"] = custom_page_size["custom_width"]
+
+        if (
+            normalized_data.get("page_size") is not None
+            and normalized_data.get("page_size") != "custom"
+            and normalized_data.get("page_orientation") is None
+        ):
+            normalized_data["page_orientation"] = "portrait"
+
+        return normalized_data
+
+    @model_validator(mode="after")
+    def _validate_page_configuration(self) -> PdfBlankPayload:
+        is_custom = self.page_size == "custom"
+        has_custom_height = self.custom_height is not None
+        has_custom_width = self.custom_width is not None
+        if is_custom:
+            if not (has_custom_height and has_custom_width):
+                msg = "custom_height and custom_width are required when page_size is 'custom'."
+                raise ValueError(msg)
+            if self.page_orientation is not None:
+                msg = "page_orientation must be omitted when page_size is 'custom'."
+                raise ValueError(msg)
+        else:
+            if self.page_orientation is None:
+                msg = "page_orientation is required when page_size is not 'custom'."
+                raise ValueError(msg)
+            if has_custom_height or has_custom_width:
+                msg = "custom_height and custom_width can only be provided when page_size is 'custom'."
+                raise ValueError(msg)
+        return self
+
+
 class PdfRestrictPayload(BaseModel):
     """Adapt caller options into a pdfRest-ready restrict-PDF request payload."""
 
@@ -1603,7 +1688,11 @@ class PdfRestRawFileResponse(BaseModel):
 
     input_id: Annotated[
         list[PdfRestFileID],
-        Field(alias="inputId", description="The id of the input file"),
+        Field(
+            alias="inputId",
+            description="The id of the input file",
+            default_factory=list,
+        ),
         BeforeValidator(_ensure_list),
     ]
     output_urls: Annotated[
