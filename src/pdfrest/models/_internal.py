@@ -1514,7 +1514,7 @@ class PdfSignPayload(BaseModel):
             serialization_alias="pfx_credential_id",
         ),
         BeforeValidator(_ensure_list),
-        BeforeValidator(
+        AfterValidator(
             _allowed_mime_types(
                 "application/x-pkcs12",
                 "application/pkcs12",
@@ -1534,7 +1534,7 @@ class PdfSignPayload(BaseModel):
             serialization_alias="pfx_passphrase_id",
         ),
         BeforeValidator(_ensure_list),
-        BeforeValidator(
+        AfterValidator(
             _allowed_mime_types(
                 "text/plain",
                 "application/octet-stream",
@@ -1553,13 +1553,14 @@ class PdfSignPayload(BaseModel):
             serialization_alias="certificate_id",
         ),
         BeforeValidator(_ensure_list),
-        BeforeValidator(
+        AfterValidator(
             # DER cert/key uploads are frequently tagged as x509-ca-cert (or octet-stream
             # in some environments), so we intentionally keep this allowlist broad.
             _allowed_mime_types(
                 "application/pkix-cert",
                 "application/x-x509-ca-cert",
                 "application/x-pem-file",
+                "application/pem-certificate-chain",
                 "application/octet-stream",
                 error_msg="Certificate must be a .pem or .der file",
             )
@@ -1576,13 +1577,14 @@ class PdfSignPayload(BaseModel):
             serialization_alias="private_key_id",
         ),
         BeforeValidator(_ensure_list),
-        BeforeValidator(
+        AfterValidator(
             # Keep parity with provider/browser MIME detection for DER private keys.
             _allowed_mime_types(
                 "application/pkix-cert",
                 "application/x-x509-ca-cert",
                 "application/pkcs8",
                 "application/x-pem-file",
+                "application/pem-certificate-chain",
                 "application/octet-stream",
                 error_msg="Private key must be a .pem or .der file",
             )
@@ -1599,7 +1601,7 @@ class PdfSignPayload(BaseModel):
             serialization_alias="logo_id",
         ),
         BeforeValidator(_ensure_list),
-        BeforeValidator(
+        AfterValidator(
             _allowed_mime_types(
                 "image/jpeg",
                 "image/png",

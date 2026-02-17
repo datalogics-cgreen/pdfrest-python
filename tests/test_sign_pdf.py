@@ -444,3 +444,68 @@ def test_sign_payload_accepts_x509_ca_cert_mime_for_der_credentials() -> None:
     assert payload.private_key is not None
     assert payload.certificate[0].type == "application/x-x509-ca-cert"
     assert payload.private_key[0].type == "application/x-x509-ca-cert"
+
+
+def test_sign_payload_accepts_pem_certificate_chain_mime_for_pem_credentials() -> None:
+    input_pdf = make_pdf_file(str(PdfRestFileID.generate()))
+    certificate_file = PdfRestFile.model_validate(
+        build_file_info_payload(
+            str(PdfRestFileID.generate()),
+            "certificate.pem",
+            "application/pem-certificate-chain",
+        )
+    )
+    private_key_file = PdfRestFile.model_validate(
+        build_file_info_payload(
+            str(PdfRestFileID.generate()),
+            "private_key.pem",
+            "application/pem-certificate-chain",
+        )
+    )
+
+    payload = PdfSignPayload.model_validate(
+        {
+            "files": [input_pdf],
+            "signature_configuration": {
+                "type": "new",
+                "name": "sig",
+                "location": make_signature_location(),
+            },
+            "credentials": {
+                "certificate": certificate_file,
+                "private_key": private_key_file,
+            },
+        }
+    )
+
+    assert payload.certificate is not None
+    assert payload.private_key is not None
+    assert payload.certificate[0].type == "application/pem-certificate-chain"
+    assert payload.private_key[0].type == "application/pem-certificate-chain"
+
+
+def test_sign_payload_accepts_logo_tuple_sequence() -> None:
+    input_pdf = make_pdf_file(str(PdfRestFileID.generate()))
+    certificate_file = make_certificate_file(str(PdfRestFileID.generate()))
+    private_key_file = make_private_key_file(str(PdfRestFileID.generate()))
+    logo_file = make_logo_file(str(PdfRestFileID.generate()))
+
+    payload = PdfSignPayload.model_validate(
+        {
+            "files": [input_pdf],
+            "signature_configuration": {
+                "type": "new",
+                "name": "sig",
+                "location": make_signature_location(),
+            },
+            "credentials": {
+                "certificate": certificate_file,
+                "private_key": private_key_file,
+            },
+            "logo": (logo_file,),
+        }
+    )
+
+    assert payload.logo is not None
+    assert len(payload.logo) == 1
+    assert payload.logo[0].id == logo_file.id
