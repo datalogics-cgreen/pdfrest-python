@@ -338,3 +338,41 @@ def test_sign_payload_allows_existing_without_location() -> None:
         }
     )
     assert payload.signature_configuration.type == "existing"
+
+
+def test_sign_payload_accepts_x509_ca_cert_mime_for_der_credentials() -> None:
+    input_pdf = make_pdf_file(str(PdfRestFileID.generate()))
+    certificate_file = PdfRestFile.model_validate(
+        build_file_info_payload(
+            str(PdfRestFileID.generate()),
+            "certificate.der",
+            "application/x-x509-ca-cert",
+        )
+    )
+    private_key_file = PdfRestFile.model_validate(
+        build_file_info_payload(
+            str(PdfRestFileID.generate()),
+            "private_key.der",
+            "application/x-x509-ca-cert",
+        )
+    )
+
+    payload = PdfSignPayload.model_validate(
+        {
+            "files": [input_pdf],
+            "signature_configuration": {
+                "type": "new",
+                "name": "sig",
+                "location": make_signature_location(),
+            },
+            "credentials": {
+                "certificate": certificate_file,
+                "private_key": private_key_file,
+            },
+        }
+    )
+
+    assert payload.certificate is not None
+    assert payload.private_key is not None
+    assert payload.certificate[0].type == "application/x-x509-ca-cert"
+    assert payload.private_key[0].type == "application/x-x509-ca-cert"

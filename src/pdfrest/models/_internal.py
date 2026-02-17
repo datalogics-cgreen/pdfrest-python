@@ -1554,6 +1554,8 @@ class PdfSignPayload(BaseModel):
         ),
         BeforeValidator(_ensure_list),
         BeforeValidator(
+            # DER cert/key uploads are frequently tagged as x509-ca-cert (or octet-stream
+            # in some environments), so we intentionally keep this allowlist broad.
             _allowed_mime_types(
                 "application/pkix-cert",
                 "application/x-x509-ca-cert",
@@ -1575,7 +1577,10 @@ class PdfSignPayload(BaseModel):
         ),
         BeforeValidator(_ensure_list),
         BeforeValidator(
+            # Keep parity with provider/browser MIME detection for DER private keys.
             _allowed_mime_types(
+                "application/pkix-cert",
+                "application/x-x509-ca-cert",
                 "application/pkcs8",
                 "application/x-pem-file",
                 "application/octet-stream",
