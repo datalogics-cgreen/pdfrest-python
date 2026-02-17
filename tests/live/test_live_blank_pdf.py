@@ -3,6 +3,7 @@ from __future__ import annotations
 import pytest
 
 from pdfrest import AsyncPdfRestClient, PdfRestApiError, PdfRestClient
+from pdfrest.types import PdfCustomPageSize
 
 BLANK_PDF_LITERAL_CASES = [
     pytest.param(
@@ -42,7 +43,7 @@ BLANK_PDF_LITERAL_CASES = [
         id="a5-landscape",
     ),
     pytest.param(
-        (792.0, 612.0),
+        {"custom_height": 792.0, "custom_width": 612.0},
         None,
         "blank-custom",
         id="custom-dimensions",
@@ -57,11 +58,11 @@ BLANK_PDF_LITERAL_CASES = [
 def test_live_blank_pdf_success(
     pdfrest_api_key: str,
     pdfrest_live_base_url: str,
-    page_size: str | tuple[float, float],
+    page_size: str | PdfCustomPageSize,
     page_orientation: str | None,
     output_name: str,
 ) -> None:
-    kwargs: dict[str, str | int | float | tuple[float, float]] = {
+    kwargs: dict[str, str | int | float | PdfCustomPageSize] = {
         "page_size": page_size,
         "page_count": 1,
         "output": output_name,
@@ -91,11 +92,11 @@ def test_live_blank_pdf_success(
 async def test_live_async_blank_pdf_success(
     pdfrest_api_key: str,
     pdfrest_live_base_url: str,
-    page_size: str | tuple[float, float],
+    page_size: str | PdfCustomPageSize,
     page_orientation: str | None,
     output_name: str,
 ) -> None:
-    kwargs: dict[str, str | int | float | tuple[float, float]] = {
+    kwargs: dict[str, str | int | float | PdfCustomPageSize] = {
         "page_size": page_size,
         "page_count": 2,
         "output": output_name,

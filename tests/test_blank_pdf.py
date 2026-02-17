@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from typing import cast
 
 import httpx
 import pytest
@@ -9,6 +10,7 @@ from pydantic import ValidationError
 from pdfrest import AsyncPdfRestClient, PdfRestClient
 from pdfrest.models import PdfRestFileBasedResponse, PdfRestFileID
 from pdfrest.models._internal import PdfBlankPayload
+from pdfrest.types import PdfCustomPageSize
 
 from .graphics_test_helpers import ASYNC_API_KEY, VALID_API_KEY, build_file_info_payload
 
@@ -384,15 +386,31 @@ async def test_async_blank_pdf_page_count_boundaries_validation(
 @pytest.mark.parametrize(
     ("page_size", "match"),
     [
-        pytest.param((0.0, 10.0), "greater than 0", id="height-zero"),
-        pytest.param((-1.0, 10.0), "greater than 0", id="height-negative"),
-        pytest.param((10.0, 0.0), "greater than 0", id="width-zero"),
-        pytest.param((10.0, -1.0), "greater than 0", id="width-negative"),
+        pytest.param(
+            {"custom_height": 0.0, "custom_width": 10.0},
+            "greater than 0",
+            id="height-zero",
+        ),
+        pytest.param(
+            {"custom_height": -1.0, "custom_width": 10.0},
+            "greater than 0",
+            id="height-negative",
+        ),
+        pytest.param(
+            {"custom_height": 10.0, "custom_width": 0.0},
+            "greater than 0",
+            id="width-zero",
+        ),
+        pytest.param(
+            {"custom_height": 10.0, "custom_width": -1.0},
+            "greater than 0",
+            id="width-negative",
+        ),
     ],
 )
 def test_blank_pdf_custom_dimensions_validation(
     monkeypatch: pytest.MonkeyPatch,
-    page_size: tuple[float, float],
+    page_size: PdfCustomPageSize,
     match: str,
 ) -> None:
     monkeypatch.delenv("PDFREST_API_KEY", raising=False)
@@ -412,15 +430,31 @@ def test_blank_pdf_custom_dimensions_validation(
 @pytest.mark.parametrize(
     ("page_size", "match"),
     [
-        pytest.param((0.0, 10.0), "greater than 0", id="height-zero"),
-        pytest.param((-1.0, 10.0), "greater than 0", id="height-negative"),
-        pytest.param((10.0, 0.0), "greater than 0", id="width-zero"),
-        pytest.param((10.0, -1.0), "greater than 0", id="width-negative"),
+        pytest.param(
+            {"custom_height": 0.0, "custom_width": 10.0},
+            "greater than 0",
+            id="height-zero",
+        ),
+        pytest.param(
+            {"custom_height": -1.0, "custom_width": 10.0},
+            "greater than 0",
+            id="height-negative",
+        ),
+        pytest.param(
+            {"custom_height": 10.0, "custom_width": 0.0},
+            "greater than 0",
+            id="width-zero",
+        ),
+        pytest.param(
+            {"custom_height": 10.0, "custom_width": -1.0},
+            "greater than 0",
+            id="width-negative",
+        ),
     ],
 )
 async def test_async_blank_pdf_custom_dimensions_validation(
     monkeypatch: pytest.MonkeyPatch,
-    page_size: tuple[float, float],
+    page_size: PdfCustomPageSize,
     match: str,
 ) -> None:
     monkeypatch.delenv("PDFREST_API_KEY", raising=False)
@@ -537,7 +571,7 @@ def test_blank_pdf_request_customization(
     transport = httpx.MockTransport(handler)
     with PdfRestClient(api_key=VALID_API_KEY, transport=transport) as client:
         response = client.blank_pdf(
-            page_size=(792, 612),
+            page_size={"custom_height": 792, "custom_width": 612},
             page_count=3,
             output="custom",
             extra_query={"trace": "true"},
@@ -658,7 +692,7 @@ async def test_async_blank_pdf_request_customization(
     transport = httpx.MockTransport(handler)
     async with AsyncPdfRestClient(api_key=ASYNC_API_KEY, transport=transport) as client:
         response = await client.blank_pdf(
-            page_size=(100, 50),
+            page_size={"custom_height": 100, "custom_width": 50},
             page_count=1,
             extra_query={"trace": "async"},
             extra_headers={"X-Debug": "async"},
@@ -684,16 +718,24 @@ def test_blank_pdf_validation(monkeypatch: pytest.MonkeyPatch) -> None:
 
     with (
         PdfRestClient(api_key=VALID_API_KEY, transport=transport) as client,
-        pytest.raises(ValueError, match="Custom page sizes must contain exactly two"),
+        pytest.raises(
+            ValueError, match="must include both custom_height and custom_width"
+        ),
     ):
-        client.blank_pdf(page_size=(50,), page_count=1)
+        client.blank_pdf(
+            page_size=cast(
+                PdfCustomPageSize,
+                cast(object, {"custom_height": 50}),
+            ),
+            page_count=1,
+        )
 
     with (
         PdfRestClient(api_key=VALID_API_KEY, transport=transport) as client,
         pytest.raises(ValueError, match="page_orientation must be omitted"),
     ):
         client.blank_pdf(
-            page_size=(10, 10),
+            page_size={"custom_height": 10, "custom_width": 10},
             page_count=1,
             page_orientation="portrait",
         )

@@ -27,6 +27,7 @@ __all__ = (
     "PdfAType",
     "PdfAddTextObject",
     "PdfCmykColor",
+    "PdfCustomPageSize",
     "PdfInfoQuery",
     "PdfMergeInput",
     "PdfMergeSource",
@@ -128,6 +129,11 @@ class PdfAddTextObject(TypedDict, total=False):
     is_right_to_left: bool
 
 
+class PdfCustomPageSize(TypedDict):
+    custom_height: Required[float]
+    custom_width: Required[float]
+
+
 PdfPageSelection = str | int | Sequence[str | int]
 
 
@@ -199,7 +205,5 @@ PdfRestriction = Literal[
 ALL_PDF_RESTRICTIONS: tuple[PdfRestriction, ...] = cast(
     tuple[PdfRestriction, ...], get_args(PdfRestriction)
 )
-PdfPageSize = (
-    Literal["letter", "legal", "ledger", "A3", "A4", "A5"] | tuple[float, float]
-)
+PdfPageSize = Literal["letter", "legal", "ledger", "A3", "A4", "A5"] | PdfCustomPageSize
 PdfPageOrientation = Literal["portrait", "landscape"]
