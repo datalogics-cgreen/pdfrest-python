@@ -235,6 +235,74 @@ def test_sign_pdf_requires_location_for_new_signature_type(
         )
 
 
+def test_sign_pdf_request_customization(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.delenv("PDFREST_API_KEY", raising=False)
+    input_file = make_pdf_file(PdfRestFileID.generate())
+    certificate_file = make_certificate_file(str(PdfRestFileID.generate()))
+    private_key_file = make_private_key_file(str(PdfRestFileID.generate()))
+    output_id = str(PdfRestFileID.generate())
+    captured_timeout: dict[str, float | dict[str, float] | None] = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.method == "POST" and request.url.path == "/signed-pdf":
+            assert request.url.params["trace"] == "sync"
+            assert request.headers["X-Debug"] == "sync-sign"
+            captured_timeout["value"] = request.extensions.get("timeout")
+            payload = json.loads(request.content.decode("utf-8"))
+            assert payload["certificate_id"] == str(certificate_file.id)
+            assert payload["private_key_id"] == str(private_key_file.id)
+            assert json.loads(payload["signature_configuration"])["type"] == "new"
+            assert payload["output"] == "sync-signed"
+            assert payload["diagnostics"] == "on"
+            return httpx.Response(
+                200,
+                json={"inputId": [input_file.id], "outputId": [output_id]},
+            )
+        if request.method == "GET" and request.url.path == f"/resource/{output_id}":
+            assert request.url.params["trace"] == "sync"
+            assert request.headers["X-Debug"] == "sync-sign"
+            return httpx.Response(
+                200,
+                json=build_file_info_payload(
+                    output_id,
+                    "sync-signed.pdf",
+                    "application/pdf",
+                ),
+            )
+        msg = f"Unexpected request {request.method} {request.url}"
+        raise AssertionError(msg)
+
+    transport = httpx.MockTransport(handler)
+    with PdfRestClient(api_key=VALID_API_KEY, transport=transport) as client:
+        response = client.sign_pdf(
+            input_file,
+            signature_configuration={
+                "type": "new",
+                "location": make_signature_location(),
+            },
+            credentials={
+                "certificate": certificate_file,
+                "private_key": private_key_file,
+            },
+            output="sync-signed",
+            extra_query={"trace": "sync"},
+            extra_headers={"X-Debug": "sync-sign"},
+            extra_body={"diagnostics": "on"},
+            timeout=0.5,
+        )
+
+    assert isinstance(response, PdfRestFileBasedResponse)
+    assert response.output_file.name == "sync-signed.pdf"
+    timeout_value = captured_timeout["value"]
+    assert timeout_value is not None
+    if isinstance(timeout_value, dict):
+        assert all(pytest.approx(0.5) == value for value in timeout_value.values())
+    else:
+        assert timeout_value == pytest.approx(0.5)
+
+
 @pytest.mark.asyncio
 async def test_async_sign_pdf_request_customization(
     monkeypatch: pytest.MonkeyPatch,

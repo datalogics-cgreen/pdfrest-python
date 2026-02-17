@@ -216,7 +216,10 @@ def test_live_sign_pdf_invalid_signature_configuration(
             api_key=pdfrest_api_key,
             base_url=pdfrest_live_base_url,
         ) as client,
-        pytest.raises(PdfRestApiError),
+        pytest.raises(
+            PdfRestApiError,
+            match=r"JSON data provided is not properly formatted",
+        ),
     ):
         client.sign_pdf(
             uploaded_pdf_for_signing,
@@ -230,3 +233,33 @@ def test_live_sign_pdf_invalid_signature_configuration(
             },
             extra_body={"signature_configuration": "not-json"},
         )
+
+
+@pytest.mark.asyncio
+async def test_live_async_sign_pdf_invalid_signature_configuration(
+    pdfrest_api_key: str,
+    pdfrest_live_base_url: str,
+    uploaded_pdf_for_signing: PdfRestFile,
+    uploaded_pfx_credential: PdfRestFile,
+    uploaded_passphrase: PdfRestFile,
+) -> None:
+    async with AsyncPdfRestClient(
+        api_key=pdfrest_api_key,
+        base_url=pdfrest_live_base_url,
+    ) as client:
+        with pytest.raises(
+            PdfRestApiError,
+            match=r"JSON data provided is not properly formatted",
+        ):
+            await client.sign_pdf(
+                uploaded_pdf_for_signing,
+                signature_configuration={
+                    "type": "new",
+                    "location": make_signature_location(),
+                },
+                credentials={
+                    "pfx": uploaded_pfx_credential,
+                    "passphrase": uploaded_passphrase,
+                },
+                extra_body={"signature_configuration": "not-json"},
+            )
