@@ -207,9 +207,16 @@ class UpResponse(BaseModel):
     """Response payload returned by the `/up` health endpoint."""
 
     status: str
+    """Service health status string returned by pdfRest."""
+
     product: str
+    """Product identifier reported by the service."""
+
     release_date: date = Field(alias="releaseDate")
+    """Release date for the deployed pdfRest version."""
+
     version: str
+    """Semantic version identifier for the running service."""
 
     model_config = ConfigDict(frozen=True)
 
@@ -218,6 +225,8 @@ class PdfRestErrorResponse(BaseModel):
     """Error response payloads from pdfRest."""
 
     error: str | None = Field(alias="message")
+    """Human-readable error message returned by the API."""
+
     model_config = ConfigDict(extra="allow", frozen=True)
 
 
@@ -228,29 +237,42 @@ class PdfRestFile(BaseModel):
         min_length=1,
         description="Identifier of the file on the pdfRest server",
     )
+    """Identifier of the file on the pdfRest server."""
+
     name: str = Field(
         min_length=1,
         description="Name of the file",
     )
+    """Name of the file."""
+
     url: HttpUrl = Field(
         description="URL from which the file can be downloaded",
     )
+    """URL from which the file can be downloaded."""
+
     type: str = Field(
         min_length=1,
         description="MIME type of the file",
     )
+    """MIME type of the file."""
+
     size: int = Field(
         description="Size of the file",
     )
+    """Size of the file."""
+
     modified: AwareDatetime = Field(
         description="The last modified time of the file, which must include time zone "
         "info.",
     )
+    """The last modified time of the file, which must include time zone info."""
+
     scheduled_deletion_time_utc: AwareDatetime | None = Field(
         alias="scheduledDeletionTimeUtc",
         default=None,
         description="The UTC time at which the file will be deleted from the server.",
     )
+    """The UTC time at which the file will be deleted from the server."""
 
     model_config = ConfigDict(frozen=True)
 
@@ -272,6 +294,7 @@ class PdfRestFileBasedResponse(BaseModel):
             validation_alias=AliasChoices("input_id", "inputId"),
         ),
     ]
+    """The ids of the files that were input to the pdfRest operation."""
 
     # Optional because some endpoints may not make output
     output_files: Annotated[
@@ -281,6 +304,7 @@ class PdfRestFileBasedResponse(BaseModel):
             validation_alias=AliasChoices("output_file", "outputFile"),
         ),
     ]
+    """The list of files returned by the pdfRest operation."""
 
     warning: Annotated[
         str | None,
@@ -288,9 +312,16 @@ class PdfRestFileBasedResponse(BaseModel):
             description="A warning that was generated during the pdfRest operation",
         ),
     ] = None
+    """A warning that was generated during the pdfRest operation."""
 
     @property
     def input_id(self) -> PdfRestFileID:
+        """Return the lone input id when exactly one input file was supplied.
+
+        Raises:
+            ValueError: If no input id is available or multiple input ids exist.
+        """
+
         if len(self.input_ids) == 1:
             return self.input_ids[0]
         if len(self.input_ids) == 0:
@@ -301,6 +332,12 @@ class PdfRestFileBasedResponse(BaseModel):
 
     @property
     def output_file(self) -> PdfRestFile:
+        """Return the lone output file when exactly one output is available.
+
+        Raises:
+            ValueError: If no output file is available or multiple outputs exist.
+        """
+
         if len(self.output_files) == 1:
             return self.output_files[0]
         if len(self.output_files) == 0:
@@ -324,6 +361,7 @@ class PdfRestDeletionResponse(BaseModel):
             min_length=1,
         ),
     ]
+    """Mapping of file ids to deletion results."""
 
 
 class SummarizePdfTextResponse(BaseModel):
@@ -338,6 +376,8 @@ class SummarizePdfTextResponse(BaseModel):
             default=None,
         ),
     ] = None
+    """Summary content."""
+
     input_id: Annotated[
         PdfRestFileID,
         Field(
@@ -345,6 +385,7 @@ class SummarizePdfTextResponse(BaseModel):
             description="The id of the input file.",
         ),
     ]
+    """The id of the input file."""
 
 
 class TranslatePdfTextResponse(BaseModel):
@@ -361,6 +402,8 @@ class TranslatePdfTextResponse(BaseModel):
             default=None,
         ),
     ] = None
+    """Languages detected in the source content."""
+
     output_language: Annotated[
         str | None,
         Field(
@@ -370,6 +413,8 @@ class TranslatePdfTextResponse(BaseModel):
             default=None,
         ),
     ] = None
+    """Target language used for the translation."""
+
     translated_text: Annotated[
         str | None,
         Field(
@@ -379,6 +424,8 @@ class TranslatePdfTextResponse(BaseModel):
             default=None,
         ),
     ] = None
+    """Inline translation content when output_type is json."""
+
     input_id: Annotated[
         PdfRestFileID,
         Field(
@@ -386,6 +433,7 @@ class TranslatePdfTextResponse(BaseModel):
             description="The id of the input file.",
         ),
     ]
+    """The id of the input file."""
 
 
 class TranslatePdfTextFileResponse(PdfRestFileBasedResponse):
@@ -402,6 +450,8 @@ class TranslatePdfTextFileResponse(PdfRestFileBasedResponse):
             default=None,
         ),
     ] = None
+    """Languages detected in the source content."""
+
     output_language: Annotated[
         str | None,
         Field(
@@ -411,6 +461,7 @@ class TranslatePdfTextFileResponse(PdfRestFileBasedResponse):
             default=None,
         ),
     ] = None
+    """Target language used for the translation."""
 
 
 class ExtractTextResponse(BaseModel):
@@ -427,6 +478,8 @@ class ExtractTextResponse(BaseModel):
             default=None,
         ),
     ] = None
+    """Inline extracted text when output_type is json."""
+
     input_id: Annotated[
         PdfRestFileID,
         Field(
@@ -434,10 +487,13 @@ class ExtractTextResponse(BaseModel):
             description="The id of the input file.",
         ),
     ]
+    """The id of the input file."""
+
     warning: Annotated[
         str | None,
         Field(description="A warning that was generated during text extraction."),
     ] = None
+    """A warning that was generated during text extraction."""
 
 
 class ExtractedTextPoint(BaseModel):
@@ -449,10 +505,13 @@ class ExtractedTextPoint(BaseModel):
         float,
         Field(description="Horizontal position in PDF points."),
     ]
+    """Horizontal position in PDF points."""
+
     y: Annotated[
         float,
         Field(description="Vertical position in PDF points."),
     ]
+    """Vertical position in PDF points."""
 
 
 class ExtractedTextWordCoordinates(BaseModel):
@@ -468,6 +527,8 @@ class ExtractedTextWordCoordinates(BaseModel):
             description="Upper-left corner of the word bounds.",
         ),
     ]
+    """Upper-left corner of the word bounds."""
+
     top_right: Annotated[
         ExtractedTextPoint,
         Field(
@@ -476,6 +537,8 @@ class ExtractedTextWordCoordinates(BaseModel):
             description="Upper-right corner of the word bounds.",
         ),
     ]
+    """Upper-right corner of the word bounds."""
+
     bottom_left: Annotated[
         ExtractedTextPoint,
         Field(
@@ -484,6 +547,8 @@ class ExtractedTextWordCoordinates(BaseModel):
             description="Lower-left corner of the word bounds.",
         ),
     ]
+    """Lower-left corner of the word bounds."""
+
     bottom_right: Annotated[
         ExtractedTextPoint,
         Field(
@@ -492,6 +557,7 @@ class ExtractedTextWordCoordinates(BaseModel):
             description="Lower-right corner of the word bounds.",
         ),
     ]
+    """Lower-right corner of the word bounds."""
 
 
 class ExtractedTextWordColor(BaseModel):
@@ -503,6 +569,8 @@ class ExtractedTextWordColor(BaseModel):
         str,
         Field(description="Color space name reported by pdfRest (e.g., DeviceRGB)."),
     ]
+    """Color space name reported by pdfRest (e.g., DeviceRGB)."""
+
     values: Annotated[
         list[float],
         Field(
@@ -510,6 +578,7 @@ class ExtractedTextWordColor(BaseModel):
             min_length=1,
         ),
     ]
+    """Numeric components in the reported color space."""
 
 
 class ExtractedTextWordFont(BaseModel):
@@ -521,10 +590,13 @@ class ExtractedTextWordFont(BaseModel):
         str,
         Field(description="Reported font face name."),
     ]
+    """Reported font face name."""
+
     size: Annotated[
         float,
         Field(description="Font size in points."),
     ]
+    """Font size in points."""
 
 
 class ExtractedTextWordStyle(BaseModel):
@@ -536,10 +608,13 @@ class ExtractedTextWordStyle(BaseModel):
         ExtractedTextWordColor,
         Field(description="Color information for the word."),
     ]
+    """Color information for the word."""
+
     font: Annotated[
         ExtractedTextWordFont,
         Field(description="Font information for the word."),
     ]
+    """Font information for the word."""
 
 
 class ExtractedTextWord(BaseModel):
@@ -551,10 +626,14 @@ class ExtractedTextWord(BaseModel):
         str,
         Field(description="Word content as rendered by the PDF."),
     ]
+    """Word content as rendered by the PDF."""
+
     page: Annotated[
         int,
         Field(description="1-indexed page number containing the word.", ge=1),
     ]
+    """1-indexed page number containing the word."""
+
     coordinates: Annotated[
         ExtractedTextWordCoordinates | None,
         Field(
@@ -562,6 +641,8 @@ class ExtractedTextWord(BaseModel):
             default=None,
         ),
     ] = None
+    """Bounding box for the word when positional data is requested."""
+
     style: Annotated[
         ExtractedTextWordStyle | None,
         Field(
@@ -569,6 +650,7 @@ class ExtractedTextWord(BaseModel):
             default=None,
         ),
     ] = None
+    """Font/color details captured for the word."""
 
 
 class ExtractedTextFullTextPage(BaseModel):
@@ -580,10 +662,13 @@ class ExtractedTextFullTextPage(BaseModel):
         int,
         Field(description="1-indexed page number.", ge=1),
     ]
+    """1-indexed page number."""
+
     text: Annotated[
         str,
         Field(description="Concatenated text for the page."),
     ]
+    """Concatenated text for the page."""
 
 
 class ExtractedTextFullTextPages(BaseModel):
@@ -598,6 +683,7 @@ class ExtractedTextFullTextPages(BaseModel):
             min_length=1,
         ),
     ]
+    """Ordered text for each page present in the document."""
 
 
 class ExtractedTextFullText(RootModel[str | ExtractedTextFullTextPages]):
@@ -607,6 +693,7 @@ class ExtractedTextFullText(RootModel[str | ExtractedTextFullTextPages]):
     """
 
     root: str | ExtractedTextFullTextPages
+    """Raw payload in document-text or per-page form."""
 
     @property
     def document_text(self) -> str | None:
@@ -653,6 +740,8 @@ class ExtractedTextDocument(BaseModel):
             description="Identifier of the uploaded PDF.",
         ),
     ]
+    """Identifier of the uploaded PDF."""
+
     words: Annotated[
         list[ExtractedTextWord] | None,
         Field(
@@ -660,6 +749,8 @@ class ExtractedTextDocument(BaseModel):
             default=None,
         ),
     ] = None
+    """Individual word records when word-level extraction is enabled."""
+
     full_text: Annotated[
         ExtractedTextFullText | None,
         Field(
@@ -669,6 +760,7 @@ class ExtractedTextDocument(BaseModel):
             default=None,
         ),
     ] = None
+    """Full text output (document string or per-page content)."""
 
 
 class ConvertToMarkdownResponse(BaseModel):
@@ -683,6 +775,8 @@ class ConvertToMarkdownResponse(BaseModel):
             default=None,
         ),
     ] = None
+    """Inline markdown content when output_type is json."""
+
     input_id: Annotated[
         PdfRestFileID,
         Field(
@@ -690,6 +784,8 @@ class ConvertToMarkdownResponse(BaseModel):
             description="The id of the input file.",
         ),
     ]
+    """The id of the input file."""
+
     output_url: Annotated[
         HttpUrl | None,
         Field(
@@ -699,6 +795,8 @@ class ConvertToMarkdownResponse(BaseModel):
             default=None,
         ),
     ] = None
+    """Download URL for file output."""
+
     output_id: Annotated[
         PdfRestFileID | None,
         Field(
@@ -708,10 +806,13 @@ class ConvertToMarkdownResponse(BaseModel):
             default=None,
         ),
     ] = None
+    """The id of the generated output when output_type is file."""
+
     warning: Annotated[
         str | None,
         Field(description="A warning that was generated during markdown conversion."),
     ] = None
+    """A warning that was generated during markdown conversion."""
 
 
 class PdfRestInfoResponse(BaseModel):
@@ -728,6 +829,8 @@ class PdfRestInfoResponse(BaseModel):
             description="The id of the input file",
         ),
     ]
+    """The id of the input file."""
+
     tagged: Annotated[
         bool | None,
         Field(
@@ -735,6 +838,8 @@ class PdfRestInfoResponse(BaseModel):
             "document. The result is true or false."
         ),
     ] = None
+    """Indicates whether structure tags are present in the PDF document. The result is true or false."""
+
     image_only: Annotated[
         bool | None,
         Field(
@@ -746,6 +851,8 @@ class PdfRestInfoResponse(BaseModel):
             )
         ),
     ] = None
+    """Indicates whether the document is 'image only,' meaning it consists solely of embedded graphical images with no text or other standard PDF document features except for metadata. The result is true or false."""
+
     title: Annotated[
         str | None,
         Field(
@@ -755,6 +862,8 @@ class PdfRestInfoResponse(BaseModel):
             )
         ),
     ] = None
+    """The title of the PDF as retrieved from the metadata. The result is a string that may be empty if the document does not have a title."""
+
     subject: Annotated[
         str | None,
         Field(
@@ -764,6 +873,8 @@ class PdfRestInfoResponse(BaseModel):
             )
         ),
     ] = None
+    """The subject of the PDF as retrieved from the metadata. The result is a string that may be empty if the document does not have a subject."""
+
     author: Annotated[
         str | None,
         Field(
@@ -773,6 +884,8 @@ class PdfRestInfoResponse(BaseModel):
             )
         ),
     ] = None
+    """The author of the PDF as retrieved from the metadata. The result is a string that may be empty if the document does not have an author."""
+
     producer: Annotated[
         str | None,
         Field(
@@ -783,6 +896,8 @@ class PdfRestInfoResponse(BaseModel):
             )
         ),
     ] = None
+    """The producer of the PDF as retrieved from the metadata. The result is a string that may be empty if the document does not have a producer."""
+
     creator: Annotated[
         str | None,
         Field(
@@ -792,6 +907,8 @@ class PdfRestInfoResponse(BaseModel):
             )
         ),
     ] = None
+    """The creator of the PDF as retrieved from the metadata. The result is a string that may be empty if the document does not have a creator."""
+
     creation_date: Annotated[
         str | None,
         Field(
@@ -802,6 +919,8 @@ class PdfRestInfoResponse(BaseModel):
             )
         ),
     ] = None
+    """The creation date of the PDF as retrieved from the metadata. The result is a string that may be empty if the document does not have a creation date."""
+
     modified_date: Annotated[
         str | None,
         Field(
@@ -812,6 +931,8 @@ class PdfRestInfoResponse(BaseModel):
             )
         ),
     ] = None
+    """The most recent modification date of the PDF as retrieved from the metadata. The result is a string that may be empty if the document does not have a modification date."""
+
     keywords: Annotated[
         str | None,
         Field(
@@ -822,6 +943,8 @@ class PdfRestInfoResponse(BaseModel):
             )
         ),
     ] = None
+    """The keywords of the PDF as retrieved from the metadata. The result is a string that may be empty if the document does not include keywords."""
+
     custom_metadata: Annotated[
         dict[str, Any] | None,
         Field(
@@ -832,6 +955,8 @@ class PdfRestInfoResponse(BaseModel):
             )
         ),
     ] = None
+    """Custom metadata entries extracted from the PDF. The result is a dictionary mapping keys to their stored values, or None when no custom metadata exists."""
+
     doc_language: Annotated[
         str | None,
         Field(
@@ -839,6 +964,8 @@ class PdfRestInfoResponse(BaseModel):
             "The result is a string."
         ),
     ] = None
+    """The language of the document as declared in its metadata. The result is a string."""
+
     page_count: Annotated[
         int | None,
         Field(
@@ -846,6 +973,8 @@ class PdfRestInfoResponse(BaseModel):
             "integer."
         ),
     ] = None
+    """The number of pages in the PDF document. The result is an integer."""
+
     contains_annotations: Annotated[
         bool | None,
         Field(
@@ -856,6 +985,8 @@ class PdfRestInfoResponse(BaseModel):
             )
         ),
     ] = None
+    """Indicates whether the PDF document contains annotations such as notes, highlighted text, file attachments, crossed-out text, or text callout boxes. The result is true or false."""
+
     contains_signature: Annotated[
         bool | None,
         Field(
@@ -863,6 +994,8 @@ class PdfRestInfoResponse(BaseModel):
             "The result is true or false."
         ),
     ] = None
+    """Indicates whether the PDF contains any digital signatures. The result is true or false."""
+
     pdf_version: Annotated[
         str | None,
         Field(
@@ -873,16 +1006,22 @@ class PdfRestInfoResponse(BaseModel):
             )
         ),
     ] = None
+    """The version of the PDF standard used to create the document. The result is a string in the format X.Y.Z, where X, Y, and Z represent the major, minor, and extension versions."""
+
     file_size: Annotated[
         int | None,
         Field(
             description="The size of the PDF file in bytes. The result is an integer."
         ),
     ] = None
+    """The size of the PDF file in bytes. The result is an integer."""
+
     filename: Annotated[
         str | None,
         Field(description="The name of the PDF file. The result is a string."),
     ] = None
+    """The name of the PDF file. The result is a string."""
+
     restrict_permissions_set: Annotated[
         bool | None,
         Field(
@@ -893,6 +1032,8 @@ class PdfRestInfoResponse(BaseModel):
             )
         ),
     ] = None
+    """Indicates whether the PDF file has restricted permissions, such as preventing printing, copying, or signing. The result is true or false."""
+
     contains_xfa: Annotated[
         bool | None,
         Field(
@@ -900,6 +1041,8 @@ class PdfRestInfoResponse(BaseModel):
             "true or false."
         ),
     ] = None
+    """Indicates whether the PDF contains XFA forms. The result is true or false."""
+
     contains_acroforms: Annotated[
         bool | None,
         Field(
@@ -907,6 +1050,8 @@ class PdfRestInfoResponse(BaseModel):
             "true or false."
         ),
     ] = None
+    """Indicates whether the PDF contains Acroforms. The result is true or false."""
+
     contains_javascript: Annotated[
         bool | None,
         Field(
@@ -914,6 +1059,8 @@ class PdfRestInfoResponse(BaseModel):
             "true or false."
         ),
     ] = None
+    """Indicates whether the PDF contains JavaScript. The result is true or false."""
+
     contains_transparency: Annotated[
         bool | None,
         Field(
@@ -921,6 +1068,8 @@ class PdfRestInfoResponse(BaseModel):
             "result is true or false."
         ),
     ] = None
+    """Indicates whether the PDF contains transparent objects. The result is true or false."""
+
     contains_embedded_file: Annotated[
         bool | None,
         Field(
@@ -928,6 +1077,8 @@ class PdfRestInfoResponse(BaseModel):
             "files. The result is true or false."
         ),
     ] = None
+    """Indicates whether the PDF contains one or more embedded files. The result is true or false."""
+
     uses_embedded_fonts: Annotated[
         bool | None,
         Field(
@@ -935,6 +1086,8 @@ class PdfRestInfoResponse(BaseModel):
             "The result is true or false."
         ),
     ] = None
+    """Indicates whether the PDF contains fully embedded fonts. The result is true or false."""
+
     uses_nonembedded_fonts: Annotated[
         bool | None,
         Field(
@@ -942,6 +1095,8 @@ class PdfRestInfoResponse(BaseModel):
             "result is true or false."
         ),
     ] = None
+    """Indicates whether the PDF contains non-embedded fonts. The result is true or false."""
+
     pdfa: Annotated[
         bool | None,
         Field(
@@ -949,6 +1104,8 @@ class PdfRestInfoResponse(BaseModel):
             "standard. The result is true or false."
         ),
     ] = None
+    """Indicates whether the document conforms to the PDF/A standard. The result is true or false."""
+
     pdfua_claim: Annotated[
         bool | None,
         Field(
@@ -956,6 +1113,8 @@ class PdfRestInfoResponse(BaseModel):
             "PDF/UA standard. The result is true or false."
         ),
     ] = None
+    """Indicates whether the document claims to conform to the PDF/UA standard. The result is true or false."""
+
     pdfe_claim: Annotated[
         bool | None,
         Field(
@@ -963,6 +1122,8 @@ class PdfRestInfoResponse(BaseModel):
             "PDF/E standard. The result is true or false."
         ),
     ] = None
+    """Indicates whether the document claims to conform to the PDF/E standard. The result is true or false."""
+
     pdfx_claim: Annotated[
         bool | None,
         Field(
@@ -970,6 +1131,8 @@ class PdfRestInfoResponse(BaseModel):
             "PDF/X standard. The result is true or false."
         ),
     ] = None
+    """Indicates whether the document claims to conform to the PDF/X standard. The result is true or false."""
+
     requires_password_to_open: Annotated[
         bool | None,
         Field(
@@ -980,6 +1143,8 @@ class PdfRestInfoResponse(BaseModel):
             )
         ),
     ] = None
+    """Indicates whether the PDF requires a password to open. The result is true or false. *Note*: A document requiring a password cannot be opened by this route and will not provide much other information."""
+
     all_queries_processed: Annotated[
         bool,
         Field(
@@ -993,9 +1158,12 @@ class PdfRestInfoResponse(BaseModel):
             ),
         ),
     ]
+    """Indicates whether all possible queries about the PDF document were successfully processed. This field is required, and the result is true or false."""
+
     warning: Annotated[
         str | None,
         Field(
             description="A warning indicating why not all queries could be processed.",
         ),
     ] = None
+    """A warning indicating why not all queries could be processed."""
