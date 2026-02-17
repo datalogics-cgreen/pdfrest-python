@@ -1818,13 +1818,12 @@ class PdfConvertColorsPayload(BaseModel):
         PdfConvertColorProfile,
         Field(serialization_alias="color_profile"),
     ]
-    profile: Annotated[
+    custom_profile: Annotated[
         list[PdfRestFile] | None,
         Field(
             default=None,
             min_length=1,
             max_length=1,
-            validation_alias=AliasChoices("profile", "profiles"),
             serialization_alias="profile_id",
         ),
         BeforeValidator(_ensure_list),
@@ -1859,7 +1858,7 @@ class PdfConvertColorsPayload(BaseModel):
         if not _is_uploaded_file_value(color_profile):
             return payload
 
-        if payload.get("profile") is not None or payload.get("profiles") is not None:
+        if payload.get("custom_profile") is not None:
             msg = (
                 "Provide the custom profile file via color_profile only when "
                 "color_profile is a file."
@@ -1867,19 +1866,19 @@ class PdfConvertColorsPayload(BaseModel):
             raise ValueError(msg)
 
         payload["color_profile"] = "custom"
-        payload["profile"] = color_profile
+        payload["custom_profile"] = color_profile
         return payload
 
     @model_validator(mode="after")
     def _validate_profile_dependency(self) -> PdfConvertColorsPayload:
         if self.color_profile == "custom":
-            if not self.profile:
+            if not self.custom_profile:
                 msg = (
                     "A custom color profile requires an uploaded ICC file passed "
                     "as color_profile."
                 )
                 raise ValueError(msg)
-        elif self.profile:
+        elif self.custom_profile:
             msg = (
                 "A profile can only be provided by passing an uploaded ICC file "
                 "as color_profile."

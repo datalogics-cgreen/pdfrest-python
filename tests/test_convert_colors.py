@@ -399,7 +399,7 @@ def test_convert_colors_payload_profile_dependency_validation() -> None:
             {
                 "files": [pdf_file],
                 "color_profile": "srgb",
-                "profile": _make_icc_file(),
+                "custom_profile": _make_icc_file(),
             }
         )
 
@@ -411,7 +411,7 @@ def test_convert_colors_payload_profile_dependency_validation() -> None:
             {
                 "files": [pdf_file],
                 "color_profile": _make_icc_file(),
-                "profile": _make_icc_file(),
+                "custom_profile": _make_icc_file(),
             }
         )
 
