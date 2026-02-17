@@ -248,7 +248,10 @@ def _allowed_mime_types(
                 _ = allowed_mime_types_validator(item)
             return value
         if value.type not in combined_allowed_mime_types:
-            msg = error_msg or f"The file type must be one of: {allowed_mime_types}"
+            msg = (
+                error_msg
+                or f"The file type must be one of: {combined_allowed_mime_types}"
+            )
             raise ValueError(msg)
         return value
 
