@@ -1,6 +1,6 @@
 ---
 name: pr-review-auditor
-description: Review the currently checked-out PR by discovering its upstream base branch with GitHub CLI, diffing base..HEAD, and performing a correctness-first code review that enforces repository policy with special priority on *GUIDELINES*.md rules and then AGENTS.md. Use when asked to do a full PR review, /review-style audit, commit-range quality check, or policy-compliance review of branch changes.
+description: Review the currently checked-out PR by discovering its upstream base branch with GitHub CLI, diffing merge-base..HEAD, and performing a correctness-first code review that enforces repository policy with special priority on *GUIDELINES*.md rules and then AGENTS.md. Use when asked to do a full PR review, /review-style audit, commit-range quality check, or policy-compliance review of branch changes.
 ---
 
 # PR Review Auditor
@@ -20,7 +20,7 @@ policy precedence: `*GUIDELINES*.md` before `AGENTS.md`.
 - checked-out branch,
 - PR number and base branch (via `gh pr view`),
 - merge-base commit,
-- review range (`<base_remote>/<base>..HEAD`),
+- review range (`<merge_base>..HEAD`),
 - changed files,
 - available policy files (`*GUIDELINES*.md`, `AGENTS.md`).
 
