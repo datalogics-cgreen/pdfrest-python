@@ -1402,25 +1402,29 @@ class PdfBlankPayload(BaseModel):
         if not isinstance(data, Mapping):
             return data
 
-        request_data = cast(Mapping[str, Any], data)
-        page_size = request_data.get("page_size")
-        if not isinstance(page_size, Sequence) or isinstance(
+        normalized_data: dict[str, Any] = dict(cast(Mapping[str, Any], data))
+        page_size = normalized_data.get("page_size")
+        if isinstance(page_size, Sequence) and not isinstance(
             page_size, (str, bytes, bytearray)
         ):
-            return request_data
+            custom_dimensions = list(page_size)
+            if len(custom_dimensions) != 2:
+                msg = (
+                    "Custom page sizes must contain exactly two values: "
+                    "custom_height and custom_width."
+                )
+                raise ValueError(msg)
+            normalized_data["page_size"] = "custom"
+            normalized_data["custom_height"] = custom_dimensions[0]
+            normalized_data["custom_width"] = custom_dimensions[1]
 
-        custom_dimensions = list(page_size)
-        if len(custom_dimensions) != 2:
-            msg = (
-                "Custom page sizes must contain exactly two values: "
-                "custom_height and custom_width."
-            )
-            raise ValueError(msg)
+        if (
+            normalized_data.get("page_size") is not None
+            and normalized_data.get("page_size") != "custom"
+            and normalized_data.get("page_orientation") is None
+        ):
+            normalized_data["page_orientation"] = "portrait"
 
-        normalized_data: dict[str, Any] = dict(request_data)
-        normalized_data["page_size"] = "custom"
-        normalized_data["custom_height"] = custom_dimensions[0]
-        normalized_data["custom_width"] = custom_dimensions[1]
         return normalized_data
 
     @model_validator(mode="after")

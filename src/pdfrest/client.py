@@ -3077,8 +3077,8 @@ class PdfRestClient(_SyncApiClient):
     def blank_pdf(
         self,
         *,
-        page_size: PdfPageSize,
-        page_count: int,
+        page_size: PdfPageSize = "letter",
+        page_count: int = 1,
         page_orientation: PdfPageOrientation | None = None,
         output: str | None = None,
         extra_query: Query | None = None,
@@ -3086,7 +3086,7 @@ class PdfRestClient(_SyncApiClient):
         extra_body: Body | None = None,
         timeout: TimeoutTypes | None = None,
     ) -> PdfRestFileBasedResponse:
-        """Create a blank PDF with the specified size, count, and orientation."""
+        """Create a blank PDF with configurable size, count, and orientation."""
 
         payload: dict[str, Any] = {
             "page_size": page_size,
@@ -4516,8 +4516,8 @@ class AsyncPdfRestClient(_AsyncApiClient):
     async def blank_pdf(
         self,
         *,
-        page_size: PdfPageSize,
-        page_count: int,
+        page_size: PdfPageSize = "letter",
+        page_count: int = 1,
         page_orientation: PdfPageOrientation | None = None,
         output: str | None = None,
         extra_query: Query | None = None,
@@ -4525,7 +4525,7 @@ class AsyncPdfRestClient(_AsyncApiClient):
         extra_body: Body | None = None,
         timeout: TimeoutTypes | None = None,
     ) -> PdfRestFileBasedResponse:
-        """Asynchronously create a blank PDF with the specified size."""
+        """Asynchronously create a blank PDF with configurable size and count."""
 
         payload: dict[str, Any] = {
             "page_size": page_size,

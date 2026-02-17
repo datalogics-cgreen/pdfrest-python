@@ -150,6 +150,91 @@ async def test_async_blank_pdf_standard_page_literals(
     assert response.output_file.type == "application/pdf"
 
 
+def test_blank_pdf_defaults(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("PDFREST_API_KEY", raising=False)
+    output_id = str(PdfRestFileID.generate())
+
+    payload_dump = PdfBlankPayload.model_validate(
+        {
+            "page_size": "letter",
+            "page_count": 1,
+            "page_orientation": "portrait",
+        }
+    ).model_dump(mode="json", by_alias=True, exclude_none=True, exclude_unset=True)
+
+    seen: dict[str, int] = {"post": 0, "get": 0}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.method == "POST" and request.url.path == "/blank-pdf":
+            seen["post"] += 1
+            payload = json.loads(request.content.decode("utf-8"))
+            assert payload == payload_dump
+            return httpx.Response(200, json={"outputId": [output_id]})
+        if request.method == "GET" and request.url.path == f"/resource/{output_id}":
+            seen["get"] += 1
+            return httpx.Response(
+                200,
+                json=build_file_info_payload(
+                    output_id,
+                    "blank-default.pdf",
+                    "application/pdf",
+                ),
+            )
+        msg = f"Unexpected request {request.method} {request.url}"
+        raise AssertionError(msg)
+
+    transport = httpx.MockTransport(handler)
+    with PdfRestClient(api_key=VALID_API_KEY, transport=transport) as client:
+        response = client.blank_pdf()
+
+    assert seen == {"post": 1, "get": 1}
+    assert isinstance(response, PdfRestFileBasedResponse)
+    assert response.output_file.type == "application/pdf"
+
+
+@pytest.mark.asyncio
+async def test_async_blank_pdf_defaults(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("PDFREST_API_KEY", raising=False)
+    output_id = str(PdfRestFileID.generate())
+
+    payload_dump = PdfBlankPayload.model_validate(
+        {
+            "page_size": "letter",
+            "page_count": 1,
+            "page_orientation": "portrait",
+        }
+    ).model_dump(mode="json", by_alias=True, exclude_none=True, exclude_unset=True)
+
+    seen: dict[str, int] = {"post": 0, "get": 0}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.method == "POST" and request.url.path == "/blank-pdf":
+            seen["post"] += 1
+            payload = json.loads(request.content.decode("utf-8"))
+            assert payload == payload_dump
+            return httpx.Response(200, json={"outputId": [output_id]})
+        if request.method == "GET" and request.url.path == f"/resource/{output_id}":
+            seen["get"] += 1
+            return httpx.Response(
+                200,
+                json=build_file_info_payload(
+                    output_id,
+                    "blank-async-default.pdf",
+                    "application/pdf",
+                ),
+            )
+        msg = f"Unexpected request {request.method} {request.url}"
+        raise AssertionError(msg)
+
+    transport = httpx.MockTransport(handler)
+    async with AsyncPdfRestClient(api_key=ASYNC_API_KEY, transport=transport) as client:
+        response = await client.blank_pdf()
+
+    assert seen == {"post": 1, "get": 1}
+    assert isinstance(response, PdfRestFileBasedResponse)
+    assert response.output_file.type == "application/pdf"
+
+
 @pytest.mark.parametrize(
     "page_count",
     [
@@ -596,12 +681,6 @@ async def test_async_blank_pdf_request_customization(
 def test_blank_pdf_validation(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.delenv("PDFREST_API_KEY", raising=False)
     transport = httpx.MockTransport(lambda request: (_ for _ in ()).throw(RuntimeError))
-
-    with (
-        PdfRestClient(api_key=VALID_API_KEY, transport=transport) as client,
-        pytest.raises(ValueError, match="page_orientation is required"),
-    ):
-        client.blank_pdf(page_size="letter", page_count=1)
 
     with (
         PdfRestClient(api_key=VALID_API_KEY, transport=transport) as client,
