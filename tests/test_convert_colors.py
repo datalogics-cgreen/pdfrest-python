@@ -10,7 +10,7 @@ from pydantic import ValidationError
 from pdfrest import AsyncPdfRestClient, PdfRestClient
 from pdfrest.models import PdfRestFile, PdfRestFileBasedResponse, PdfRestFileID
 from pdfrest.models._internal import PdfConvertColorsPayload
-from pdfrest.types import PdfColorProfile
+from pdfrest.types import PdfPresetColorProfile
 
 from .graphics_test_helpers import (
     ASYNC_API_KEY,
@@ -30,9 +30,9 @@ def _make_icc_file() -> PdfRestFile:
     )
 
 
-ALL_COLOR_PROFILES: tuple[PdfColorProfile, ...] = cast(
-    tuple[PdfColorProfile, ...],
-    get_args(PdfColorProfile),
+ALL_COLOR_PROFILES: tuple[PdfPresetColorProfile, ...] = cast(
+    tuple[PdfPresetColorProfile, ...],
+    get_args(PdfPresetColorProfile),
 )
 
 
@@ -45,11 +45,10 @@ ALL_COLOR_PROFILES: tuple[PdfColorProfile, ...] = cast(
 )
 def test_convert_colors_success(
     monkeypatch: pytest.MonkeyPatch,
-    color_profile: PdfColorProfile,
+    color_profile: PdfPresetColorProfile,
 ) -> None:
     monkeypatch.delenv("PDFREST_API_KEY", raising=False)
     input_file = make_pdf_file(PdfRestFileID.generate(1))
-    profile_file = _make_icc_file()
     output_id = str(PdfRestFileID.generate())
 
     payload_options: dict[str, Any] = {
@@ -62,9 +61,6 @@ def test_convert_colors_success(
         "color_profile": color_profile,
         "output": "converted",
     }
-    if color_profile == "custom":
-        payload_options["profile"] = profile_file
-        client_options["profile"] = profile_file
 
     payload_dump = PdfConvertColorsPayload.model_validate(payload_options).model_dump(
         mode="json",
@@ -196,11 +192,10 @@ def test_convert_colors_request_customization(
 @pytest.mark.asyncio
 async def test_async_convert_colors_success(
     monkeypatch: pytest.MonkeyPatch,
-    color_profile: PdfColorProfile,
+    color_profile: PdfPresetColorProfile,
 ) -> None:
     monkeypatch.delenv("PDFREST_API_KEY", raising=False)
     input_file = make_pdf_file(PdfRestFileID.generate(2))
-    profile_file = _make_icc_file()
     output_id = str(PdfRestFileID.generate())
 
     payload_options: dict[str, Any] = {
@@ -209,9 +204,6 @@ async def test_async_convert_colors_success(
         "preserve_black": False,
     }
     client_options: dict[str, Any] = {"color_profile": color_profile}
-    if color_profile == "custom":
-        payload_options["profile"] = profile_file
-        client_options["profile"] = profile_file
 
     payload_dump = PdfConvertColorsPayload.model_validate(payload_options).model_dump(
         mode="json",
@@ -368,15 +360,12 @@ def test_convert_colors_validation(monkeypatch: pytest.MonkeyPatch) -> None:
 
     with (
         PdfRestClient(api_key=VALID_API_KEY, transport=transport) as client,
-        pytest.raises(ValueError, match="requires a profile"),
+        pytest.raises(
+            ValueError,
+            match="A custom color profile requires an uploaded ICC file",
+        ),
     ):
-        client.convert_colors(pdf_file, color_profile="custom")
-
-    with (
-        PdfRestClient(api_key=VALID_API_KEY, transport=transport) as client,
-        pytest.raises(ValueError, match="only be provided when color_profile"),
-    ):
-        client.convert_colors(pdf_file, color_profile="srgb", profile=_make_icc_file())
+        client.convert_colors(pdf_file, color_profile=cast(Any, "custom"))
 
     with (
         PdfRestClient(api_key=VALID_API_KEY, transport=transport) as client,
@@ -386,8 +375,7 @@ def test_convert_colors_validation(monkeypatch: pytest.MonkeyPatch) -> None:
     ):
         client.convert_colors(
             pdf_file,
-            color_profile="custom",
-            profile=[_make_icc_file(), _make_icc_file()],
+            color_profile=[_make_icc_file(), _make_icc_file()],
         )
 
     with (
@@ -399,17 +387,32 @@ def test_convert_colors_validation(monkeypatch: pytest.MonkeyPatch) -> None:
             color_profile=wrong_profile_file,
         )
 
-    with (
-        PdfRestClient(api_key=VALID_API_KEY, transport=transport) as client,
-        pytest.raises(
-            ValueError,
-            match=r"Provide the custom profile file via color_profile only",
-        ),
+
+def test_convert_colors_payload_profile_dependency_validation() -> None:
+    pdf_file = make_pdf_file(PdfRestFileID.generate(1))
+
+    with pytest.raises(
+        ValueError,
+        match="A profile can only be provided by passing an uploaded ICC file",
     ):
-        client.convert_colors(
-            pdf_file,
-            color_profile=_make_icc_file(),
-            profile=_make_icc_file(),
+        PdfConvertColorsPayload.model_validate(
+            {
+                "files": [pdf_file],
+                "color_profile": "srgb",
+                "profile": _make_icc_file(),
+            }
+        )
+
+    with pytest.raises(
+        ValueError,
+        match=r"Provide the custom profile file via color_profile only",
+    ):
+        PdfConvertColorsPayload.model_validate(
+            {
+                "files": [pdf_file],
+                "color_profile": _make_icc_file(),
+                "profile": _make_icc_file(),
+            }
         )
 
 
@@ -445,39 +448,24 @@ async def test_async_convert_colors_validation(monkeypatch: pytest.MonkeyPatch) 
                 color_profile="srgb",
             )
 
-        with pytest.raises(ValueError, match="requires a profile"):
-            await client.convert_colors(pdf_file, color_profile="custom")
-
-        with pytest.raises(ValueError, match="only be provided when color_profile"):
-            await client.convert_colors(
-                pdf_file,
-                color_profile="srgb",
-                profile=_make_icc_file(),
-            )
+        with pytest.raises(
+            ValueError,
+            match="A custom color profile requires an uploaded ICC file",
+        ):
+            await client.convert_colors(pdf_file, color_profile=cast(Any, "custom"))
 
         with pytest.raises(
             ValidationError, match="List should have at most 1 item after validation"
         ):
             await client.convert_colors(
                 pdf_file,
-                color_profile="custom",
-                profile=[_make_icc_file(), _make_icc_file()],
+                color_profile=[_make_icc_file(), _make_icc_file()],
             )
 
         with pytest.raises(ValidationError, match="Profile must be an ICC file"):
             await client.convert_colors(
                 pdf_file,
                 color_profile=wrong_profile_file,
-            )
-
-        with pytest.raises(
-            ValueError,
-            match=r"Provide the custom profile file via color_profile only",
-        ):
-            await client.convert_colors(
-                pdf_file,
-                color_profile=_make_icc_file(),
-                profile=_make_icc_file(),
             )
 
 

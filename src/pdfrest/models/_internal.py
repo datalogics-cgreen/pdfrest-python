@@ -28,13 +28,13 @@ from ..types import (
     HtmlWebLayout,
     OcrLanguage,
     PdfAType,
-    PdfColorProfile,
     PdfConversionCompression,
     PdfConversionDownsample,
     PdfConversionLocale,
     PdfInfoQuery,
     PdfPageOrientation,
     PdfPageSize,
+    PdfPresetColorProfile,
     PdfRestriction,
     PdfXType,
     SummaryFormat,
@@ -43,6 +43,8 @@ from ..types import (
     TranslateOutputFormat,
 )
 from .public import PdfRestFile, PdfRestFileID
+
+PdfConvertColorProfile = PdfPresetColorProfile | Literal["custom"]
 
 
 def _ensure_list(value: Any) -> Any:
@@ -1813,7 +1815,7 @@ class PdfConvertColorsPayload(BaseModel):
         PlainSerializer(_serialize_as_first_file_id),
     ]
     color_profile: Annotated[
-        PdfColorProfile,
+        PdfConvertColorProfile,
         Field(serialization_alias="color_profile"),
     ]
     profile: Annotated[
@@ -1872,10 +1874,16 @@ class PdfConvertColorsPayload(BaseModel):
     def _validate_profile_dependency(self) -> PdfConvertColorsPayload:
         if self.color_profile == "custom":
             if not self.profile:
-                msg = "color_profile 'custom' requires a profile to be provided."
+                msg = (
+                    "A custom color profile requires an uploaded ICC file passed "
+                    "as color_profile."
+                )
                 raise ValueError(msg)
         elif self.profile:
-            msg = "A profile can only be provided when color_profile is 'custom'."
+            msg = (
+                "A profile can only be provided by passing an uploaded ICC file "
+                "as color_profile."
+            )
             raise ValueError(msg)
         return self
 

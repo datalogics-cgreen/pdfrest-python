@@ -139,7 +139,6 @@ from .types import (
     OcrLanguage,
     PdfAddTextObject,
     PdfAType,
-    PdfColorProfile,
     PdfConversionCompression,
     PdfConversionDownsample,
     PdfConversionLocale,
@@ -148,6 +147,7 @@ from .types import (
     PdfPageOrientation,
     PdfPageSelection,
     PdfPageSize,
+    PdfPresetColorProfile,
     PdfRedactionInstruction,
     PdfRestriction,
     PdfRGBColor,
@@ -3179,8 +3179,7 @@ class PdfRestClient(_SyncApiClient):
         self,
         file: PdfRestFile | Sequence[PdfRestFile],
         *,
-        color_profile: PdfColorProfile | PdfRestFile | Sequence[PdfRestFile],
-        profile: PdfRestFile | Sequence[PdfRestFile] | None = None,
+        color_profile: PdfPresetColorProfile | PdfRestFile | Sequence[PdfRestFile],
         preserve_black: bool = False,
         output: str | None = None,
         extra_query: Query | None = None,
@@ -3188,15 +3187,13 @@ class PdfRestClient(_SyncApiClient):
         extra_body: Body | None = None,
         timeout: TimeoutTypes | None = None,
     ) -> PdfRestFileBasedResponse:
-        """Convert PDF colors using preset or custom ICC profiles."""
+        """Convert PDF colors using presets or a custom uploaded ICC profile."""
 
         payload: dict[str, Any] = {
             "files": file,
             "color_profile": color_profile,
             "preserve_black": preserve_black,
         }
-        if profile is not None:
-            payload["profile"] = profile
         if output is not None:
             payload["output"] = output
 
@@ -4917,8 +4914,7 @@ class AsyncPdfRestClient(_AsyncApiClient):
         self,
         file: PdfRestFile | Sequence[PdfRestFile],
         *,
-        color_profile: PdfColorProfile | PdfRestFile | Sequence[PdfRestFile],
-        profile: PdfRestFile | Sequence[PdfRestFile] | None = None,
+        color_profile: PdfPresetColorProfile | PdfRestFile | Sequence[PdfRestFile],
         preserve_black: bool = False,
         output: str | None = None,
         extra_query: Query | None = None,
@@ -4926,15 +4922,13 @@ class AsyncPdfRestClient(_AsyncApiClient):
         extra_body: Body | None = None,
         timeout: TimeoutTypes | None = None,
     ) -> PdfRestFileBasedResponse:
-        """Asynchronously convert PDF colors using preset or custom ICC profiles."""
+        """Asynchronously convert PDF colors using presets or a custom ICC profile."""
 
         payload: dict[str, Any] = {
             "files": file,
             "color_profile": color_profile,
             "preserve_black": preserve_black,
         }
-        if profile is not None:
-            payload["profile"] = profile
         if output is not None:
             payload["output"] = output
 

@@ -41,6 +41,7 @@ __all__ = (
     "PdfPageOrientation",
     "PdfPageSelection",
     "PdfPageSize",
+    "PdfPresetColorProfile",
     "PdfRGBColor",
     "PdfRedactionInstruction",
     "PdfRedactionPreset",
@@ -220,7 +221,7 @@ ALL_PDF_RESTRICTIONS: tuple[PdfRestriction, ...] = cast(
 )
 PdfPageSize = Literal["letter", "legal", "ledger", "A3", "A4", "A5"] | PdfCustomPageSize
 PdfPageOrientation = Literal["portrait", "landscape"]
-PdfColorProfile = Literal[
+PdfPresetColorProfile = Literal[
     "lab-d50",
     "srgb",
     "apple-rgb",
@@ -235,5 +236,6 @@ PdfColorProfile = Literal[
     "monitor-rgb",
     "acrobat5-cmyk",
     "acrobat9-cmyk",
-    "custom",
 ]
+
+PdfColorProfile = PdfPresetColorProfile
