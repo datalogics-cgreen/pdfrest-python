@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from types import SimpleNamespace
 from typing import cast
 
 import httpx
@@ -750,4 +751,51 @@ def test_blank_pdf_validation(monkeypatch: pytest.MonkeyPatch) -> None:
             page_size="A4",
             page_count=1001,
             page_orientation="portrait",
+        )
+
+
+def test_blank_payload_validation_non_mapping_input_skips_normalization() -> None:
+    with pytest.raises(
+        ValidationError,
+        match="page_orientation is required when page_size is not 'custom'",
+    ):
+        _ = PdfBlankPayload.model_validate(
+            SimpleNamespace(
+                page_size="A4",
+                page_count=1,
+                page_orientation=None,
+                custom_height=None,
+                custom_width=None,
+                output=None,
+            ),
+            from_attributes=True,
+        )
+
+
+def test_blank_payload_requires_custom_dimensions() -> None:
+    with pytest.raises(
+        ValidationError,
+        match="custom_height and custom_width are required when page_size is 'custom'",
+    ):
+        _ = PdfBlankPayload.model_validate(
+            {
+                "page_size": "custom",
+                "page_count": 1,
+                "custom_height": 9.5,
+            }
+        )
+
+
+def test_blank_payload_rejects_custom_dimensions_for_non_custom_page() -> None:
+    with pytest.raises(
+        ValidationError,
+        match="custom_height and custom_width can only be provided when page_size is 'custom'",
+    ):
+        _ = PdfBlankPayload.model_validate(
+            {
+                "page_size": "A4",
+                "page_count": 1,
+                "custom_height": 792.0,
+                "custom_width": 612.0,
+            }
         )
