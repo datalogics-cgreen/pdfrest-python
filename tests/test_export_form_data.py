@@ -9,6 +9,7 @@ from pydantic import ValidationError
 from pdfrest import AsyncPdfRestClient, PdfRestClient
 from pdfrest.models import PdfRestFile, PdfRestFileBasedResponse, PdfRestFileID
 from pdfrest.models._internal import PdfExportFormDataPayload
+from pdfrest.types import ExportDataFormat
 
 from .graphics_test_helpers import (
     ASYNC_API_KEY,
@@ -18,13 +19,43 @@ from .graphics_test_helpers import (
 )
 
 
-def test_export_form_data_success(monkeypatch: pytest.MonkeyPatch) -> None:
+@pytest.mark.parametrize(
+    ("data_format", "output_name", "mime_type"),
+    [
+        pytest.param("fdf", "exported-data.fdf", "application/vnd.fdf", id="fdf"),
+        pytest.param(
+            "xfdf",
+            "exported-data.xfdf",
+            "application/vnd.adobe.xfdf",
+            id="xfdf",
+        ),
+        pytest.param("xml", "exported-data.xml", "application/xml", id="xml"),
+        pytest.param(
+            "xdp",
+            "exported-data.xdp",
+            "application/vnd.adobe.xdp+xml",
+            id="xdp",
+        ),
+        pytest.param(
+            "xfd",
+            "exported-data.xfd",
+            "application/vnd.adobe.xfd+xml",
+            id="xfd",
+        ),
+    ],
+)
+def test_export_form_data_success(
+    monkeypatch: pytest.MonkeyPatch,
+    data_format: ExportDataFormat,
+    output_name: str,
+    mime_type: str,
+) -> None:
     monkeypatch.delenv("PDFREST_API_KEY", raising=False)
     input_file = make_pdf_file(PdfRestFileID.generate(1))
     output_id = str(PdfRestFileID.generate())
 
     payload_dump = PdfExportFormDataPayload.model_validate(
-        {"files": [input_file], "data_format": "xml", "output": "exported-data"}
+        {"files": [input_file], "data_format": data_format, "output": "exported-data"}
     ).model_dump(mode="json", by_alias=True, exclude_none=True, exclude_unset=True)
 
     seen: dict[str, int] = {"post": 0, "get": 0}
@@ -48,8 +79,8 @@ def test_export_form_data_success(monkeypatch: pytest.MonkeyPatch) -> None:
                 200,
                 json=build_file_info_payload(
                     output_id,
-                    "exported-data.xml",
-                    "application/xml",
+                    output_name,
+                    mime_type,
                 ),
             )
         msg = f"Unexpected request {request.method} {request.url}"
@@ -59,14 +90,14 @@ def test_export_form_data_success(monkeypatch: pytest.MonkeyPatch) -> None:
     with PdfRestClient(api_key=VALID_API_KEY, transport=transport) as client:
         response = client.export_form_data(
             input_file,
-            data_format="xml",
+            data_format=data_format,
             output="exported-data",
         )
 
     assert seen == {"post": 1, "get": 1}
     assert isinstance(response, PdfRestFileBasedResponse)
-    assert response.output_file.name == "exported-data.xml"
-    assert response.output_file.type == "application/xml"
+    assert response.output_file.name == output_name
+    assert response.output_file.type == mime_type
     assert str(response.input_id) == str(input_file.id)
     assert response.warning is None
 
@@ -136,15 +167,43 @@ def test_export_form_data_request_customization(
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("data_format", "output_name", "mime_type"),
+    [
+        pytest.param("fdf", "async-data.fdf", "application/vnd.fdf", id="fdf"),
+        pytest.param(
+            "xfdf",
+            "async-data.xfdf",
+            "application/vnd.adobe.xfdf",
+            id="xfdf",
+        ),
+        pytest.param("xml", "async-data.xml", "application/xml", id="xml"),
+        pytest.param(
+            "xdp",
+            "async-data.xdp",
+            "application/vnd.adobe.xdp+xml",
+            id="xdp",
+        ),
+        pytest.param(
+            "xfd",
+            "async-data.xfd",
+            "application/vnd.adobe.xfd+xml",
+            id="xfd",
+        ),
+    ],
+)
 async def test_async_export_form_data_success(
     monkeypatch: pytest.MonkeyPatch,
+    data_format: ExportDataFormat,
+    output_name: str,
+    mime_type: str,
 ) -> None:
     monkeypatch.delenv("PDFREST_API_KEY", raising=False)
     input_file = make_pdf_file(PdfRestFileID.generate(2))
     output_id = str(PdfRestFileID.generate())
 
     payload_dump = PdfExportFormDataPayload.model_validate(
-        {"files": [input_file], "data_format": "xfdf"}
+        {"files": [input_file], "data_format": data_format}
     ).model_dump(mode="json", by_alias=True, exclude_none=True, exclude_unset=True)
 
     seen: dict[str, int] = {"post": 0, "get": 0}
@@ -168,8 +227,8 @@ async def test_async_export_form_data_success(
                 200,
                 json=build_file_info_payload(
                     output_id,
-                    "async-data.xfdf",
-                    "application/vnd.adobe.xfdf",
+                    output_name,
+                    mime_type,
                 ),
             )
         msg = f"Unexpected request {request.method} {request.url}"
@@ -177,12 +236,12 @@ async def test_async_export_form_data_success(
 
     transport = httpx.MockTransport(handler)
     async with AsyncPdfRestClient(api_key=ASYNC_API_KEY, transport=transport) as client:
-        response = await client.export_form_data(input_file, data_format="xfdf")
+        response = await client.export_form_data(input_file, data_format=data_format)
 
     assert seen == {"post": 1, "get": 1}
     assert isinstance(response, PdfRestFileBasedResponse)
-    assert response.output_file.name == "async-data.xfdf"
-    assert response.output_file.type == "application/vnd.adobe.xfdf"
+    assert response.output_file.name == output_name
+    assert response.output_file.type == mime_type
     assert str(response.input_id) == str(input_file.id)
 
 
@@ -282,3 +341,39 @@ def test_export_form_data_validation(monkeypatch: pytest.MonkeyPatch) -> None:
         client.export_form_data(
             [pdf_file, make_pdf_file(PdfRestFileID.generate())], data_format="xml"
         )
+
+
+@pytest.mark.asyncio
+async def test_async_export_form_data_validation(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.delenv("PDFREST_API_KEY", raising=False)
+    pdf_file = make_pdf_file(PdfRestFileID.generate(1))
+    png_file = PdfRestFile.model_validate(
+        build_file_info_payload(
+            PdfRestFileID.generate(),
+            "example.png",
+            "image/png",
+        )
+    )
+    transport = httpx.MockTransport(lambda request: (_ for _ in ()).throw(RuntimeError))
+
+    async with AsyncPdfRestClient(api_key=ASYNC_API_KEY, transport=transport) as client:
+        with pytest.raises(ValidationError, match="Must be a PDF file"):
+            await client.export_form_data(png_file, data_format="xml")
+
+    async with AsyncPdfRestClient(api_key=ASYNC_API_KEY, transport=transport) as client:
+        with pytest.raises(ValidationError, match="Input should be 'fdf'"):
+            await client.export_form_data(
+                pdf_file,
+                data_format="yaml",  # type: ignore[arg-type]
+            )
+
+    async with AsyncPdfRestClient(api_key=ASYNC_API_KEY, transport=transport) as client:
+        with pytest.raises(
+            ValidationError, match="List should have at most 1 item after validation"
+        ):
+            await client.export_form_data(
+                [pdf_file, make_pdf_file(PdfRestFileID.generate())],
+                data_format="xml",
+            )

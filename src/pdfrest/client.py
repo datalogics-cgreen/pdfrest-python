@@ -2887,7 +2887,12 @@ class PdfRestClient(_SyncApiClient):
         extra_body: Body | None = None,
         timeout: TimeoutTypes | None = None,
     ) -> PdfRestFileBasedResponse:
-        """Export form data from a PDF with form fields to an external data file."""
+        """Export form data from a PDF into an external data file.
+
+        `data_format` support depends on detected form type:
+        - AcroForm PDFs: `xfdf`, `fdf`, `xml`
+        - XFA PDFs: `xfd`, `xdp`, `xml`
+        """
 
         payload: dict[str, Any] = {
             "files": file,
@@ -4647,7 +4652,12 @@ class AsyncPdfRestClient(_AsyncApiClient):
         extra_body: Body | None = None,
         timeout: TimeoutTypes | None = None,
     ) -> PdfRestFileBasedResponse:
-        """Asynchronously export form data from a PDF into a data file."""
+        """Asynchronously export form data from a PDF into a data file.
+
+        `data_format` support depends on detected form type:
+        - AcroForm PDFs: `xfdf`, `fdf`, `xml`
+        - XFA PDFs: `xfd`, `xdp`, `xml`
+        """
 
         payload: dict[str, Any] = {
             "files": file,
