@@ -75,16 +75,18 @@ def test_live_convert_colors_color_profiles_success(
 def test_live_convert_colors_custom_profile_success(
     pdfrest_api_key: str,
     pdfrest_live_base_url: str,
-    uploaded_pdf_for_color_conversion: PdfRestFile,
-    uploaded_custom_profile_for_color_conversion: PdfRestFile,
 ) -> None:
+    pdf_resource = get_test_resource_path("report.pdf")
+    profile_resource = get_test_resource_path("custom.icc")
     with PdfRestClient(
         api_key=pdfrest_api_key,
         base_url=pdfrest_live_base_url,
     ) as client:
+        uploaded_pdf = client.files.create_from_paths([pdf_resource])[0]
+        uploaded_profile = client.files.create_from_paths([profile_resource])[0]
         response = client.convert_colors(
-            uploaded_pdf_for_color_conversion,
-            color_profile=uploaded_custom_profile_for_color_conversion,
+            uploaded_pdf,
+            color_profile=uploaded_profile,
         )
 
     assert response.output_files
@@ -93,8 +95,8 @@ def test_live_convert_colors_custom_profile_success(
     assert output_file.size > 0
     assert response.warning is None
     input_ids = {str(file_id) for file_id in response.input_ids}
-    assert str(uploaded_pdf_for_color_conversion.id) in input_ids
-    assert str(uploaded_custom_profile_for_color_conversion.id) in input_ids
+    assert str(uploaded_pdf.id) in input_ids
+    assert str(uploaded_profile.id) in input_ids
 
 
 @pytest.mark.parametrize(
@@ -167,16 +169,18 @@ async def test_live_async_convert_colors_color_profiles_success(
 async def test_live_async_convert_colors_custom_profile_success(
     pdfrest_api_key: str,
     pdfrest_live_base_url: str,
-    uploaded_pdf_for_color_conversion: PdfRestFile,
-    uploaded_custom_profile_for_color_conversion: PdfRestFile,
 ) -> None:
+    pdf_resource = get_test_resource_path("report.pdf")
+    profile_resource = get_test_resource_path("custom.icc")
     async with AsyncPdfRestClient(
         api_key=pdfrest_api_key,
         base_url=pdfrest_live_base_url,
     ) as client:
+        uploaded_pdf = (await client.files.create_from_paths([pdf_resource]))[0]
+        uploaded_profile = (await client.files.create_from_paths([profile_resource]))[0]
         response = await client.convert_colors(
-            uploaded_pdf_for_color_conversion,
-            color_profile=uploaded_custom_profile_for_color_conversion,
+            uploaded_pdf,
+            color_profile=uploaded_profile,
         )
 
     assert response.output_files
@@ -185,8 +189,8 @@ async def test_live_async_convert_colors_custom_profile_success(
     assert output_file.size > 0
     assert response.warning is None
     input_ids = {str(file_id) for file_id in response.input_ids}
-    assert str(uploaded_pdf_for_color_conversion.id) in input_ids
-    assert str(uploaded_custom_profile_for_color_conversion.id) in input_ids
+    assert str(uploaded_pdf.id) in input_ids
+    assert str(uploaded_profile.id) in input_ids
 
 
 @pytest.mark.asyncio
