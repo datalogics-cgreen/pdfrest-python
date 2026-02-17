@@ -188,12 +188,25 @@ class PdfSignatureDisplay(TypedDict, total=False):
     reason: str
 
 
-class PdfSignatureConfiguration(TypedDict, total=False):
-    type: Required[Literal["new", "existing"]]
+class PdfNewSignatureConfiguration(TypedDict, total=False):
+    type: Required[Literal["new"]]
     location: Required[PdfSignatureLocation]
     name: str
     logo_opacity: float
     display: PdfSignatureDisplay
+
+
+class PdfExistingSignatureConfiguration(TypedDict, total=False):
+    type: Required[Literal["existing"]]
+    location: PdfSignatureLocation
+    name: str
+    logo_opacity: float
+    display: PdfSignatureDisplay
+
+
+PdfSignatureConfiguration = (
+    PdfNewSignatureConfiguration | PdfExistingSignatureConfiguration
+)
 
 
 class PdfPfxCredentials(TypedDict):
