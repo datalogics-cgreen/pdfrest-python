@@ -38,4 +38,5 @@ nav:
   - Home: index.md
   - Getting Started: getting-started.md
   - Client Configuration: client-configuration.md
+  - Using Files: using-files.md
   - API Reference: api-reference.md
