@@ -988,8 +988,8 @@ class PdfPresetRedactionModel(BaseModel):
 
 
 class _PdfSignaturePointModel(BaseModel):
-    x: str | int | float
-    y: str | int | float
+    x: float
+    y: float
 
 
 class _PdfSignatureLocationModel(BaseModel):

@@ -169,8 +169,8 @@ HtmlWebLayout = Literal["desktop", "tablet", "mobile"]
 
 
 class PdfSignaturePoint(TypedDict):
-    x: str | int | float
-    y: str | int | float
+    x: float
+    y: float
 
 
 class PdfSignatureLocation(TypedDict):
