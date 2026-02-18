@@ -16,6 +16,8 @@ Useful references:
 - [pdfRest homepage](https://pdfrest.com/)
 - [API reference](https://pdfrest.com/apidocs/)
 - [API Lab (interactive testing)](https://pdfrest.com/apilab/)
+- [Getting started guide](getting-started.md)
+- [Client configuration guide](client-configuration.md)
 
 ## How this Python API relates to pdfRest
 
