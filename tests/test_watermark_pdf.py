@@ -323,6 +323,492 @@ def test_watermark_pdf_with_text_validation_rejects_short_text_size(
         client.watermark_pdf_with_text(input_file, watermark_text="Hi", text_size=4)
 
 
+@pytest.mark.parametrize(
+    ("text_size", "expected_text_size"),
+    [
+        pytest.param(5, "5", id="min"),
+        pytest.param(100, "100", id="max"),
+    ],
+)
+def test_watermark_pdf_with_text_text_size_boundary_values(
+    monkeypatch: pytest.MonkeyPatch,
+    text_size: int,
+    expected_text_size: str,
+) -> None:
+    monkeypatch.delenv("PDFREST_API_KEY", raising=False)
+    input_file = make_pdf_file(PdfRestFileID.generate(1))
+    output_id = str(PdfRestFileID.generate())
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.method == "POST" and request.url.path == "/watermarked-pdf":
+            payload = json.loads(request.content.decode("utf-8"))
+            assert payload["text_size"] == expected_text_size
+            return httpx.Response(
+                200,
+                json={
+                    "inputId": [input_file.id],
+                    "outputId": [output_id],
+                },
+            )
+        if request.method == "GET" and request.url.path == f"/resource/{output_id}":
+            assert request.url.params["format"] == "info"
+            return httpx.Response(
+                200,
+                json=build_file_info_payload(
+                    output_id,
+                    "text-size.pdf",
+                    "application/pdf",
+                ),
+            )
+        msg = f"Unexpected request {request.method} {request.url}"
+        raise AssertionError(msg)
+
+    with PdfRestClient(
+        api_key=VALID_API_KEY,
+        transport=httpx.MockTransport(handler),
+    ) as client:
+        response = client.watermark_pdf_with_text(
+            input_file,
+            watermark_text="SizeBoundary",
+            text_size=text_size,
+        )
+
+    assert response.output_file.name == "text-size.pdf"
+
+
+@pytest.mark.parametrize(
+    ("text_size", "match"),
+    [
+        pytest.param(4, "Input should be greater than or equal to 5", id="below-min"),
+        pytest.param(101, "Input should be less than or equal to 100", id="above-max"),
+    ],
+)
+def test_watermark_pdf_with_text_validation_rejects_out_of_range_text_size(
+    monkeypatch: pytest.MonkeyPatch,
+    text_size: int,
+    match: str,
+) -> None:
+    monkeypatch.delenv("PDFREST_API_KEY", raising=False)
+    input_file = make_pdf_file(PdfRestFileID.generate(1))
+    with (
+        PdfRestClient(
+            api_key=VALID_API_KEY,
+            transport=httpx.MockTransport(
+                lambda _: (_ for _ in ()).throw(RuntimeError("Should not be called"))
+            ),
+        ) as client,
+        pytest.raises(ValidationError, match=match),
+    ):
+        client.watermark_pdf_with_text(
+            input_file,
+            watermark_text="SizeBoundary",
+            text_size=text_size,
+        )
+
+
+@pytest.mark.parametrize(
+    ("opacity", "expected_opacity"),
+    [
+        pytest.param(0.0, "0.0", id="min"),
+        pytest.param(1.0, "1.0", id="max"),
+    ],
+)
+def test_watermark_pdf_with_text_opacity_boundary_values(
+    monkeypatch: pytest.MonkeyPatch,
+    opacity: float,
+    expected_opacity: str,
+) -> None:
+    monkeypatch.delenv("PDFREST_API_KEY", raising=False)
+    input_file = make_pdf_file(PdfRestFileID.generate(1))
+    output_id = str(PdfRestFileID.generate())
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.method == "POST" and request.url.path == "/watermarked-pdf":
+            payload = json.loads(request.content.decode("utf-8"))
+            assert payload["opacity"] == expected_opacity
+            return httpx.Response(
+                200,
+                json={
+                    "inputId": [input_file.id],
+                    "outputId": [output_id],
+                },
+            )
+        if request.method == "GET" and request.url.path == f"/resource/{output_id}":
+            assert request.url.params["format"] == "info"
+            return httpx.Response(
+                200,
+                json=build_file_info_payload(
+                    output_id,
+                    "opacity-text.pdf",
+                    "application/pdf",
+                ),
+            )
+        msg = f"Unexpected request {request.method} {request.url}"
+        raise AssertionError(msg)
+
+    with PdfRestClient(
+        api_key=VALID_API_KEY,
+        transport=httpx.MockTransport(handler),
+    ) as client:
+        response = client.watermark_pdf_with_text(
+            input_file,
+            watermark_text="OpacityBoundary",
+            opacity=opacity,
+        )
+
+    assert response.output_file.name == "opacity-text.pdf"
+
+
+@pytest.mark.parametrize(
+    ("opacity", "match"),
+    [
+        pytest.param(
+            -0.01, "Input should be greater than or equal to 0", id="below-min"
+        ),
+        pytest.param(1.01, "Input should be less than or equal to 1", id="above-max"),
+    ],
+)
+def test_watermark_pdf_with_text_validation_rejects_out_of_range_opacity(
+    monkeypatch: pytest.MonkeyPatch,
+    opacity: float,
+    match: str,
+) -> None:
+    monkeypatch.delenv("PDFREST_API_KEY", raising=False)
+    input_file = make_pdf_file(PdfRestFileID.generate(1))
+    with (
+        PdfRestClient(
+            api_key=VALID_API_KEY,
+            transport=httpx.MockTransport(
+                lambda _: (_ for _ in ()).throw(RuntimeError("Should not be called"))
+            ),
+        ) as client,
+        pytest.raises(ValidationError, match=match),
+    ):
+        client.watermark_pdf_with_text(
+            input_file,
+            watermark_text="OpacityBoundary",
+            opacity=opacity,
+        )
+
+
+@pytest.mark.parametrize(
+    ("watermark_file_scale", "expected_scale"),
+    [
+        pytest.param(0.0, "0.0", id="min"),
+        pytest.param(0.01, "0.01", id="inside"),
+    ],
+)
+def test_watermark_pdf_with_image_scale_boundary_values(
+    monkeypatch: pytest.MonkeyPatch,
+    watermark_file_scale: float,
+    expected_scale: str,
+) -> None:
+    monkeypatch.delenv("PDFREST_API_KEY", raising=False)
+    input_file = make_pdf_file(PdfRestFileID.generate(1))
+    watermark_file = make_pdf_file(PdfRestFileID.generate(1), name="boundary-stamp.pdf")
+    output_id = str(PdfRestFileID.generate())
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.method == "POST" and request.url.path == "/watermarked-pdf":
+            payload = json.loads(request.content.decode("utf-8"))
+            assert payload["watermark_file_scale"] == expected_scale
+            return httpx.Response(
+                200,
+                json={
+                    "inputId": [input_file.id, watermark_file.id],
+                    "outputId": [output_id],
+                },
+            )
+        if request.method == "GET" and request.url.path == f"/resource/{output_id}":
+            assert request.url.params["format"] == "info"
+            return httpx.Response(
+                200,
+                json=build_file_info_payload(
+                    output_id,
+                    "scale-image.pdf",
+                    "application/pdf",
+                ),
+            )
+        msg = f"Unexpected request {request.method} {request.url}"
+        raise AssertionError(msg)
+
+    with PdfRestClient(
+        api_key=VALID_API_KEY,
+        transport=httpx.MockTransport(handler),
+    ) as client:
+        response = client.watermark_pdf_with_image(
+            input_file,
+            watermark_file=watermark_file,
+            watermark_file_scale=watermark_file_scale,
+        )
+
+    assert response.output_file.name == "scale-image.pdf"
+
+
+def test_watermark_pdf_with_image_validation_rejects_negative_watermark_file_scale(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.delenv("PDFREST_API_KEY", raising=False)
+    input_file = make_pdf_file(PdfRestFileID.generate(1))
+    watermark_file = make_pdf_file(PdfRestFileID.generate(1), name="boundary-stamp.pdf")
+    with (
+        PdfRestClient(
+            api_key=VALID_API_KEY,
+            transport=httpx.MockTransport(
+                lambda _: (_ for _ in ()).throw(RuntimeError("Should not be called"))
+            ),
+        ) as client,
+        pytest.raises(
+            ValidationError, match="Input should be greater than or equal to 0"
+        ),
+    ):
+        client.watermark_pdf_with_image(
+            input_file,
+            watermark_file=watermark_file,
+            watermark_file_scale=-0.01,
+        )
+
+
+@pytest.mark.parametrize(
+    ("text_size", "expected_text_size"),
+    [
+        pytest.param(5, "5", id="min"),
+        pytest.param(100, "100", id="max"),
+    ],
+)
+@pytest.mark.asyncio
+async def test_async_watermark_pdf_with_text_text_size_boundary_values(
+    monkeypatch: pytest.MonkeyPatch,
+    text_size: int,
+    expected_text_size: str,
+) -> None:
+    monkeypatch.delenv("PDFREST_API_KEY", raising=False)
+    input_file = make_pdf_file(PdfRestFileID.generate(2))
+    output_id = str(PdfRestFileID.generate())
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.method == "POST" and request.url.path == "/watermarked-pdf":
+            payload = json.loads(request.content.decode("utf-8"))
+            assert payload["text_size"] == expected_text_size
+            return httpx.Response(
+                200,
+                json={
+                    "inputId": [input_file.id],
+                    "outputId": [output_id],
+                },
+            )
+        if request.method == "GET" and request.url.path == f"/resource/{output_id}":
+            assert request.url.params["format"] == "info"
+            return httpx.Response(
+                200,
+                json=build_file_info_payload(
+                    output_id,
+                    "async-text-size.pdf",
+                    "application/pdf",
+                ),
+            )
+        msg = f"Unexpected request {request.method} {request.url}"
+        raise AssertionError(msg)
+
+    async with AsyncPdfRestClient(
+        api_key=ASYNC_API_KEY,
+        transport=httpx.MockTransport(handler),
+    ) as client:
+        response = await client.watermark_pdf_with_text(
+            input_file,
+            watermark_text="AsyncSizeBoundary",
+            text_size=text_size,
+        )
+
+    assert response.output_file.name == "async-text-size.pdf"
+
+
+@pytest.mark.parametrize(
+    ("text_size", "match"),
+    [
+        pytest.param(4, "Input should be greater than or equal to 5", id="below-min"),
+        pytest.param(101, "Input should be less than or equal to 100", id="above-max"),
+    ],
+)
+@pytest.mark.asyncio
+async def test_async_watermark_pdf_with_text_validation_rejects_out_of_range_text_size(
+    monkeypatch: pytest.MonkeyPatch,
+    text_size: int,
+    match: str,
+) -> None:
+    monkeypatch.delenv("PDFREST_API_KEY", raising=False)
+    input_file = make_pdf_file(PdfRestFileID.generate(2))
+    transport = httpx.MockTransport(
+        lambda _: (_ for _ in ()).throw(RuntimeError("Should not be called"))
+    )
+    async with AsyncPdfRestClient(api_key=ASYNC_API_KEY, transport=transport) as client:
+        with pytest.raises(ValidationError, match=match):
+            await client.watermark_pdf_with_text(
+                input_file,
+                watermark_text="AsyncSizeBoundary",
+                text_size=text_size,
+            )
+
+
+@pytest.mark.parametrize(
+    ("opacity", "expected_opacity"),
+    [
+        pytest.param(0.0, "0.0", id="min"),
+        pytest.param(1.0, "1.0", id="max"),
+    ],
+)
+@pytest.mark.asyncio
+async def test_async_watermark_pdf_with_text_opacity_boundary_values(
+    monkeypatch: pytest.MonkeyPatch,
+    opacity: float,
+    expected_opacity: str,
+) -> None:
+    monkeypatch.delenv("PDFREST_API_KEY", raising=False)
+    input_file = make_pdf_file(PdfRestFileID.generate(2))
+    output_id = str(PdfRestFileID.generate())
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.method == "POST" and request.url.path == "/watermarked-pdf":
+            payload = json.loads(request.content.decode("utf-8"))
+            assert payload["opacity"] == expected_opacity
+            return httpx.Response(
+                200,
+                json={
+                    "inputId": [input_file.id],
+                    "outputId": [output_id],
+                },
+            )
+        if request.method == "GET" and request.url.path == f"/resource/{output_id}":
+            assert request.url.params["format"] == "info"
+            return httpx.Response(
+                200,
+                json=build_file_info_payload(
+                    output_id,
+                    "async-opacity-text.pdf",
+                    "application/pdf",
+                ),
+            )
+        msg = f"Unexpected request {request.method} {request.url}"
+        raise AssertionError(msg)
+
+    async with AsyncPdfRestClient(
+        api_key=ASYNC_API_KEY,
+        transport=httpx.MockTransport(handler),
+    ) as client:
+        response = await client.watermark_pdf_with_text(
+            input_file,
+            watermark_text="AsyncOpacityBoundary",
+            opacity=opacity,
+        )
+
+    assert response.output_file.name == "async-opacity-text.pdf"
+
+
+@pytest.mark.parametrize(
+    ("opacity", "match"),
+    [
+        pytest.param(
+            -0.01, "Input should be greater than or equal to 0", id="below-min"
+        ),
+        pytest.param(1.01, "Input should be less than or equal to 1", id="above-max"),
+    ],
+)
+@pytest.mark.asyncio
+async def test_async_watermark_pdf_with_text_validation_rejects_out_of_range_opacity(
+    monkeypatch: pytest.MonkeyPatch,
+    opacity: float,
+    match: str,
+) -> None:
+    monkeypatch.delenv("PDFREST_API_KEY", raising=False)
+    input_file = make_pdf_file(PdfRestFileID.generate(2))
+    transport = httpx.MockTransport(
+        lambda _: (_ for _ in ()).throw(RuntimeError("Should not be called"))
+    )
+    async with AsyncPdfRestClient(api_key=ASYNC_API_KEY, transport=transport) as client:
+        with pytest.raises(ValidationError, match=match):
+            await client.watermark_pdf_with_text(
+                input_file,
+                watermark_text="AsyncOpacityBoundary",
+                opacity=opacity,
+            )
+
+
+@pytest.mark.parametrize(
+    ("watermark_file_scale", "expected_scale"),
+    [
+        pytest.param(0.0, "0.0", id="min"),
+        pytest.param(0.01, "0.01", id="inside"),
+    ],
+)
+@pytest.mark.asyncio
+async def test_async_watermark_pdf_with_image_scale_boundary_values(
+    monkeypatch: pytest.MonkeyPatch,
+    watermark_file_scale: float,
+    expected_scale: str,
+) -> None:
+    monkeypatch.delenv("PDFREST_API_KEY", raising=False)
+    input_file = make_pdf_file(PdfRestFileID.generate(2))
+    watermark_file = make_pdf_file(PdfRestFileID.generate(2), name="boundary-stamp.pdf")
+    output_id = str(PdfRestFileID.generate())
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.method == "POST" and request.url.path == "/watermarked-pdf":
+            payload = json.loads(request.content.decode("utf-8"))
+            assert payload["watermark_file_scale"] == expected_scale
+            return httpx.Response(
+                200,
+                json={
+                    "inputId": [input_file.id, watermark_file.id],
+                    "outputId": [output_id],
+                },
+            )
+        if request.method == "GET" and request.url.path == f"/resource/{output_id}":
+            assert request.url.params["format"] == "info"
+            return httpx.Response(
+                200,
+                json=build_file_info_payload(
+                    output_id,
+                    "async-scale-image.pdf",
+                    "application/pdf",
+                ),
+            )
+        msg = f"Unexpected request {request.method} {request.url}"
+        raise AssertionError(msg)
+
+    async with AsyncPdfRestClient(
+        api_key=ASYNC_API_KEY,
+        transport=httpx.MockTransport(handler),
+    ) as client:
+        response = await client.watermark_pdf_with_image(
+            input_file,
+            watermark_file=watermark_file,
+            watermark_file_scale=watermark_file_scale,
+        )
+
+    assert response.output_file.name == "async-scale-image.pdf"
+
+
+@pytest.mark.asyncio
+async def test_async_watermark_pdf_with_image_validation_rejects_negative_watermark_file_scale(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.delenv("PDFREST_API_KEY", raising=False)
+    input_file = make_pdf_file(PdfRestFileID.generate(2))
+    watermark_file = make_pdf_file(PdfRestFileID.generate(2), name="boundary-stamp.pdf")
+    transport = httpx.MockTransport(
+        lambda _: (_ for _ in ()).throw(RuntimeError("Should not be called"))
+    )
+    async with AsyncPdfRestClient(api_key=ASYNC_API_KEY, transport=transport) as client:
+        with pytest.raises(
+            ValidationError, match="Input should be greater than or equal to 0"
+        ):
+            await client.watermark_pdf_with_image(
+                input_file,
+                watermark_file=watermark_file,
+                watermark_file_scale=-0.01,
+            )
+
+
 @pytest.mark.asyncio
 async def test_async_watermark_pdf_with_text(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.delenv("PDFREST_API_KEY", raising=False)
