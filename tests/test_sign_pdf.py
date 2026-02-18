@@ -56,6 +56,16 @@ def make_signature_location() -> dict[str, dict[str, int] | int]:
     }
 
 
+def make_signature_configuration(signature_type: str) -> dict[str, object]:
+    if signature_type == "new":
+        return {
+            "type": "new",
+            "name": "esignature",
+            "location": make_signature_location(),
+        }
+    return {"type": "existing", "name": "esignature"}
+
+
 def test_sign_pdf_with_pfx_credentials(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.delenv("PDFREST_API_KEY", raising=False)
     input_file = make_pdf_file(PdfRestFileID.generate(1))
@@ -212,6 +222,27 @@ def test_sign_pdf_requires_credential_pair(
         )
 
 
+def test_sign_pdf_rejects_non_mapping_credentials(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.delenv("PDFREST_API_KEY", raising=False)
+    input_file = make_pdf_file(PdfRestFileID.generate())
+    transport = httpx.MockTransport(lambda request: (_ for _ in ()).throw(RuntimeError))
+
+    with (
+        PdfRestClient(api_key=VALID_API_KEY, transport=transport) as client,
+        pytest.raises(ValidationError, match=r"credentials must be a mapping"),
+    ):
+        client.sign_pdf(
+            input_file,
+            signature_configuration={
+                "type": "new",
+                "location": make_signature_location(),
+            },
+            credentials=["not-a-mapping"],  # type: ignore[arg-type]
+        )
+
+
 def test_sign_pdf_requires_location_for_new_signature_type(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -233,6 +264,168 @@ def test_sign_pdf_requires_location_for_new_signature_type(
             signature_configuration={"type": "new"},
             credentials={"pfx": pfx_file, "passphrase": passphrase_file},
         )
+
+
+@pytest.mark.asyncio
+async def test_async_sign_pdf_requires_credential_pair(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.delenv("PDFREST_API_KEY", raising=False)
+    input_file = make_pdf_file(PdfRestFileID.generate())
+    pfx_file = make_pfx_file(str(PdfRestFileID.generate()))
+    transport = httpx.MockTransport(lambda request: (_ for _ in ()).throw(RuntimeError))
+
+    async with AsyncPdfRestClient(api_key=ASYNC_API_KEY, transport=transport) as client:
+        with pytest.raises(ValidationError, match=r"Both pfx and passphrase"):
+            await client.sign_pdf(
+                input_file,
+                signature_configuration={
+                    "type": "new",
+                    "location": make_signature_location(),
+                },
+                credentials={"pfx": pfx_file},
+            )
+
+
+@pytest.mark.asyncio
+async def test_async_sign_pdf_rejects_non_mapping_credentials(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.delenv("PDFREST_API_KEY", raising=False)
+    input_file = make_pdf_file(PdfRestFileID.generate())
+    transport = httpx.MockTransport(lambda request: (_ for _ in ()).throw(RuntimeError))
+
+    async with AsyncPdfRestClient(api_key=ASYNC_API_KEY, transport=transport) as client:
+        with pytest.raises(ValidationError, match=r"credentials must be a mapping"):
+            await client.sign_pdf(
+                input_file,
+                signature_configuration={
+                    "type": "new",
+                    "location": make_signature_location(),
+                },
+                credentials=["not-a-mapping"],  # type: ignore[arg-type]
+            )
+
+
+@pytest.mark.asyncio
+async def test_async_sign_pdf_requires_location_for_new_signature_type(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.delenv("PDFREST_API_KEY", raising=False)
+    input_file = make_pdf_file(PdfRestFileID.generate())
+    pfx_file = make_pfx_file(str(PdfRestFileID.generate()))
+    passphrase_file = make_passphrase_file(str(PdfRestFileID.generate()))
+    transport = httpx.MockTransport(lambda request: (_ for _ in ()).throw(RuntimeError))
+
+    async with AsyncPdfRestClient(api_key=ASYNC_API_KEY, transport=transport) as client:
+        with pytest.raises(
+            ValidationError,
+            match=r"Missing location information for a new digital signature field",
+        ):
+            await client.sign_pdf(
+                input_file,
+                signature_configuration={"type": "new"},
+                credentials={"pfx": pfx_file, "passphrase": passphrase_file},
+            )
+
+
+@pytest.mark.parametrize(
+    "signature_type",
+    [
+        pytest.param("new", id="new"),
+        pytest.param("existing", id="existing"),
+    ],
+)
+def test_sign_pdf_signature_type_literal_matrix(
+    monkeypatch: pytest.MonkeyPatch,
+    signature_type: str,
+) -> None:
+    monkeypatch.delenv("PDFREST_API_KEY", raising=False)
+    input_file = make_pdf_file(PdfRestFileID.generate())
+    pfx_file = make_pfx_file(str(PdfRestFileID.generate()))
+    passphrase_file = make_passphrase_file(str(PdfRestFileID.generate()))
+    output_id = str(PdfRestFileID.generate())
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.method == "POST" and request.url.path == "/signed-pdf":
+            payload = json.loads(request.content.decode("utf-8"))
+            signature_payload = json.loads(payload["signature_configuration"])
+            assert signature_payload["type"] == signature_type
+            return httpx.Response(
+                200,
+                json={"inputId": [input_file.id], "outputId": [output_id]},
+            )
+        if request.method == "GET" and request.url.path == f"/resource/{output_id}":
+            return httpx.Response(
+                200,
+                json=build_file_info_payload(
+                    output_id,
+                    f"literal-{signature_type}.pdf",
+                    "application/pdf",
+                ),
+            )
+        msg = f"Unexpected request {request.method} {request.url}"
+        raise AssertionError(msg)
+
+    transport = httpx.MockTransport(handler)
+    with PdfRestClient(api_key=VALID_API_KEY, transport=transport) as client:
+        response = client.sign_pdf(
+            input_file,
+            signature_configuration=make_signature_configuration(signature_type),
+            credentials={"pfx": pfx_file, "passphrase": passphrase_file},
+        )
+
+    assert response.output_file.name == f"literal-{signature_type}.pdf"
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "signature_type",
+    [
+        pytest.param("new", id="new"),
+        pytest.param("existing", id="existing"),
+    ],
+)
+async def test_async_sign_pdf_signature_type_literal_matrix(
+    monkeypatch: pytest.MonkeyPatch,
+    signature_type: str,
+) -> None:
+    monkeypatch.delenv("PDFREST_API_KEY", raising=False)
+    input_file = make_pdf_file(PdfRestFileID.generate())
+    pfx_file = make_pfx_file(str(PdfRestFileID.generate()))
+    passphrase_file = make_passphrase_file(str(PdfRestFileID.generate()))
+    output_id = str(PdfRestFileID.generate())
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.method == "POST" and request.url.path == "/signed-pdf":
+            payload = json.loads(request.content.decode("utf-8"))
+            signature_payload = json.loads(payload["signature_configuration"])
+            assert signature_payload["type"] == signature_type
+            return httpx.Response(
+                200,
+                json={"inputId": [input_file.id], "outputId": [output_id]},
+            )
+        if request.method == "GET" and request.url.path == f"/resource/{output_id}":
+            return httpx.Response(
+                200,
+                json=build_file_info_payload(
+                    output_id,
+                    f"literal-async-{signature_type}.pdf",
+                    "application/pdf",
+                ),
+            )
+        msg = f"Unexpected request {request.method} {request.url}"
+        raise AssertionError(msg)
+
+    transport = httpx.MockTransport(handler)
+    async with AsyncPdfRestClient(api_key=ASYNC_API_KEY, transport=transport) as client:
+        response = await client.sign_pdf(
+            input_file,
+            signature_configuration=make_signature_configuration(signature_type),
+            credentials={"pfx": pfx_file, "passphrase": passphrase_file},
+        )
+
+    assert response.output_file.name == f"literal-async-{signature_type}.pdf"
 
 
 def test_sign_pdf_request_customization(
@@ -509,3 +702,63 @@ def test_sign_payload_accepts_logo_tuple_sequence() -> None:
     assert payload.logo is not None
     assert len(payload.logo) == 1
     assert payload.logo[0].id == logo_file.id
+
+
+@pytest.mark.parametrize(
+    "logo_opacity",
+    [
+        pytest.param(0.0, id="min"),
+        pytest.param(1.0, id="max"),
+    ],
+)
+def test_sign_payload_accepts_logo_opacity_bounds(logo_opacity: float) -> None:
+    input_pdf = make_pdf_file(str(PdfRestFileID.generate()))
+    pfx_file = make_pfx_file(str(PdfRestFileID.generate()))
+    passphrase_file = make_passphrase_file(str(PdfRestFileID.generate()))
+
+    payload = PdfSignPayload.model_validate(
+        {
+            "files": [input_pdf],
+            "signature_configuration": {
+                "type": "new",
+                "name": "sig",
+                "logo_opacity": logo_opacity,
+                "location": make_signature_location(),
+            },
+            "credentials": {"pfx": pfx_file, "passphrase": passphrase_file},
+        }
+    )
+
+    assert payload.signature_configuration.logo_opacity == pytest.approx(logo_opacity)
+
+
+@pytest.mark.parametrize(
+    "invalid_logo_opacity",
+    [
+        pytest.param(-0.01, id="below-min"),
+        pytest.param(1.01, id="above-max"),
+    ],
+)
+def test_sign_payload_rejects_logo_opacity_out_of_bounds(
+    invalid_logo_opacity: float,
+) -> None:
+    input_pdf = make_pdf_file(str(PdfRestFileID.generate()))
+    pfx_file = make_pfx_file(str(PdfRestFileID.generate()))
+    passphrase_file = make_passphrase_file(str(PdfRestFileID.generate()))
+
+    with pytest.raises(
+        ValidationError,
+        match=r"greater than or equal to 0|less than or equal to 1",
+    ):
+        PdfSignPayload.model_validate(
+            {
+                "files": [input_pdf],
+                "signature_configuration": {
+                    "type": "new",
+                    "name": "sig",
+                    "logo_opacity": invalid_logo_opacity,
+                    "location": make_signature_location(),
+                },
+                "credentials": {"pfx": pfx_file, "passphrase": passphrase_file},
+            }
+        )
