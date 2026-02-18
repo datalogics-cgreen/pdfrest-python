@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ContactForm>
+  <Name>Alice Example</Name>
+  <Email>alice@example.com</Email>
+  <Phone>+1 312 555 0100</Phone>
+  <Message>Hello!
+This is a sample message populated via XML (convert to FDF/XFDF as needed).</Message>
+  <Subscribe>true</Subscribe>
+</ContactForm>

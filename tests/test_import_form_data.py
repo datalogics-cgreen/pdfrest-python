@@ -17,19 +17,51 @@ from .graphics_test_helpers import (
     make_pdf_file,
 )
 
+ACCEPTED_IMPORT_DATA_FILE_MIME_TYPES = (
+    pytest.param("application/xml", id="application-xml"),
+    pytest.param("text/xml", id="text-xml"),
+    pytest.param("application/vnd.fdf", id="application-vnd-fdf"),
+    pytest.param(
+        "application/vnd.adobe.xfdf",
+        id="application-vnd-adobe-xfdf",
+    ),
+    pytest.param(
+        "application/vnd.adobe.xdp+xml",
+        id="application-vnd-adobe-xdp+xml",
+    ),
+    pytest.param(
+        "application/vnd.adobe.xfd+xml",
+        id="application-vnd-adobe-xfd+xml",
+    ),
+)
+
 
 def _make_data_file(
     file_id: PdfRestFileID, *, mime_type: str = "application/xml"
 ) -> PdfRestFile:
+    file_name = "form-data.xml"
+    if mime_type == "application/vnd.fdf":
+        file_name = "form-data.fdf"
+    elif mime_type == "application/vnd.adobe.xfdf":
+        file_name = "form-data.xfdf"
+    elif mime_type == "application/vnd.adobe.xdp+xml":
+        file_name = "form-data.xdp"
+    elif mime_type == "application/vnd.adobe.xfd+xml":
+        file_name = "form-data.xfd"
+
     return PdfRestFile.model_validate(
-        build_file_info_payload(file_id, "form-data.xml", mime_type)
+        build_file_info_payload(file_id, file_name, mime_type)
     )
 
 
-def test_import_form_data_success(monkeypatch: pytest.MonkeyPatch) -> None:
+@pytest.mark.parametrize("data_file_mime", ACCEPTED_IMPORT_DATA_FILE_MIME_TYPES)
+def test_import_form_data_success(
+    monkeypatch: pytest.MonkeyPatch,
+    data_file_mime: str,
+) -> None:
     monkeypatch.delenv("PDFREST_API_KEY", raising=False)
     input_file = make_pdf_file(PdfRestFileID.generate(1))
-    data_file = _make_data_file(PdfRestFileID.generate(2))
+    data_file = _make_data_file(PdfRestFileID.generate(2), mime_type=data_file_mime)
     output_id = str(PdfRestFileID.generate())
 
     payload_dump = PdfImportFormDataPayload.model_validate(
@@ -153,12 +185,14 @@ def test_import_form_data_request_customization(
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize("data_file_mime", ACCEPTED_IMPORT_DATA_FILE_MIME_TYPES)
 async def test_async_import_form_data_success(
     monkeypatch: pytest.MonkeyPatch,
+    data_file_mime: str,
 ) -> None:
     monkeypatch.delenv("PDFREST_API_KEY", raising=False)
     input_file = make_pdf_file(PdfRestFileID.generate(2))
-    data_file = _make_data_file(PdfRestFileID.generate(1))
+    data_file = _make_data_file(PdfRestFileID.generate(1), mime_type=data_file_mime)
     output_id = str(PdfRestFileID.generate())
 
     payload_dump = PdfImportFormDataPayload.model_validate(
@@ -324,3 +358,49 @@ def test_import_form_data_validation(monkeypatch: pytest.MonkeyPatch) -> None:
             pdf_file,
             [data_file, _make_data_file(PdfRestFileID.generate())],
         )
+
+
+@pytest.mark.asyncio
+async def test_async_import_form_data_validation(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.delenv("PDFREST_API_KEY", raising=False)
+    pdf_file = make_pdf_file(PdfRestFileID.generate(1))
+    data_file = _make_data_file(PdfRestFileID.generate(2))
+    png_file = PdfRestFile.model_validate(
+        build_file_info_payload(
+            PdfRestFileID.generate(),
+            "example.png",
+            "image/png",
+        )
+    )
+    transport = httpx.MockTransport(lambda request: (_ for _ in ()).throw(RuntimeError))
+
+    async with AsyncPdfRestClient(api_key=ASYNC_API_KEY, transport=transport) as client:
+        with pytest.raises(ValidationError, match="Must be a PDF file"):
+            await client.import_form_data(png_file, data_file)
+
+    async with AsyncPdfRestClient(api_key=ASYNC_API_KEY, transport=transport) as client:
+        with pytest.raises(
+            ValidationError,
+            match="Data file must be an XFDF, XDP, XFD, FDF, or XML file",
+        ):
+            await client.import_form_data(pdf_file, png_file)
+
+    async with AsyncPdfRestClient(api_key=ASYNC_API_KEY, transport=transport) as client:
+        with pytest.raises(
+            ValidationError, match="List should have at most 1 item after validation"
+        ):
+            await client.import_form_data(
+                [pdf_file, make_pdf_file(PdfRestFileID.generate())],
+                data_file,
+            )
+
+    async with AsyncPdfRestClient(api_key=ASYNC_API_KEY, transport=transport) as client:
+        with pytest.raises(
+            ValidationError, match="List should have at most 1 item after validation"
+        ):
+            await client.import_form_data(
+                pdf_file,
+                [data_file, _make_data_file(PdfRestFileID.generate())],
+            )
