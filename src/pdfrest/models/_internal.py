@@ -23,8 +23,14 @@ from pydantic_core import to_json
 from pdfrest.types.public import PdfRedactionPreset
 
 from ..types import (
+    HtmlPageOrientation,
+    HtmlPageSize,
+    HtmlWebLayout,
     OcrLanguage,
     PdfAType,
+    PdfConversionCompression,
+    PdfConversionDownsample,
+    PdfConversionLocale,
     PdfInfoQuery,
     PdfPageOrientation,
     PdfPageSize,
@@ -112,6 +118,10 @@ def _split_comma_string(value: Any) -> list[Any] | None:
 
 def _serialize_as_first_file_id(value: list[PdfRestFile]) -> str:
     return str(value[0].id)
+
+
+def _serialize_as_first_url(value: list[HttpUrl]) -> str:
+    return str(value[0])
 
 
 def _serialize_as_comma_separated_string(value: list[Any] | None) -> str | None:
@@ -241,6 +251,9 @@ def _validate_output_language(value: str) -> str:
         raise ValueError(_OUTPUT_LANGUAGE_ERROR)
 
     return trimmed
+
+
+_PAGE_MARGIN_REGEX = r"^(?:\d+(?:\.\d+)?)(?:mm|in)$"
 
 
 class UploadURLs(BaseModel):
@@ -548,6 +561,276 @@ class ConvertToMarkdownPayload(BaseModel):
         str | None,
         Field(serialization_alias="output", min_length=1, default=None),
         AfterValidator(_validate_output_prefix),
+    ] = None
+
+
+_PDF_WORD_MIME_TYPES = {
+    "application/msword",
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+}
+_PDF_EXCEL_MIME_TYPES = {
+    "application/vnd.ms-excel",
+    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+}
+_PDF_POWERPOINT_MIME_TYPES = {
+    "application/vnd.ms-powerpoint",
+    "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+}
+_PDF_OFFICE_MIME_TYPES = (
+    _PDF_WORD_MIME_TYPES | _PDF_EXCEL_MIME_TYPES | _PDF_POWERPOINT_MIME_TYPES
+)
+_PDF_POSTSCRIPT_MIME_TYPES = {
+    "application/postscript",
+    "application/eps",
+    "application/x-eps",
+}
+_PDF_EMAIL_MIME_TYPES = {"message/rfc822"}
+_PDF_IMAGE_MIME_TYPES = {
+    "image/jpeg",
+    "image/tiff",
+    "image/bmp",
+    "image/png",
+}
+_PDF_HTML_MIME_TYPES = {"text/html"}
+
+
+class ConvertOfficeToPdfPayload(BaseModel):
+    """Adapt caller options into a pdfRest-ready office-to-pdf payload."""
+
+    files: Annotated[
+        list[PdfRestFile],
+        Field(
+            min_length=1,
+            max_length=1,
+            validation_alias=AliasChoices("file", "files"),
+            serialization_alias="id",
+        ),
+        BeforeValidator(_ensure_list),
+        AfterValidator(
+            _allowed_mime_types(
+                *_PDF_OFFICE_MIME_TYPES,
+                error_msg="Must be a Microsoft Office file.",
+            )
+        ),
+        PlainSerializer(_serialize_as_first_file_id),
+    ]
+    output: Annotated[
+        str | None,
+        Field(serialization_alias="output", min_length=1, default=None),
+        AfterValidator(_validate_output_prefix),
+    ] = None
+    compression: Annotated[
+        PdfConversionCompression | None,
+        Field(serialization_alias="compression", default=None),
+    ] = None
+    downsample: Annotated[
+        PdfConversionDownsample | None,
+        Field(serialization_alias="downsample", default=None),
+    ] = None
+    tagged_pdf: Annotated[
+        Literal["on", "off"] | None,
+        Field(serialization_alias="tagged_pdf", default=None),
+        BeforeValidator(_bool_to_on_off),
+    ] = None
+    locale: Annotated[
+        PdfConversionLocale | None,
+        Field(serialization_alias="locale", default=None),
+    ] = None
+
+    @model_validator(mode="after")
+    def _validate_option_compatibility(self) -> ConvertOfficeToPdfPayload:
+        mime_type = self.files[0].type
+        if self.locale is not None and mime_type not in _PDF_EXCEL_MIME_TYPES:
+            msg = "locale is only supported for Excel inputs."
+            raise ValueError(msg)
+        return self
+
+
+class ConvertPostscriptToPdfPayload(BaseModel):
+    """Adapt caller options into a pdfRest-ready postscript-to-pdf payload."""
+
+    files: Annotated[
+        list[PdfRestFile],
+        Field(
+            min_length=1,
+            max_length=1,
+            validation_alias=AliasChoices("file", "files"),
+            serialization_alias="id",
+        ),
+        BeforeValidator(_ensure_list),
+        AfterValidator(
+            _allowed_mime_types(
+                *_PDF_POSTSCRIPT_MIME_TYPES,
+                error_msg="Must be a PostScript or EPS file.",
+            )
+        ),
+        PlainSerializer(_serialize_as_first_file_id),
+    ]
+    output: Annotated[
+        str | None,
+        Field(serialization_alias="output", min_length=1, default=None),
+        AfterValidator(_validate_output_prefix),
+    ] = None
+    compression: Annotated[
+        PdfConversionCompression | None,
+        Field(serialization_alias="compression", default=None),
+    ] = None
+    downsample: Annotated[
+        PdfConversionDownsample | None,
+        Field(serialization_alias="downsample", default=None),
+    ] = None
+
+
+class ConvertEmailToPdfPayload(BaseModel):
+    """Adapt caller options into a pdfRest-ready email-to-pdf payload."""
+
+    files: Annotated[
+        list[PdfRestFile],
+        Field(
+            min_length=1,
+            max_length=1,
+            validation_alias=AliasChoices("file", "files"),
+            serialization_alias="id",
+        ),
+        BeforeValidator(_ensure_list),
+        AfterValidator(
+            _allowed_mime_types(
+                *_PDF_EMAIL_MIME_TYPES,
+                error_msg="Must be an RFC822 email file.",
+            )
+        ),
+        PlainSerializer(_serialize_as_first_file_id),
+    ]
+    output: Annotated[
+        str | None,
+        Field(serialization_alias="output", min_length=1, default=None),
+        AfterValidator(_validate_output_prefix),
+    ] = None
+
+
+class ConvertImageToPdfPayload(BaseModel):
+    """Adapt caller options into a pdfRest-ready image-to-pdf payload."""
+
+    files: Annotated[
+        list[PdfRestFile],
+        Field(
+            min_length=1,
+            max_length=1,
+            validation_alias=AliasChoices("file", "files"),
+            serialization_alias="id",
+        ),
+        BeforeValidator(_ensure_list),
+        AfterValidator(
+            _allowed_mime_types(
+                *_PDF_IMAGE_MIME_TYPES,
+                error_msg="Must be a supported image file type.",
+            )
+        ),
+        PlainSerializer(_serialize_as_first_file_id),
+    ]
+    output: Annotated[
+        str | None,
+        Field(serialization_alias="output", min_length=1, default=None),
+        AfterValidator(_validate_output_prefix),
+    ] = None
+
+
+class ConvertHtmlToPdfPayload(BaseModel):
+    """Adapt caller options into a pdfRest-ready html-to-pdf payload."""
+
+    files: Annotated[
+        list[PdfRestFile],
+        Field(
+            min_length=1,
+            max_length=1,
+            validation_alias=AliasChoices("file", "files"),
+            serialization_alias="id",
+        ),
+        BeforeValidator(_ensure_list),
+        AfterValidator(
+            _allowed_mime_types(
+                *_PDF_HTML_MIME_TYPES,
+                error_msg="Must be an HTML file.",
+            )
+        ),
+        PlainSerializer(_serialize_as_first_file_id),
+    ]
+    output: Annotated[
+        str | None,
+        Field(serialization_alias="output", min_length=1, default=None),
+        AfterValidator(_validate_output_prefix),
+    ] = None
+    compression: Annotated[
+        PdfConversionCompression | None,
+        Field(serialization_alias="compression", default=None),
+    ] = None
+    downsample: Annotated[
+        PdfConversionDownsample | None,
+        Field(serialization_alias="downsample", default=None),
+    ] = None
+    page_size: Annotated[
+        HtmlPageSize | None,
+        Field(serialization_alias="page_size", default=None),
+    ] = None
+    page_margin: Annotated[
+        str | None,
+        Field(
+            serialization_alias="page_margin",
+            pattern=_PAGE_MARGIN_REGEX,
+            default=None,
+        ),
+    ] = None
+    page_orientation: Annotated[
+        HtmlPageOrientation | None,
+        Field(serialization_alias="page_orientation", default=None),
+    ] = None
+    web_layout: Annotated[
+        HtmlWebLayout | None,
+        Field(serialization_alias="web_layout", default=None),
+    ] = None
+
+
+class ConvertUrlToPdfPayload(BaseModel):
+    """Adapt caller options into a pdfRest-ready convert-to-pdf payload for one URL."""
+
+    url: Annotated[
+        list[HttpUrl],
+        Field(serialization_alias="url", min_length=1, max_length=1),
+        BeforeValidator(_ensure_list),
+        PlainSerializer(_serialize_as_first_url),
+    ]
+    output: Annotated[
+        str | None,
+        Field(serialization_alias="output", min_length=1, default=None),
+        AfterValidator(_validate_output_prefix),
+    ] = None
+    compression: Annotated[
+        PdfConversionCompression | None,
+        Field(serialization_alias="compression", default=None),
+    ] = None
+    downsample: Annotated[
+        PdfConversionDownsample | None,
+        Field(serialization_alias="downsample", default=None),
+    ] = None
+    page_size: Annotated[
+        HtmlPageSize | None,
+        Field(serialization_alias="page_size", default=None),
+    ] = None
+    page_margin: Annotated[
+        str | None,
+        Field(
+            serialization_alias="page_margin",
+            pattern=_PAGE_MARGIN_REGEX,
+            default=None,
+        ),
+    ] = None
+    page_orientation: Annotated[
+        HtmlPageOrientation | None,
+        Field(serialization_alias="page_orientation", default=None),
+    ] = None
+    web_layout: Annotated[
+        HtmlWebLayout | None,
+        Field(serialization_alias="web_layout", default=None),
     ] = None
 
 
