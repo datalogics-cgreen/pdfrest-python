@@ -1,0 +1,19 @@
+%FDF-1.2
+%‚„œ”
+1 0 obj
+<<
+/F (minimal_contact_form_acroform.pdf)
+/Fields [
+  << /T (Name) /V (Alice Example) >>
+  << /T (Email) /V (alice@example.com) >>
+  << /T (Phone) /V (+1 312 555 0100) >>
+  << /T (Message) /V (Hello!\nThis is a sample message populated via FDF.) >>
+  << /T (Subscribe) /V /Yes >>
+]
+>>
+endobj
+trailer
+<<
+/Root 1 0 R
+>>
+%%EOF

@@ -23,6 +23,7 @@ from pydantic_core import to_json
 from pdfrest.types.public import PdfRedactionPreset
 
 from ..types import (
+    ExportDataFormat,
     HtmlPageOrientation,
     HtmlPageSize,
     HtmlWebLayout,
@@ -1310,6 +1311,80 @@ class PdfFlattenFormsPayload(BaseModel):
             _allowed_mime_types("application/pdf", error_msg="Must be a PDF file")
         ),
         PlainSerializer(_serialize_as_first_file_id),
+    ]
+    output: Annotated[
+        str | None,
+        Field(serialization_alias="output", min_length=1, default=None),
+        AfterValidator(_validate_output_prefix),
+    ] = None
+
+
+class PdfImportFormDataPayload(BaseModel):
+    """Adapt caller options into a pdfRest-ready import-form-data request payload."""
+
+    files: Annotated[
+        list[PdfRestFile],
+        Field(
+            min_length=1,
+            max_length=1,
+            validation_alias=AliasChoices("file", "files"),
+            serialization_alias="id",
+        ),
+        BeforeValidator(_ensure_list),
+        AfterValidator(
+            _allowed_mime_types("application/pdf", error_msg="Must be a PDF file")
+        ),
+        PlainSerializer(_serialize_as_first_file_id),
+    ]
+    data_file: Annotated[
+        list[PdfRestFile],
+        Field(
+            min_length=1,
+            max_length=1,
+            validation_alias=AliasChoices("data_file", "data_files"),
+            serialization_alias="data_file_id",
+        ),
+        BeforeValidator(_ensure_list),
+        AfterValidator(
+            _allowed_mime_types(
+                "application/xml",
+                "text/xml",
+                "application/vnd.fdf",
+                "application/vnd.adobe.xfdf",
+                "application/vnd.adobe.xdp+xml",
+                "application/vnd.adobe.xfd+xml",
+                error_msg="Data file must be an XFDF, XDP, XFD, FDF, or XML file",
+            )
+        ),
+        PlainSerializer(_serialize_as_first_file_id),
+    ]
+    output: Annotated[
+        str | None,
+        Field(serialization_alias="output", min_length=1, default=None),
+        AfterValidator(_validate_output_prefix),
+    ] = None
+
+
+class PdfExportFormDataPayload(BaseModel):
+    """Adapt caller options into a pdfRest-ready export-form-data request payload."""
+
+    files: Annotated[
+        list[PdfRestFile],
+        Field(
+            min_length=1,
+            max_length=1,
+            validation_alias=AliasChoices("file", "files"),
+            serialization_alias="id",
+        ),
+        BeforeValidator(_ensure_list),
+        AfterValidator(
+            _allowed_mime_types("application/pdf", error_msg="Must be a PDF file")
+        ),
+        PlainSerializer(_serialize_as_first_file_id),
+    ]
+    data_format: Annotated[
+        ExportDataFormat,
+        Field(serialization_alias="data_format"),
     ]
     output: Annotated[
         str | None,

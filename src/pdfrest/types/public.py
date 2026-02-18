@@ -18,6 +18,7 @@ __all__ = (
     "ALL_PDF_RESTRICTIONS",
     "BmpColorModel",
     "CompressionLevel",
+    "ExportDataFormat",
     "ExtractTextGranularity",
     "FlattenQuality",
     "GifColorModel",
@@ -167,6 +168,9 @@ GifColorModel = Literal["rgb", "gray"]
 JpegColorModel = Literal["rgb", "cmyk", "gray"]
 TiffColorModel = Literal["rgb", "rgba", "cmyk", "lab", "gray"]
 GraphicSmoothing = Literal["none", "all", "text", "line", "image"]
+# Server accepts all values here, but enforces form-type subsets at runtime:
+# AcroForm -> xfdf/fdf/xml, XFA -> xfd/xdp/xml.
+ExportDataFormat = Literal["fdf", "xfdf", "xml", "xdp", "xfd"]
 
 SummaryFormat = Literal[
     "overview",

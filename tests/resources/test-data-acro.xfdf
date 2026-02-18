@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xfdf xmlns="http://ns.adobe.com/xfdf/" xml:space="preserve">
+  <fields>
+    <field name="Name"><value>Alice Example</value></field>
+    <field name="Email"><value>alice@example.com</value></field>
+    <field name="Phone"><value>+1 312 555 0100</value></field>
+    <field name="Message"><value>Hello!
+This is a sample message populated via XFDF.</value></field>
+    <field name="Subscribe"><value>Yes</value></field>
+  </fields>
+</xfdf>
