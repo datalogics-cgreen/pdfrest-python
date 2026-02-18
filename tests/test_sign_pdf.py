@@ -707,7 +707,7 @@ def test_sign_payload_accepts_logo_tuple_sequence() -> None:
 @pytest.mark.parametrize(
     "logo_opacity",
     [
-        pytest.param(0.0, id="min"),
+        pytest.param(0.01, id="min"),
         pytest.param(1.0, id="max"),
     ],
 )
@@ -735,6 +735,7 @@ def test_sign_payload_accepts_logo_opacity_bounds(logo_opacity: float) -> None:
 @pytest.mark.parametrize(
     "invalid_logo_opacity",
     [
+        pytest.param(0.0, id="zero"),
         pytest.param(-0.01, id="below-min"),
         pytest.param(1.01, id="above-max"),
     ],
@@ -748,7 +749,7 @@ def test_sign_payload_rejects_logo_opacity_out_of_bounds(
 
     with pytest.raises(
         ValidationError,
-        match=r"greater than or equal to 0|less than or equal to 1",
+        match=r"greater than 0|less than or equal to 1",
     ):
         PdfSignPayload.model_validate(
             {
