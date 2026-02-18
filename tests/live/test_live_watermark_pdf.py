@@ -322,3 +322,136 @@ async def test_live_async_watermark_pdf_invalid_file_id(
                 watermark_text="AsyncInvalid",
                 extra_body={"id": "00000000-0000-0000-0000-000000000000"},
             )
+
+
+@pytest.mark.parametrize(
+    ("extra_body", "error_match"),
+    [
+        pytest.param(
+            {"opacity": "1.01"},
+            r"(?i)(opacity|range)",
+            id="opacity-above-max",
+        ),
+        pytest.param(
+            {"opacity": "-0.01"},
+            r"(?i)(opacity|range)",
+            id="opacity-below-min",
+        ),
+        pytest.param(
+            {"text_size": "101"},
+            r"(?i)(text_size|size|range)",
+            id="text-size-above-max",
+        ),
+        pytest.param(
+            {"text_size": "4"},
+            r"(?i)(text_size|size|range)",
+            id="text-size-below-min",
+        ),
+    ],
+)
+def test_live_watermark_pdf_text_invalid_numeric_bounds(
+    pdfrest_api_key: str,
+    pdfrest_live_base_url: str,
+    uploaded_pdf_for_watermark: PdfRestFile,
+    extra_body: dict[str, str],
+    error_match: str,
+) -> None:
+    with (
+        PdfRestClient(
+            api_key=pdfrest_api_key,
+            base_url=pdfrest_live_base_url,
+        ) as client,
+        pytest.raises(PdfRestApiError, match=error_match),
+    ):
+        client.watermark_pdf_with_text(
+            uploaded_pdf_for_watermark,
+            watermark_text="InvalidNumericText",
+            extra_body=extra_body,
+        )
+
+
+def test_live_watermark_pdf_image_invalid_scale_bounds(
+    pdfrest_api_key: str,
+    pdfrest_live_base_url: str,
+    uploaded_pdf_for_watermark: PdfRestFile,
+    uploaded_watermark_pdf: PdfRestFile,
+) -> None:
+    with (
+        PdfRestClient(
+            api_key=pdfrest_api_key,
+            base_url=pdfrest_live_base_url,
+        ) as client,
+        pytest.raises(PdfRestApiError, match=r"(?i)(watermark_file_scale|scale|range)"),
+    ):
+        client.watermark_pdf_with_image(
+            uploaded_pdf_for_watermark,
+            watermark_file=uploaded_watermark_pdf,
+            extra_body={"watermark_file_scale": "-0.01"},
+        )
+
+
+@pytest.mark.parametrize(
+    ("extra_body", "error_match"),
+    [
+        pytest.param(
+            {"opacity": "1.01"},
+            r"(?i)(opacity|range)",
+            id="opacity-above-max",
+        ),
+        pytest.param(
+            {"opacity": "-0.01"},
+            r"(?i)(opacity|range)",
+            id="opacity-below-min",
+        ),
+        pytest.param(
+            {"text_size": "101"},
+            r"(?i)(text_size|size|range)",
+            id="text-size-above-max",
+        ),
+        pytest.param(
+            {"text_size": "4"},
+            r"(?i)(text_size|size|range)",
+            id="text-size-below-min",
+        ),
+    ],
+)
+@pytest.mark.asyncio
+async def test_live_async_watermark_pdf_text_invalid_numeric_bounds(
+    pdfrest_api_key: str,
+    pdfrest_live_base_url: str,
+    uploaded_pdf_for_watermark: PdfRestFile,
+    extra_body: dict[str, str],
+    error_match: str,
+) -> None:
+    async with AsyncPdfRestClient(
+        api_key=pdfrest_api_key,
+        base_url=pdfrest_live_base_url,
+    ) as client:
+        with pytest.raises(PdfRestApiError, match=error_match):
+            await client.watermark_pdf_with_text(
+                uploaded_pdf_for_watermark,
+                watermark_text="AsyncInvalidNumericText",
+                extra_body=extra_body,
+            )
+
+
+@pytest.mark.asyncio
+async def test_live_async_watermark_pdf_image_invalid_scale_bounds(
+    pdfrest_api_key: str,
+    pdfrest_live_base_url: str,
+    uploaded_pdf_for_watermark: PdfRestFile,
+    uploaded_watermark_pdf: PdfRestFile,
+) -> None:
+    async with AsyncPdfRestClient(
+        api_key=pdfrest_api_key,
+        base_url=pdfrest_live_base_url,
+    ) as client:
+        with pytest.raises(
+            PdfRestApiError,
+            match=r"(?i)(watermark_file_scale|scale|range)",
+        ):
+            await client.watermark_pdf_with_image(
+                uploaded_pdf_for_watermark,
+                watermark_file=uploaded_watermark_pdf,
+                extra_body={"watermark_file_scale": "-0.01"},
+            )
