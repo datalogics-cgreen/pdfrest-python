@@ -124,6 +124,10 @@ def _serialize_file_ids(value: list[PdfRestFile]) -> str:
     return ",".join(str(file.id) for file in value)
 
 
+def _serialize_file_id_list(value: list[PdfRestFile]) -> list[str]:
+    return [str(file.id) for file in value]
+
+
 def _bool_to_on_off(value: Any) -> Any:
     if isinstance(value, bool):
         return "on" if value else "off"
@@ -261,6 +265,49 @@ class DeletePayload(BaseModel):
         BeforeValidator(_ensure_list),
         PlainSerializer(_serialize_file_ids),
     ]
+
+
+class ZipPayload(BaseModel):
+    """Adapt caller options into a pdfRest-ready zip request payload."""
+
+    files: Annotated[
+        list[PdfRestFile],
+        Field(
+            min_length=1,
+            validation_alias=AliasChoices("file", "files"),
+            serialization_alias="id",
+        ),
+        BeforeValidator(_ensure_list),
+        PlainSerializer(_serialize_file_id_list),
+    ]
+    output: Annotated[
+        str | None,
+        Field(serialization_alias="output", min_length=1, default=None),
+        AfterValidator(_validate_output_prefix),
+    ] = None
+
+
+class UnzipPayload(BaseModel):
+    """Adapt caller options into a pdfRest-ready unzip request payload."""
+
+    files: Annotated[
+        list[PdfRestFile],
+        Field(
+            min_length=1,
+            max_length=1,
+            validation_alias=AliasChoices("file", "files"),
+            serialization_alias="id",
+        ),
+        BeforeValidator(_ensure_list),
+        AfterValidator(
+            _allowed_mime_types("application/zip", error_msg="Must be a ZIP file")
+        ),
+        PlainSerializer(_serialize_as_first_file_id),
+    ]
+    password: Annotated[
+        str | None,
+        Field(default=None, min_length=1),
+    ] = None
 
 
 PageNumber = Annotated[int, Field(ge=1), PlainSerializer(lambda x: str(x))]
@@ -1673,7 +1720,7 @@ class PdfRestRawUploadedFile(BaseModel):
     name: Annotated[str, Field(description="The name of the file")]
     id: Annotated[PdfRestFileID, Field(description="The id of the file")]
     output_url: Annotated[
-        str | None,
+        list[HttpUrl] | HttpUrl | None,
         Field(description="The url of the unzipped file", alias="outputUrl"),
         BeforeValidator(_ensure_list),
     ] = None
@@ -1696,7 +1743,7 @@ class PdfRestRawFileResponse(BaseModel):
         BeforeValidator(_ensure_list),
     ]
     output_urls: Annotated[
-        list[HttpUrl] | None,
+        list[HttpUrl] | HttpUrl | None,
         Field(alias="outputUrl", description="The url of the file"),
         BeforeValidator(_ensure_list),
     ] = None
