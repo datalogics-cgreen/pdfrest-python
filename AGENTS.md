@@ -128,6 +128,10 @@
   helpers should pass sequences through without converting to raw IDs manually.
 - When a payload accepts uploaded content, validate MIME types via
   `_allowed_mime_types` to surface clear errors before making the request.
+- Payload models should mirror pdfRest's request layout field-for-field. Do not
+  use `@model_serializer` on payload models. If callers need a friendlier input
+  shape, use `@model_validator(mode="before")` to map inputs onto the existing
+  pdfRest fields, and keep any wire formatting in field serializers.
 - When an endpoint expects JSON-encoded structures (e.g., arrays of redaction
   rules), expose typed arguments (TypedDicts, Literals, etc.) via
   `pdfrest.types` and let the payload serializer produce the JSON string for the
