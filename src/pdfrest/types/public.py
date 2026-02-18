@@ -31,6 +31,7 @@ __all__ = (
     "PdfAType",
     "PdfAddTextObject",
     "PdfCmykColor",
+    "PdfColorProfile",
     "PdfConversionCompression",
     "PdfConversionDownsample",
     "PdfConversionLocale",
@@ -41,6 +42,7 @@ __all__ = (
     "PdfPageOrientation",
     "PdfPageSelection",
     "PdfPageSize",
+    "PdfPresetColorProfile",
     "PdfRGBColor",
     "PdfRedactionInstruction",
     "PdfRedactionPreset",
@@ -223,3 +225,21 @@ ALL_PDF_RESTRICTIONS: tuple[PdfRestriction, ...] = cast(
 )
 PdfPageSize = Literal["letter", "legal", "ledger", "A3", "A4", "A5"] | PdfCustomPageSize
 PdfPageOrientation = Literal["portrait", "landscape"]
+PdfPresetColorProfile = Literal[
+    "lab-d50",
+    "srgb",
+    "apple-rgb",
+    "color-match-rgb",
+    "gamma-18",
+    "gamma-22",
+    "dot-gain-10",
+    "dot-gain-15",
+    "dot-gain-20",
+    "dot-gain-25",
+    "dot-gain-30",
+    "monitor-rgb",
+    "acrobat5-cmyk",
+    "acrobat9-cmyk",
+]
+
+PdfColorProfile = PdfPresetColorProfile

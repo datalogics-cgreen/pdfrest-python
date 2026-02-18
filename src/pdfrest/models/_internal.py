@@ -35,6 +35,7 @@ from ..types import (
     PdfInfoQuery,
     PdfPageOrientation,
     PdfPageSize,
+    PdfPresetColorProfile,
     PdfRestriction,
     PdfXType,
     SummaryFormat,
@@ -43,6 +44,8 @@ from ..types import (
     TranslateOutputFormat,
 )
 from .public import PdfRestFile, PdfRestFileID
+
+PdfConvertColorProfile = PdfPresetColorProfile | Literal["custom"]
 
 
 def _ensure_list(value: Any) -> Any:
@@ -53,6 +56,14 @@ def _ensure_list(value: Any) -> Any:
     if isinstance(value, Sequence) and not isinstance(value, (str, bytes, bytearray)):
         return list(value)
     return [value]
+
+
+def _is_uploaded_file_value(value: Any) -> bool:
+    if isinstance(value, PdfRestFile):
+        return True
+    if isinstance(value, Sequence) and not isinstance(value, (str, bytes, bytearray)):
+        return all(isinstance(item, PdfRestFile) for item in value)
+    return False
 
 
 def _list_of_strings(value: list[Any]) -> list[str]:
@@ -142,6 +153,12 @@ def _serialize_file_id_list(value: list[PdfRestFile]) -> list[str]:
 def _bool_to_on_off(value: Any) -> Any:
     if isinstance(value, bool):
         return "on" if value else "off"
+    return value
+
+
+def _bool_to_true_false(value: Any) -> Any:
+    if isinstance(value, bool):
+        return "true" if value else "false"
     return value
 
 
@@ -1852,6 +1869,96 @@ class PdfBlankPayload(BaseModel):
             if has_custom_height or has_custom_width:
                 msg = "custom_height and custom_width can only be provided when page_size is 'custom'."
                 raise ValueError(msg)
+        return self
+
+
+class PdfConvertColorsPayload(BaseModel):
+    """Adapt caller options into a pdfRest-ready convert-colors request payload."""
+
+    files: Annotated[
+        list[PdfRestFile],
+        Field(
+            min_length=1,
+            max_length=1,
+            validation_alias=AliasChoices("file", "files"),
+            serialization_alias="id",
+        ),
+        BeforeValidator(_ensure_list),
+        AfterValidator(
+            _allowed_mime_types("application/pdf", error_msg="Must be a PDF file")
+        ),
+        PlainSerializer(_serialize_as_first_file_id),
+    ]
+    color_profile: Annotated[
+        PdfConvertColorProfile,
+        Field(serialization_alias="color_profile"),
+    ]
+    custom_profile: Annotated[
+        list[PdfRestFile] | None,
+        Field(
+            default=None,
+            min_length=1,
+            max_length=1,
+            serialization_alias="profile_id",
+        ),
+        BeforeValidator(_ensure_list),
+        AfterValidator(
+            _allowed_mime_types(
+                "application/vnd.iccprofile",
+                "application/octet-stream",
+                error_msg="Profile must be an ICC file",
+            )
+        ),
+        PlainSerializer(_serialize_as_first_file_id),
+    ] = None
+    preserve_black: Annotated[
+        Literal["true", "false"] | None,
+        Field(serialization_alias="preserve_black", default=None),
+        BeforeValidator(_bool_to_true_false),
+    ] = None
+    output: Annotated[
+        str | None,
+        Field(serialization_alias="output", min_length=1, default=None),
+        AfterValidator(_validate_output_prefix),
+    ] = None
+
+    @model_validator(mode="before")
+    @classmethod
+    def _normalize_color_profile(cls, value: Any) -> Any:
+        if not isinstance(value, dict):
+            return value
+
+        payload = cast(dict[str, Any], value).copy()
+        color_profile = payload.get("color_profile")
+        if not _is_uploaded_file_value(color_profile):
+            return payload
+
+        if payload.get("custom_profile") is not None:
+            msg = (
+                "Provide the custom profile file via color_profile only when "
+                "color_profile is a file."
+            )
+            raise ValueError(msg)
+
+        payload["color_profile"] = "custom"
+        payload["custom_profile"] = color_profile
+        return payload
+
+    @model_validator(mode="after")
+    def _validate_profile_dependency(self) -> PdfConvertColorsPayload:
+        if self.color_profile == "custom":
+            if not self.custom_profile:
+                msg = (
+                    "A custom color profile requires an uploaded ICC file passed "
+                    "as color_profile."
+                )
+                raise ValueError(msg)
+        elif self.custom_profile:
+            msg = (
+                "A profile can only be provided by passing an uploaded ICC file "
+                "as color_profile."
+            )
+            raise ValueError(msg)
         return self
 
 
