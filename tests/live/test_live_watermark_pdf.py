@@ -101,6 +101,70 @@ def test_live_watermark_pdf_image_success(
     ]
 
 
+@pytest.mark.parametrize(
+    "horizontal_alignment",
+    [
+        pytest.param("left", id="left"),
+        pytest.param("center", id="center"),
+        pytest.param("right", id="right"),
+    ],
+)
+def test_live_watermark_pdf_text_horizontal_alignment_literals(
+    pdfrest_api_key: str,
+    pdfrest_live_base_url: str,
+    uploaded_pdf_for_watermark: PdfRestFile,
+    horizontal_alignment: str,
+) -> None:
+    with PdfRestClient(
+        api_key=pdfrest_api_key,
+        base_url=pdfrest_live_base_url,
+    ) as client:
+        response = client.watermark_pdf_with_text(
+            uploaded_pdf_for_watermark,
+            watermark_text="HORIZONTAL",
+            horizontal_alignment=horizontal_alignment,
+            output=f"align-h-{horizontal_alignment}",
+        )
+
+    output_file = response.output_file
+    assert output_file.name.startswith(f"align-h-{horizontal_alignment}")
+    assert output_file.type == "application/pdf"
+    assert output_file.size > 0
+    assert str(response.input_id) == str(uploaded_pdf_for_watermark.id)
+
+
+@pytest.mark.parametrize(
+    "vertical_alignment",
+    [
+        pytest.param("top", id="top"),
+        pytest.param("center", id="center"),
+        pytest.param("bottom", id="bottom"),
+    ],
+)
+def test_live_watermark_pdf_text_vertical_alignment_literals(
+    pdfrest_api_key: str,
+    pdfrest_live_base_url: str,
+    uploaded_pdf_for_watermark: PdfRestFile,
+    vertical_alignment: str,
+) -> None:
+    with PdfRestClient(
+        api_key=pdfrest_api_key,
+        base_url=pdfrest_live_base_url,
+    ) as client:
+        response = client.watermark_pdf_with_text(
+            uploaded_pdf_for_watermark,
+            watermark_text="VERTICAL",
+            vertical_alignment=vertical_alignment,
+            output=f"align-v-{vertical_alignment}",
+        )
+
+    output_file = response.output_file
+    assert output_file.name.startswith(f"align-v-{vertical_alignment}")
+    assert output_file.type == "application/pdf"
+    assert output_file.size > 0
+    assert str(response.input_id) == str(uploaded_pdf_for_watermark.id)
+
+
 @pytest.mark.asyncio
 async def test_live_async_watermark_pdf_text_success(
     pdfrest_api_key: str,
@@ -126,6 +190,101 @@ async def test_live_async_watermark_pdf_text_success(
     assert output_file.type == "application/pdf"
     assert output_file.size > 0
     assert str(response.input_id) == str(uploaded_pdf_for_watermark.id)
+
+
+@pytest.mark.parametrize(
+    "horizontal_alignment",
+    [
+        pytest.param("left", id="left"),
+        pytest.param("center", id="center"),
+        pytest.param("right", id="right"),
+    ],
+)
+@pytest.mark.asyncio
+async def test_live_async_watermark_pdf_text_horizontal_alignment_literals(
+    pdfrest_api_key: str,
+    pdfrest_live_base_url: str,
+    uploaded_pdf_for_watermark: PdfRestFile,
+    horizontal_alignment: str,
+) -> None:
+    async with AsyncPdfRestClient(
+        api_key=pdfrest_api_key,
+        base_url=pdfrest_live_base_url,
+    ) as client:
+        response = await client.watermark_pdf_with_text(
+            uploaded_pdf_for_watermark,
+            watermark_text="ASYNC-HORIZONTAL",
+            horizontal_alignment=horizontal_alignment,
+            output=f"async-align-h-{horizontal_alignment}",
+        )
+
+    output_file = response.output_file
+    assert output_file.name.startswith(f"async-align-h-{horizontal_alignment}")
+    assert output_file.type == "application/pdf"
+    assert output_file.size > 0
+    assert str(response.input_id) == str(uploaded_pdf_for_watermark.id)
+
+
+@pytest.mark.parametrize(
+    "vertical_alignment",
+    [
+        pytest.param("top", id="top"),
+        pytest.param("center", id="center"),
+        pytest.param("bottom", id="bottom"),
+    ],
+)
+@pytest.mark.asyncio
+async def test_live_async_watermark_pdf_text_vertical_alignment_literals(
+    pdfrest_api_key: str,
+    pdfrest_live_base_url: str,
+    uploaded_pdf_for_watermark: PdfRestFile,
+    vertical_alignment: str,
+) -> None:
+    async with AsyncPdfRestClient(
+        api_key=pdfrest_api_key,
+        base_url=pdfrest_live_base_url,
+    ) as client:
+        response = await client.watermark_pdf_with_text(
+            uploaded_pdf_for_watermark,
+            watermark_text="ASYNC-VERTICAL",
+            vertical_alignment=vertical_alignment,
+            output=f"async-align-v-{vertical_alignment}",
+        )
+
+    output_file = response.output_file
+    assert output_file.name.startswith(f"async-align-v-{vertical_alignment}")
+    assert output_file.type == "application/pdf"
+    assert output_file.size > 0
+    assert str(response.input_id) == str(uploaded_pdf_for_watermark.id)
+
+
+@pytest.mark.asyncio
+async def test_live_async_watermark_pdf_image_success(
+    pdfrest_api_key: str,
+    pdfrest_live_base_url: str,
+    uploaded_pdf_for_watermark: PdfRestFile,
+    uploaded_watermark_pdf: PdfRestFile,
+) -> None:
+    async with AsyncPdfRestClient(
+        api_key=pdfrest_api_key,
+        base_url=pdfrest_live_base_url,
+    ) as client:
+        response = await client.watermark_pdf_with_image(
+            uploaded_pdf_for_watermark,
+            watermark_file=uploaded_watermark_pdf,
+            watermark_file_scale=0.75,
+            behind_page=True,
+            output="async-watermark-file",
+        )
+
+    output_file = response.output_file
+    assert output_file.type == "application/pdf"
+    assert output_file.size > 0
+    assert output_file.name.startswith("async-watermark-file")
+    assert [str(value) for value in response.input_ids] == [
+        str(uploaded_pdf_for_watermark.id),
+        str(uploaded_watermark_pdf.id),
+    ]
 
 
 def test_live_watermark_pdf_invalid_alignment(
