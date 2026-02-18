@@ -1633,7 +1633,7 @@ class PdfSignPayload(BaseModel):
                 "credentials must be a mapping with either pfx/passphrase or "
                 "certificate/private_key."
             )
-            raise TypeError(msg)
+            raise ValueError(msg)  # noqa: TRY004
 
         normalized: dict[str, Any] = {str(key): value for key, value in payload.items()}
         credential_map = cast(Mapping[object, Any], credentials)

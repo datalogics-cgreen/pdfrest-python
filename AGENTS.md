@@ -71,6 +71,9 @@
 - Avoid `@field_validator` on payload models. Prefer existing `BeforeValidator`
   helpers (e.g., `_allowed_mime_types`) so validation remains declarative and
   consistent across schemas.
+- In Pydantic validators, raise `ValueError`/`AssertionError` (or
+  `PydanticCustomError` when needed), not `TypeError`, so callers consistently
+  receive `ValidationError` surfaces.
 - Keep user-facing `PdfRestClient` and `AsyncPdfRestClient` endpoint helpers
   thin: they should primarily assemble payload dicts and delegate validation to
   payload models (`model_validate`). Avoid duplicating payload validation in
