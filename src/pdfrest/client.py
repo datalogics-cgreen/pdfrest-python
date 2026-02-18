@@ -254,21 +254,6 @@ def _parse_retry_after_header(header_value: str | None) -> float | None:
     return seconds if seconds > 0 else 0.0
 
 
-def _merge_non_default_values(
-    *,
-    payload: dict[str, Any],
-    values: Mapping[str, Any],
-    defaults: Mapping[str, Any],
-) -> None:
-    payload.update(
-        {
-            key: value
-            for key, value in values.items()
-            if value is not None and (key not in defaults or value != defaults[key])
-        }
-    )
-
-
 FileContent = IO[bytes] | bytes | str
 FileTuple2 = tuple[str | None, FileContent]
 FileTuple3 = tuple[str | None, FileContent, str | None]
@@ -3663,35 +3648,21 @@ class PdfRestClient(_SyncApiClient):
         payload: dict[str, Any] = {
             "files": file,
             "watermark_text": watermark_text,
+            "output": output,
+            "font": font,
+            "text_size": text_size,
+            "text_color_rgb": text_color_rgb,
+            "text_color_cmyk": text_color_cmyk,
+            "opacity": opacity,
+            "horizontal_alignment": horizontal_alignment,
+            "vertical_alignment": vertical_alignment,
+            "x": x,
+            "y": y,
+            "rotation": rotation,
+            "pages": pages,
+            "behind_page": behind_page,
         }
-        _merge_non_default_values(
-            payload=payload,
-            values={
-                "output": output,
-                "font": font,
-                "text_size": text_size,
-                "text_color_rgb": text_color_rgb,
-                "text_color_cmyk": text_color_cmyk,
-                "opacity": opacity,
-                "horizontal_alignment": horizontal_alignment,
-                "vertical_alignment": vertical_alignment,
-                "x": x,
-                "y": y,
-                "rotation": rotation,
-                "pages": pages,
-                "behind_page": behind_page,
-            },
-            defaults={
-                "text_size": 72,
-                "opacity": 0.5,
-                "horizontal_alignment": "center",
-                "vertical_alignment": "center",
-                "x": 0,
-                "y": 0,
-                "rotation": 0,
-                "behind_page": False,
-            },
-        )
+        payload = {key: value for key, value in payload.items() if value is not None}
 
         return self._post_file_operation(
             endpoint="/watermarked-pdf",
@@ -3728,32 +3699,18 @@ class PdfRestClient(_SyncApiClient):
         payload: dict[str, Any] = {
             "files": file,
             "watermark_file": watermark_file,
+            "output": output,
+            "watermark_file_scale": watermark_file_scale,
+            "opacity": opacity,
+            "horizontal_alignment": horizontal_alignment,
+            "vertical_alignment": vertical_alignment,
+            "x": x,
+            "y": y,
+            "rotation": rotation,
+            "pages": pages,
+            "behind_page": behind_page,
         }
-        _merge_non_default_values(
-            payload=payload,
-            values={
-                "output": output,
-                "watermark_file_scale": watermark_file_scale,
-                "opacity": opacity,
-                "horizontal_alignment": horizontal_alignment,
-                "vertical_alignment": vertical_alignment,
-                "x": x,
-                "y": y,
-                "rotation": rotation,
-                "pages": pages,
-                "behind_page": behind_page,
-            },
-            defaults={
-                "watermark_file_scale": 0.5,
-                "opacity": 0.5,
-                "horizontal_alignment": "center",
-                "vertical_alignment": "center",
-                "x": 0,
-                "y": 0,
-                "rotation": 0,
-                "behind_page": False,
-            },
-        )
+        payload = {key: value for key, value in payload.items() if value is not None}
 
         return self._post_file_operation(
             endpoint="/watermarked-pdf",
@@ -5590,35 +5547,21 @@ class AsyncPdfRestClient(_AsyncApiClient):
         payload: dict[str, Any] = {
             "files": file,
             "watermark_text": watermark_text,
+            "output": output,
+            "font": font,
+            "text_size": text_size,
+            "text_color_rgb": text_color_rgb,
+            "text_color_cmyk": text_color_cmyk,
+            "opacity": opacity,
+            "horizontal_alignment": horizontal_alignment,
+            "vertical_alignment": vertical_alignment,
+            "x": x,
+            "y": y,
+            "rotation": rotation,
+            "pages": pages,
+            "behind_page": behind_page,
         }
-        _merge_non_default_values(
-            payload=payload,
-            values={
-                "output": output,
-                "font": font,
-                "text_size": text_size,
-                "text_color_rgb": text_color_rgb,
-                "text_color_cmyk": text_color_cmyk,
-                "opacity": opacity,
-                "horizontal_alignment": horizontal_alignment,
-                "vertical_alignment": vertical_alignment,
-                "x": x,
-                "y": y,
-                "rotation": rotation,
-                "pages": pages,
-                "behind_page": behind_page,
-            },
-            defaults={
-                "text_size": 72,
-                "opacity": 0.5,
-                "horizontal_alignment": "center",
-                "vertical_alignment": "center",
-                "x": 0,
-                "y": 0,
-                "rotation": 0,
-                "behind_page": False,
-            },
-        )
+        payload = {key: value for key, value in payload.items() if value is not None}
 
         return await self._post_file_operation(
             endpoint="/watermarked-pdf",
@@ -5655,32 +5598,18 @@ class AsyncPdfRestClient(_AsyncApiClient):
         payload: dict[str, Any] = {
             "files": file,
             "watermark_file": watermark_file,
+            "output": output,
+            "watermark_file_scale": watermark_file_scale,
+            "opacity": opacity,
+            "horizontal_alignment": horizontal_alignment,
+            "vertical_alignment": vertical_alignment,
+            "x": x,
+            "y": y,
+            "rotation": rotation,
+            "pages": pages,
+            "behind_page": behind_page,
         }
-        _merge_non_default_values(
-            payload=payload,
-            values={
-                "output": output,
-                "watermark_file_scale": watermark_file_scale,
-                "opacity": opacity,
-                "horizontal_alignment": horizontal_alignment,
-                "vertical_alignment": vertical_alignment,
-                "x": x,
-                "y": y,
-                "rotation": rotation,
-                "pages": pages,
-                "behind_page": behind_page,
-            },
-            defaults={
-                "watermark_file_scale": 0.5,
-                "opacity": 0.5,
-                "horizontal_alignment": "center",
-                "vertical_alignment": "center",
-                "x": 0,
-                "y": 0,
-                "rotation": 0,
-                "behind_page": False,
-            },
-        )
+        payload = {key: value for key, value in payload.items() if value is not None}
 
         return await self._post_file_operation(
             endpoint="/watermarked-pdf",

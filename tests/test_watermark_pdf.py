@@ -28,8 +28,16 @@ def test_watermark_pdf_with_text(monkeypatch: pytest.MonkeyPatch) -> None:
         {
             "files": [input_file],
             "watermark_text": "Confidential",
+            "text_size": 72,
             "text_color_rgb": (255, 0, 0),
+            "opacity": 0.5,
+            "horizontal_alignment": "center",
+            "vertical_alignment": "center",
+            "x": 0,
+            "y": 0,
+            "rotation": 0,
             "pages": ["1", "3-5"],
+            "behind_page": False,
             "output": "watermarked",
         }
     ).model_dump(mode="json", by_alias=True, exclude_none=True, exclude_unset=True)
@@ -90,6 +98,10 @@ def test_watermark_pdf_with_image(monkeypatch: pytest.MonkeyPatch) -> None:
             "files": [input_file],
             "watermark_file": [watermark_file],
             "watermark_file_scale": 0.8,
+            "opacity": 0.5,
+            "horizontal_alignment": "center",
+            "vertical_alignment": "center",
+            "x": 0,
             "behind_page": True,
             "rotation": 45,
             "y": 25,
@@ -321,7 +333,14 @@ async def test_async_watermark_pdf_with_text(monkeypatch: pytest.MonkeyPatch) ->
         {
             "files": [input_file],
             "watermark_text": "Async",
+            "text_size": 72,
             "opacity": 0.6,
+            "horizontal_alignment": "center",
+            "vertical_alignment": "center",
+            "x": 0,
+            "y": 0,
+            "rotation": 0,
+            "behind_page": False,
         }
     ).model_dump(mode="json", by_alias=True, exclude_none=True, exclude_unset=True)
 
@@ -379,8 +398,15 @@ async def test_async_watermark_pdf_with_image(monkeypatch: pytest.MonkeyPatch) -
         {
             "files": [input_file],
             "watermark_file": [watermark_file],
+            "watermark_file_scale": 0.5,
             "opacity": 0.2,
+            "horizontal_alignment": "center",
+            "vertical_alignment": "center",
+            "x": 0,
+            "y": 0,
+            "rotation": 0,
             "pages": ["2-last"],
+            "behind_page": False,
         }
     ).model_dump(mode="json", by_alias=True, exclude_none=True, exclude_unset=True)
 
