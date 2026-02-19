@@ -688,7 +688,6 @@ class _BaseApiClient(Generic[ClientType]):
     @property
     def base_url(self) -> URL:
         """Resolved base URL for the client."""
-
         return self._config.base_url
 
     def _prepare_request(
@@ -2077,7 +2076,6 @@ class _FilesClient:
         timeout: TimeoutTypes | None = None,
     ) -> list[PdfRestFile]:
         """Upload one or more files by providing remote URLs."""
-
         normalized_urls = UploadURLs.model_validate({"url": urls})
         request = self._client.prepare_request(
             "POST",
@@ -2110,7 +2108,6 @@ class _FilesClient:
         timeout: TimeoutTypes | None = None,
     ) -> None:
         """Delete one or more uploaded files by reference."""
-
         payload = DeletePayload.model_validate({"files": files})
         request = self._client.prepare_request(
             "POST",
@@ -2376,7 +2373,6 @@ class _AsyncFilesClient:
         timeout: TimeoutTypes | None = None,
     ) -> list[PdfRestFile]:
         """Upload one or more files by providing remote URLs."""
-
         normalized_urls = UploadURLs.model_validate({"url": urls})
         request = self._client.prepare_request(
             "POST",
@@ -2412,7 +2408,6 @@ class _AsyncFilesClient:
         timeout: TimeoutTypes | None = None,
     ) -> None:
         """Delete one or more uploaded files by reference."""
-
         payload = DeletePayload.model_validate({"files": files})
         request = self._client.prepare_request(
             "POST",
@@ -2557,8 +2552,8 @@ class PdfRestClient(_SyncApiClient):
             headers: Default headers merged into every request.
             http_client: Optional preconfigured `httpx.Client` instance to reuse.
             transport: Optional custom `httpx` transport.
-            max_retries: Maximum number of retries for retryable failures."""
-
+            max_retries: Maximum number of retries for retryable failures.
+        """
         super().__init__(
             api_key=api_key,
             base_url=base_url,
@@ -2576,7 +2571,8 @@ class PdfRestClient(_SyncApiClient):
         """Enter the client context manager and return this client instance.
 
         Returns:
-            The current client instance."""
+            The current client instance.
+        """
         _ = super().__enter__()
         return self
 
@@ -2587,7 +2583,8 @@ class PdfRestClient(_SyncApiClient):
         Args:
             exc_type: Exception type raised in the managed context, if any.
             exc: Exception instance raised in the managed context, if any.
-            traceback: Traceback object for exceptions raised in the managed context."""
+            traceback: Traceback object for exceptions raised in the managed context.
+        """
         super().__exit__(exc_type, exc, traceback)
 
     @property
@@ -2595,8 +2592,8 @@ class PdfRestClient(_SyncApiClient):
         """Return the [PdfRestFilesClient][pdfrest.PdfRestFilesClient] helper bound to this client.
 
         Returns:
-            The file-management helper bound to this client."""
-
+            The file-management helper bound to this client.
+        """
         return self._files_client
 
     def up(
@@ -2622,8 +2619,8 @@ class PdfRestClient(_SyncApiClient):
 
         Raises:
             PdfRestError: If request execution fails at the client or API layer.
-            ValidationError: If local payload validation fails before sending."""
-
+            ValidationError: If local payload validation fails before sending.
+        """
         request = self._prepare_request(
             "GET",
             "/up",
@@ -2658,7 +2655,8 @@ class PdfRestClient(_SyncApiClient):
             timeout: Request timeout override for this call.
 
         Returns:
-            Validated file-based response returned by pdfRest."""
+            Validated file-based response returned by pdfRest.
+        """
         return self._post_file_operation(
             endpoint=endpoint,
             payload=payload,
@@ -2696,8 +2694,8 @@ class PdfRestClient(_SyncApiClient):
 
         Raises:
             PdfRestError: If request execution fails at the client or API layer.
-            ValidationError: If local payload validation fails before sending."""
-
+            ValidationError: If local payload validation fails before sending.
+        """
         payload = PdfInfoPayload.model_validate({"file": file, "queries": queries})
         request = self.prepare_request(
             "POST",
@@ -2748,8 +2746,8 @@ class PdfRestClient(_SyncApiClient):
 
         Raises:
             PdfRestError: If request execution fails at the client or API layer.
-            ValidationError: If local payload validation fails before sending."""
-
+            ValidationError: If local payload validation fails before sending.
+        """
         payload: dict[str, Any] = {
             "files": file,
             "target_word_count": target_word_count,
@@ -2812,8 +2810,8 @@ class PdfRestClient(_SyncApiClient):
 
         Raises:
             PdfRestError: If request execution fails at the client or API layer.
-            ValidationError: If local payload validation fails before sending."""
-
+            ValidationError: If local payload validation fails before sending.
+        """
         payload: dict[str, Any] = {
             "files": file,
             "target_word_count": target_word_count,
@@ -2867,8 +2865,8 @@ class PdfRestClient(_SyncApiClient):
 
         Raises:
             PdfRestError: If request execution fails at the client or API layer.
-            ValidationError: If local payload validation fails before sending."""
-
+            ValidationError: If local payload validation fails before sending.
+        """
         payload: dict[str, Any] = {
             "files": file,
             "output_type": "file",
@@ -2920,8 +2918,8 @@ class PdfRestClient(_SyncApiClient):
 
         Raises:
             PdfRestError: If request execution fails at the client or API layer.
-            ValidationError: If local payload validation fails before sending."""
-
+            ValidationError: If local payload validation fails before sending.
+        """
         payload: dict[str, Any] = {"files": file, "languages": languages}
         if pages is not None:
             payload["pages"] = pages
@@ -2971,8 +2969,8 @@ class PdfRestClient(_SyncApiClient):
 
         Raises:
             PdfRestError: If request execution fails at the client or API layer.
-            ValidationError: If local payload validation fails before sending."""
-
+            ValidationError: If local payload validation fails before sending.
+        """
         payload: dict[str, Any] = {
             "files": file,
             "output_language": output_language,
@@ -3032,8 +3030,8 @@ class PdfRestClient(_SyncApiClient):
 
         Raises:
             PdfRestError: If request execution fails at the client or API layer.
-            ValidationError: If local payload validation fails before sending."""
-
+            ValidationError: If local payload validation fails before sending.
+        """
         payload: dict[str, Any] = {
             "files": file,
             "output_language": output_language,
@@ -3085,8 +3083,8 @@ class PdfRestClient(_SyncApiClient):
 
         Raises:
             PdfRestError: If request execution fails at the client or API layer.
-            ValidationError: If local payload validation fails before sending."""
-
+            ValidationError: If local payload validation fails before sending.
+        """
         payload: dict[str, Any] = {"files": file}
         if pages is not None:
             payload["pages"] = pages
@@ -3138,8 +3136,8 @@ class PdfRestClient(_SyncApiClient):
 
         Raises:
             PdfRestError: If request execution fails at the client or API layer.
-            ValidationError: If local payload validation fails before sending."""
-
+            ValidationError: If local payload validation fails before sending.
+        """
         payload: dict[str, Any] = {
             "files": file,
             "full_text": full_text,
@@ -3203,8 +3201,8 @@ class PdfRestClient(_SyncApiClient):
 
         Raises:
             PdfRestError: If request execution fails at the client or API layer.
-            ValidationError: If local payload validation fails before sending."""
-
+            ValidationError: If local payload validation fails before sending.
+        """
         payload: dict[str, Any] = {
             "files": file,
             "full_text": full_text,
@@ -3257,8 +3255,8 @@ class PdfRestClient(_SyncApiClient):
 
         Raises:
             PdfRestError: If request execution fails at the client or API layer.
-            ValidationError: If local payload validation fails before sending."""
-
+            ValidationError: If local payload validation fails before sending.
+        """
         payload: dict[str, Any] = {
             "files": file,
             "redactions": redactions,
@@ -3305,8 +3303,8 @@ class PdfRestClient(_SyncApiClient):
 
         Raises:
             PdfRestError: If request execution fails at the client or API layer.
-            ValidationError: If local payload validation fails before sending."""
-
+            ValidationError: If local payload validation fails before sending.
+        """
         payload: dict[str, Any] = {
             "files": file,
         }
@@ -3354,8 +3352,8 @@ class PdfRestClient(_SyncApiClient):
 
         Raises:
             PdfRestError: If request execution fails at the client or API layer.
-            ValidationError: If local payload validation fails before sending."""
-
+            ValidationError: If local payload validation fails before sending.
+        """
         payload: dict[str, Any] = {
             "files": file,
             "text_objects": text_objects,
@@ -3408,8 +3406,8 @@ class PdfRestClient(_SyncApiClient):
 
         Raises:
             PdfRestError: If request execution fails at the client or API layer.
-            ValidationError: If local payload validation fails before sending."""
-
+            ValidationError: If local payload validation fails before sending.
+        """
         payload: dict[str, Any] = {
             "files": file,
             "image": image,
@@ -3459,8 +3457,8 @@ class PdfRestClient(_SyncApiClient):
 
         Raises:
             PdfRestError: If request execution fails at the client or API layer.
-            ValidationError: If local payload validation fails before sending."""
-
+            ValidationError: If local payload validation fails before sending.
+        """
         payload: dict[str, Any] = {"files": file}
         if page_groups is not None:
             payload["page_groups"] = page_groups
@@ -3504,8 +3502,8 @@ class PdfRestClient(_SyncApiClient):
 
         Raises:
             PdfRestError: If request execution fails at the client or API layer.
-            ValidationError: If local payload validation fails before sending."""
-
+            ValidationError: If local payload validation fails before sending.
+        """
         payload: dict[str, Any] = {"sources": sources}
         if output_prefix is not None:
             payload["output_prefix"] = output_prefix
@@ -3547,8 +3545,8 @@ class PdfRestClient(_SyncApiClient):
 
         Raises:
             PdfRestError: If request execution fails at the client or API layer.
-            ValidationError: If local payload validation fails before sending."""
-
+            ValidationError: If local payload validation fails before sending.
+        """
         payload: dict[str, Any] = {"files": files}
         if output is not None:
             payload["output"] = output
@@ -3590,8 +3588,8 @@ class PdfRestClient(_SyncApiClient):
 
         Raises:
             PdfRestError: If request execution fails at the client or API layer.
-            ValidationError: If local payload validation fails before sending."""
-
+            ValidationError: If local payload validation fails before sending.
+        """
         payload: dict[str, Any] = {"files": file}
         if password is not None:
             payload["password"] = password
@@ -3633,8 +3631,8 @@ class PdfRestClient(_SyncApiClient):
 
         Raises:
             PdfRestError: If request execution fails at the client or API layer.
-            ValidationError: If local payload validation fails before sending."""
-
+            ValidationError: If local payload validation fails before sending.
+        """
         payload: dict[str, Any] = {"files": file}
         if output is not None:
             payload["output"] = output
@@ -3676,8 +3674,8 @@ class PdfRestClient(_SyncApiClient):
 
         Raises:
             PdfRestError: If request execution fails at the client or API layer.
-            ValidationError: If local payload validation fails before sending."""
-
+            ValidationError: If local payload validation fails before sending.
+        """
         payload: dict[str, Any] = {"files": file}
         if output is not None:
             payload["output"] = output
@@ -3719,8 +3717,8 @@ class PdfRestClient(_SyncApiClient):
 
         Raises:
             PdfRestError: If request execution fails at the client or API layer.
-            ValidationError: If local payload validation fails before sending."""
-
+            ValidationError: If local payload validation fails before sending.
+        """
         payload: dict[str, Any] = {"files": file}
         if output is not None:
             payload["output"] = output
@@ -3762,8 +3760,8 @@ class PdfRestClient(_SyncApiClient):
 
         Raises:
             PdfRestError: If request execution fails at the client or API layer.
-            ValidationError: If local payload validation fails before sending."""
-
+            ValidationError: If local payload validation fails before sending.
+        """
         payload: dict[str, Any] = {"files": file}
         if output is not None:
             payload["output"] = output
@@ -3807,8 +3805,8 @@ class PdfRestClient(_SyncApiClient):
 
         Raises:
             PdfRestError: If request execution fails at the client or API layer.
-            ValidationError: If local payload validation fails before sending."""
-
+            ValidationError: If local payload validation fails before sending.
+        """
         payload: dict[str, Any] = {"files": file, "data_file": data_file}
         if output is not None:
             payload["output"] = output
@@ -3852,8 +3850,8 @@ class PdfRestClient(_SyncApiClient):
 
         Raises:
             PdfRestError: If request execution fails at the client or API layer.
-            ValidationError: If local payload validation fails before sending."""
-
+            ValidationError: If local payload validation fails before sending.
+        """
         payload: dict[str, Any] = {
             "files": file,
             "data_format": data_format,
@@ -3898,8 +3896,8 @@ class PdfRestClient(_SyncApiClient):
 
         Raises:
             PdfRestError: If request execution fails at the client or API layer.
-            ValidationError: If local payload validation fails before sending."""
-
+            ValidationError: If local payload validation fails before sending.
+        """
         payload: dict[str, Any] = {"files": file}
         if output is not None:
             payload["output"] = output
@@ -3947,8 +3945,8 @@ class PdfRestClient(_SyncApiClient):
 
         Raises:
             PdfRestError: If request execution fails at the client or API layer.
-            ValidationError: If local payload validation fails before sending."""
-
+            ValidationError: If local payload validation fails before sending.
+        """
         payload: dict[str, Any] = {
             "files": file,
             "new_permissions_password": new_permissions_password,
@@ -4005,8 +4003,8 @@ class PdfRestClient(_SyncApiClient):
 
         Raises:
             PdfRestError: If request execution fails at the client or API layer.
-            ValidationError: If local payload validation fails before sending."""
-
+            ValidationError: If local payload validation fails before sending.
+        """
         payload: dict[str, Any] = {
             "files": file,
             "current_permissions_password": current_permissions_password,
@@ -4060,8 +4058,8 @@ class PdfRestClient(_SyncApiClient):
 
         Raises:
             PdfRestError: If request execution fails at the client or API layer.
-            ValidationError: If local payload validation fails before sending."""
-
+            ValidationError: If local payload validation fails before sending.
+        """
         payload: dict[str, Any] = {
             "files": file,
             "new_open_password": new_open_password,
@@ -4114,8 +4112,8 @@ class PdfRestClient(_SyncApiClient):
 
         Raises:
             PdfRestError: If request execution fails at the client or API layer.
-            ValidationError: If local payload validation fails before sending."""
-
+            ValidationError: If local payload validation fails before sending.
+        """
         payload: dict[str, Any] = {
             "files": file,
             "current_open_password": current_open_password,
@@ -4167,8 +4165,8 @@ class PdfRestClient(_SyncApiClient):
 
         Raises:
             PdfRestError: If request execution fails at the client or API layer.
-            ValidationError: If local payload validation fails before sending."""
-
+            ValidationError: If local payload validation fails before sending.
+        """
         payload: dict[str, Any] = {
             "files": file,
             "current_open_password": current_open_password,
@@ -4219,8 +4217,8 @@ class PdfRestClient(_SyncApiClient):
 
         Raises:
             PdfRestError: If request execution fails at the client or API layer.
-            ValidationError: If local payload validation fails before sending."""
-
+            ValidationError: If local payload validation fails before sending.
+        """
         payload: dict[str, Any] = {
             "files": file,
             "current_permissions_password": current_permissions_password,
@@ -4271,8 +4269,8 @@ class PdfRestClient(_SyncApiClient):
 
         Raises:
             PdfRestError: If request execution fails at the client or API layer.
-            ValidationError: If local payload validation fails before sending."""
-
+            ValidationError: If local payload validation fails before sending.
+        """
         payload: dict[str, Any] = {
             "files": file,
             "compression_level": compression_level,
@@ -4321,8 +4319,8 @@ class PdfRestClient(_SyncApiClient):
 
         Raises:
             PdfRestError: If request execution fails at the client or API layer.
-            ValidationError: If local payload validation fails before sending."""
-
+            ValidationError: If local payload validation fails before sending.
+        """
         payload: dict[str, Any] = {"files": file, "attachment": attachment}
         if output is not None:
             payload["output"] = output
@@ -4370,8 +4368,8 @@ class PdfRestClient(_SyncApiClient):
 
         Raises:
             PdfRestError: If request execution fails at the client or API layer.
-            ValidationError: If local payload validation fails before sending."""
-
+            ValidationError: If local payload validation fails before sending.
+        """
         payload: dict[str, Any] = {
             "files": file,
             "signature_configuration": signature_configuration,
@@ -4424,8 +4422,8 @@ class PdfRestClient(_SyncApiClient):
 
         Raises:
             PdfRestError: If request execution fails at the client or API layer.
-            ValidationError: If local payload validation fails before sending."""
-
+            ValidationError: If local payload validation fails before sending.
+        """
         payload: dict[str, Any] = {
             "page_size": page_size,
             "page_count": page_count,
@@ -4476,8 +4474,8 @@ class PdfRestClient(_SyncApiClient):
 
         Raises:
             PdfRestError: If request execution fails at the client or API layer.
-            ValidationError: If local payload validation fails before sending."""
-
+            ValidationError: If local payload validation fails before sending.
+        """
         payload: dict[str, Any] = {
             "files": file,
             "color_profile": color_profile,
@@ -4525,8 +4523,8 @@ class PdfRestClient(_SyncApiClient):
 
         Raises:
             PdfRestError: If request execution fails at the client or API layer.
-            ValidationError: If local payload validation fails before sending."""
-
+            ValidationError: If local payload validation fails before sending.
+        """
         payload: dict[str, Any] = {"files": file, "quality": quality}
         if output is not None:
             payload["output"] = output
@@ -4568,8 +4566,8 @@ class PdfRestClient(_SyncApiClient):
 
         Raises:
             PdfRestError: If request execution fails at the client or API layer.
-            ValidationError: If local payload validation fails before sending."""
-
+            ValidationError: If local payload validation fails before sending.
+        """
         payload: dict[str, Any] = {"files": file}
         if output is not None:
             payload["output"] = output
@@ -4611,8 +4609,8 @@ class PdfRestClient(_SyncApiClient):
 
         Raises:
             PdfRestError: If request execution fails at the client or API layer.
-            ValidationError: If local payload validation fails before sending."""
-
+            ValidationError: If local payload validation fails before sending.
+        """
         payload: dict[str, Any] = {"files": file}
         if output is not None:
             payload["output"] = output
@@ -4654,8 +4652,8 @@ class PdfRestClient(_SyncApiClient):
 
         Raises:
             PdfRestError: If request execution fails at the client or API layer.
-            ValidationError: If local payload validation fails before sending."""
-
+            ValidationError: If local payload validation fails before sending.
+        """
         payload: dict[str, Any] = {"files": file}
         if output is not None:
             payload["output"] = output
@@ -4697,8 +4695,8 @@ class PdfRestClient(_SyncApiClient):
 
         Raises:
             PdfRestError: If request execution fails at the client or API layer.
-            ValidationError: If local payload validation fails before sending."""
-
+            ValidationError: If local payload validation fails before sending.
+        """
         payload: dict[str, Any] = {"files": file}
         if output is not None:
             payload["output"] = output
@@ -4756,8 +4754,8 @@ class PdfRestClient(_SyncApiClient):
 
         Raises:
             PdfRestError: If request execution fails at the client or API layer.
-            ValidationError: If local payload validation fails before sending."""
-
+            ValidationError: If local payload validation fails before sending.
+        """
         payload: dict[str, Any] = {
             "files": file,
             "output": output,
@@ -4813,8 +4811,8 @@ class PdfRestClient(_SyncApiClient):
 
         Raises:
             PdfRestError: If request execution fails at the client or API layer.
-            ValidationError: If local payload validation fails before sending."""
-
+            ValidationError: If local payload validation fails before sending.
+        """
         payload: dict[str, Any] = {
             "files": file,
             "output": output,
@@ -4860,8 +4858,8 @@ class PdfRestClient(_SyncApiClient):
 
         Raises:
             PdfRestError: If request execution fails at the client or API layer.
-            ValidationError: If local payload validation fails before sending."""
-
+            ValidationError: If local payload validation fails before sending.
+        """
         payload: dict[str, Any] = {
             "files": file,
             "output": output,
@@ -4905,8 +4903,8 @@ class PdfRestClient(_SyncApiClient):
 
         Raises:
             PdfRestError: If request execution fails at the client or API layer.
-            ValidationError: If local payload validation fails before sending."""
-
+            ValidationError: If local payload validation fails before sending.
+        """
         payload: dict[str, Any] = {
             "files": file,
             "output": output,
@@ -4962,8 +4960,8 @@ class PdfRestClient(_SyncApiClient):
 
         Raises:
             PdfRestError: If request execution fails at the client or API layer.
-            ValidationError: If local payload validation fails before sending."""
-
+            ValidationError: If local payload validation fails before sending.
+        """
         payload: dict[str, Any] = {
             "files": file,
             "output": output,
@@ -5025,8 +5023,8 @@ class PdfRestClient(_SyncApiClient):
 
         Raises:
             PdfRestError: If request execution fails at the client or API layer.
-            ValidationError: If local payload validation fails before sending."""
-
+            ValidationError: If local payload validation fails before sending.
+        """
         payload: dict[str, Any] = {
             "url": url,
             "output": output,
@@ -5100,8 +5098,8 @@ class PdfRestClient(_SyncApiClient):
 
         Raises:
             PdfRestError: If request execution fails at the client or API layer.
-            ValidationError: If local payload validation fails before sending."""
-
+            ValidationError: If local payload validation fails before sending.
+        """
         payload: dict[str, Any] = {
             "files": file,
             "watermark_text": watermark_text,
@@ -5177,8 +5175,8 @@ class PdfRestClient(_SyncApiClient):
 
         Raises:
             PdfRestError: If request execution fails at the client or API layer.
-            ValidationError: If local payload validation fails before sending."""
-
+            ValidationError: If local payload validation fails before sending.
+        """
         payload: dict[str, Any] = {
             "files": file,
             "watermark_file": watermark_file,
@@ -5236,8 +5234,8 @@ class PdfRestClient(_SyncApiClient):
 
         Raises:
             PdfRestError: If request execution fails at the client or API layer.
-            ValidationError: If local payload validation fails before sending."""
-
+            ValidationError: If local payload validation fails before sending.
+        """
         payload: dict[str, Any] = {
             "files": file,
             "output_type": output_type,
@@ -5284,8 +5282,8 @@ class PdfRestClient(_SyncApiClient):
 
         Raises:
             PdfRestError: If request execution fails at the client or API layer.
-            ValidationError: If local payload validation fails before sending."""
-
+            ValidationError: If local payload validation fails before sending.
+        """
         payload: dict[str, Any] = {"files": file, "output_type": output_type}
         if output is not None:
             payload["output"] = output
@@ -5335,8 +5333,8 @@ class PdfRestClient(_SyncApiClient):
 
         Raises:
             PdfRestError: If request execution fails at the client or API layer.
-            ValidationError: If local payload validation fails before sending."""
-
+            ValidationError: If local payload validation fails before sending.
+        """
         payload: dict[str, Any] = {
             "files": files,
             "resolution": resolution,
@@ -5393,8 +5391,8 @@ class PdfRestClient(_SyncApiClient):
 
         Raises:
             PdfRestError: If request execution fails at the client or API layer.
-            ValidationError: If local payload validation fails before sending."""
-
+            ValidationError: If local payload validation fails before sending.
+        """
         payload: dict[str, Any] = {
             "files": files,
             "resolution": resolution,
@@ -5451,8 +5449,8 @@ class PdfRestClient(_SyncApiClient):
 
         Raises:
             PdfRestError: If request execution fails at the client or API layer.
-            ValidationError: If local payload validation fails before sending."""
-
+            ValidationError: If local payload validation fails before sending.
+        """
         payload: dict[str, Any] = {
             "files": files,
             "resolution": resolution,
@@ -5511,8 +5509,8 @@ class PdfRestClient(_SyncApiClient):
 
         Raises:
             PdfRestError: If request execution fails at the client or API layer.
-            ValidationError: If local payload validation fails before sending."""
-
+            ValidationError: If local payload validation fails before sending.
+        """
         payload: dict[str, Any] = {
             "files": files,
             "resolution": resolution,
@@ -5570,8 +5568,8 @@ class PdfRestClient(_SyncApiClient):
 
         Raises:
             PdfRestError: If request execution fails at the client or API layer.
-            ValidationError: If local payload validation fails before sending."""
-
+            ValidationError: If local payload validation fails before sending.
+        """
         payload: dict[str, Any] = {
             "files": files,
             "resolution": resolution,
@@ -5619,8 +5617,8 @@ class AsyncPdfRestClient(_AsyncApiClient):
             http_client: Optional preconfigured `httpx.Client` instance to reuse.
             transport: Optional custom `httpx` transport.
             concurrency_limit: Maximum concurrent file-info fetch operations used by async file helper methods.
-            max_retries: Maximum number of retries for retryable failures."""
-
+            max_retries: Maximum number of retries for retryable failures.
+        """
         super().__init__(
             api_key=api_key,
             base_url=base_url,
@@ -5639,7 +5637,8 @@ class AsyncPdfRestClient(_AsyncApiClient):
         """Enter the client context manager and return this client instance.
 
         Returns:
-            The current client instance."""
+            The current client instance.
+        """
         _ = await super().__aenter__()
         return self
 
@@ -5650,7 +5649,8 @@ class AsyncPdfRestClient(_AsyncApiClient):
         Args:
             exc_type: Exception type raised in the managed context, if any.
             exc: Exception instance raised in the managed context, if any.
-            traceback: Traceback object for exceptions raised in the managed context."""
+            traceback: Traceback object for exceptions raised in the managed context.
+        """
         await super().__aexit__(exc_type, exc, traceback)
 
     @property
@@ -5658,8 +5658,8 @@ class AsyncPdfRestClient(_AsyncApiClient):
         """Return the [AsyncPdfRestFilesClient][pdfrest.AsyncPdfRestFilesClient] helper bound to this client.
 
         Returns:
-            The file-management helper bound to this client."""
-
+            The file-management helper bound to this client.
+        """
         return self._files_client
 
     async def query_pdf_info(
@@ -5689,8 +5689,8 @@ class AsyncPdfRestClient(_AsyncApiClient):
 
         Raises:
             PdfRestError: If request execution fails at the client or API layer.
-            ValidationError: If local payload validation fails before sending."""
-
+            ValidationError: If local payload validation fails before sending.
+        """
         payload = PdfInfoPayload.model_validate({"file": file, "queries": queries})
         request = self.prepare_request(
             "POST",
@@ -5741,8 +5741,8 @@ class AsyncPdfRestClient(_AsyncApiClient):
 
         Raises:
             PdfRestError: If request execution fails at the client or API layer.
-            ValidationError: If local payload validation fails before sending."""
-
+            ValidationError: If local payload validation fails before sending.
+        """
         payload: dict[str, Any] = {
             "files": file,
             "target_word_count": target_word_count,
@@ -5805,8 +5805,8 @@ class AsyncPdfRestClient(_AsyncApiClient):
 
         Raises:
             PdfRestError: If request execution fails at the client or API layer.
-            ValidationError: If local payload validation fails before sending."""
-
+            ValidationError: If local payload validation fails before sending.
+        """
         payload: dict[str, Any] = {
             "files": file,
             "target_word_count": target_word_count,
@@ -5860,8 +5860,8 @@ class AsyncPdfRestClient(_AsyncApiClient):
 
         Raises:
             PdfRestError: If request execution fails at the client or API layer.
-            ValidationError: If local payload validation fails before sending."""
-
+            ValidationError: If local payload validation fails before sending.
+        """
         payload: dict[str, Any] = {
             "files": file,
             "output_type": "file",
@@ -5913,8 +5913,8 @@ class AsyncPdfRestClient(_AsyncApiClient):
 
         Raises:
             PdfRestError: If request execution fails at the client or API layer.
-            ValidationError: If local payload validation fails before sending."""
-
+            ValidationError: If local payload validation fails before sending.
+        """
         payload: dict[str, Any] = {"files": file, "languages": languages}
         if pages is not None:
             payload["pages"] = pages
@@ -5964,8 +5964,8 @@ class AsyncPdfRestClient(_AsyncApiClient):
 
         Raises:
             PdfRestError: If request execution fails at the client or API layer.
-            ValidationError: If local payload validation fails before sending."""
-
+            ValidationError: If local payload validation fails before sending.
+        """
         payload: dict[str, Any] = {
             "files": file,
             "output_language": output_language,
@@ -6025,8 +6025,8 @@ class AsyncPdfRestClient(_AsyncApiClient):
 
         Raises:
             PdfRestError: If request execution fails at the client or API layer.
-            ValidationError: If local payload validation fails before sending."""
-
+            ValidationError: If local payload validation fails before sending.
+        """
         payload: dict[str, Any] = {
             "files": file,
             "output_language": output_language,
@@ -6078,8 +6078,8 @@ class AsyncPdfRestClient(_AsyncApiClient):
 
         Raises:
             PdfRestError: If request execution fails at the client or API layer.
-            ValidationError: If local payload validation fails before sending."""
-
+            ValidationError: If local payload validation fails before sending.
+        """
         payload: dict[str, Any] = {"files": file}
         if pages is not None:
             payload["pages"] = pages
@@ -6131,8 +6131,8 @@ class AsyncPdfRestClient(_AsyncApiClient):
 
         Raises:
             PdfRestError: If request execution fails at the client or API layer.
-            ValidationError: If local payload validation fails before sending."""
-
+            ValidationError: If local payload validation fails before sending.
+        """
         payload: dict[str, Any] = {
             "files": file,
             "full_text": full_text,
@@ -6196,8 +6196,8 @@ class AsyncPdfRestClient(_AsyncApiClient):
 
         Raises:
             PdfRestError: If request execution fails at the client or API layer.
-            ValidationError: If local payload validation fails before sending."""
-
+            ValidationError: If local payload validation fails before sending.
+        """
         payload: dict[str, Any] = {
             "files": file,
             "full_text": full_text,
@@ -6250,8 +6250,8 @@ class AsyncPdfRestClient(_AsyncApiClient):
 
         Raises:
             PdfRestError: If request execution fails at the client or API layer.
-            ValidationError: If local payload validation fails before sending."""
-
+            ValidationError: If local payload validation fails before sending.
+        """
         payload: dict[str, Any] = {
             "files": file,
             "redactions": redactions,
@@ -6298,8 +6298,8 @@ class AsyncPdfRestClient(_AsyncApiClient):
 
         Raises:
             PdfRestError: If request execution fails at the client or API layer.
-            ValidationError: If local payload validation fails before sending."""
-
+            ValidationError: If local payload validation fails before sending.
+        """
         payload: dict[str, Any] = {
             "files": file,
         }
@@ -6347,8 +6347,8 @@ class AsyncPdfRestClient(_AsyncApiClient):
 
         Raises:
             PdfRestError: If request execution fails at the client or API layer.
-            ValidationError: If local payload validation fails before sending."""
-
+            ValidationError: If local payload validation fails before sending.
+        """
         payload: dict[str, Any] = {
             "files": file,
             "text_objects": text_objects,
@@ -6401,8 +6401,8 @@ class AsyncPdfRestClient(_AsyncApiClient):
 
         Raises:
             PdfRestError: If request execution fails at the client or API layer.
-            ValidationError: If local payload validation fails before sending."""
-
+            ValidationError: If local payload validation fails before sending.
+        """
         payload: dict[str, Any] = {
             "files": file,
             "image": image,
@@ -6446,8 +6446,8 @@ class AsyncPdfRestClient(_AsyncApiClient):
 
         Raises:
             PdfRestError: If request execution fails at the client or API layer.
-            ValidationError: If local payload validation fails before sending."""
-
+            ValidationError: If local payload validation fails before sending.
+        """
         request = self._prepare_request(
             "GET",
             "/up",
@@ -6482,7 +6482,8 @@ class AsyncPdfRestClient(_AsyncApiClient):
             timeout: Request timeout override for this call.
 
         Returns:
-            Validated file-based response returned by pdfRest."""
+            Validated file-based response returned by pdfRest.
+        """
         return await self._post_file_operation(
             endpoint=endpoint,
             payload=payload,
@@ -6522,8 +6523,8 @@ class AsyncPdfRestClient(_AsyncApiClient):
 
         Raises:
             PdfRestError: If request execution fails at the client or API layer.
-            ValidationError: If local payload validation fails before sending."""
-
+            ValidationError: If local payload validation fails before sending.
+        """
         payload: dict[str, Any] = {"files": file}
         if page_groups is not None:
             payload["page_groups"] = page_groups
@@ -6567,8 +6568,8 @@ class AsyncPdfRestClient(_AsyncApiClient):
 
         Raises:
             PdfRestError: If request execution fails at the client or API layer.
-            ValidationError: If local payload validation fails before sending."""
-
+            ValidationError: If local payload validation fails before sending.
+        """
         payload: dict[str, Any] = {"sources": sources}
         if output_prefix is not None:
             payload["output_prefix"] = output_prefix
@@ -6610,8 +6611,8 @@ class AsyncPdfRestClient(_AsyncApiClient):
 
         Raises:
             PdfRestError: If request execution fails at the client or API layer.
-            ValidationError: If local payload validation fails before sending."""
-
+            ValidationError: If local payload validation fails before sending.
+        """
         payload: dict[str, Any] = {"files": files}
         if output is not None:
             payload["output"] = output
@@ -6653,8 +6654,8 @@ class AsyncPdfRestClient(_AsyncApiClient):
 
         Raises:
             PdfRestError: If request execution fails at the client or API layer.
-            ValidationError: If local payload validation fails before sending."""
-
+            ValidationError: If local payload validation fails before sending.
+        """
         payload: dict[str, Any] = {"files": file}
         if password is not None:
             payload["password"] = password
@@ -6696,8 +6697,8 @@ class AsyncPdfRestClient(_AsyncApiClient):
 
         Raises:
             PdfRestError: If request execution fails at the client or API layer.
-            ValidationError: If local payload validation fails before sending."""
-
+            ValidationError: If local payload validation fails before sending.
+        """
         payload: dict[str, Any] = {"files": file}
         if output is not None:
             payload["output"] = output
@@ -6739,8 +6740,8 @@ class AsyncPdfRestClient(_AsyncApiClient):
 
         Raises:
             PdfRestError: If request execution fails at the client or API layer.
-            ValidationError: If local payload validation fails before sending."""
-
+            ValidationError: If local payload validation fails before sending.
+        """
         payload: dict[str, Any] = {"files": file}
         if output is not None:
             payload["output"] = output
@@ -6782,8 +6783,8 @@ class AsyncPdfRestClient(_AsyncApiClient):
 
         Raises:
             PdfRestError: If request execution fails at the client or API layer.
-            ValidationError: If local payload validation fails before sending."""
-
+            ValidationError: If local payload validation fails before sending.
+        """
         payload: dict[str, Any] = {"files": file}
         if output is not None:
             payload["output"] = output
@@ -6825,8 +6826,8 @@ class AsyncPdfRestClient(_AsyncApiClient):
 
         Raises:
             PdfRestError: If request execution fails at the client or API layer.
-            ValidationError: If local payload validation fails before sending."""
-
+            ValidationError: If local payload validation fails before sending.
+        """
         payload: dict[str, Any] = {"files": file}
         if output is not None:
             payload["output"] = output
@@ -6870,8 +6871,8 @@ class AsyncPdfRestClient(_AsyncApiClient):
 
         Raises:
             PdfRestError: If request execution fails at the client or API layer.
-            ValidationError: If local payload validation fails before sending."""
-
+            ValidationError: If local payload validation fails before sending.
+        """
         payload: dict[str, Any] = {"files": file, "data_file": data_file}
         if output is not None:
             payload["output"] = output
@@ -6915,8 +6916,8 @@ class AsyncPdfRestClient(_AsyncApiClient):
 
         Raises:
             PdfRestError: If request execution fails at the client or API layer.
-            ValidationError: If local payload validation fails before sending."""
-
+            ValidationError: If local payload validation fails before sending.
+        """
         payload: dict[str, Any] = {
             "files": file,
             "data_format": data_format,
@@ -6961,8 +6962,8 @@ class AsyncPdfRestClient(_AsyncApiClient):
 
         Raises:
             PdfRestError: If request execution fails at the client or API layer.
-            ValidationError: If local payload validation fails before sending."""
-
+            ValidationError: If local payload validation fails before sending.
+        """
         payload: dict[str, Any] = {"files": file}
         if output is not None:
             payload["output"] = output
@@ -7010,8 +7011,8 @@ class AsyncPdfRestClient(_AsyncApiClient):
 
         Raises:
             PdfRestError: If request execution fails at the client or API layer.
-            ValidationError: If local payload validation fails before sending."""
-
+            ValidationError: If local payload validation fails before sending.
+        """
         payload: dict[str, Any] = {
             "files": file,
             "new_permissions_password": new_permissions_password,
@@ -7068,8 +7069,8 @@ class AsyncPdfRestClient(_AsyncApiClient):
 
         Raises:
             PdfRestError: If request execution fails at the client or API layer.
-            ValidationError: If local payload validation fails before sending."""
-
+            ValidationError: If local payload validation fails before sending.
+        """
         payload: dict[str, Any] = {
             "files": file,
             "current_permissions_password": current_permissions_password,
@@ -7123,8 +7124,8 @@ class AsyncPdfRestClient(_AsyncApiClient):
 
         Raises:
             PdfRestError: If request execution fails at the client or API layer.
-            ValidationError: If local payload validation fails before sending."""
-
+            ValidationError: If local payload validation fails before sending.
+        """
         payload: dict[str, Any] = {
             "files": file,
             "current_permissions_password": current_permissions_password,
@@ -7175,8 +7176,8 @@ class AsyncPdfRestClient(_AsyncApiClient):
 
         Raises:
             PdfRestError: If request execution fails at the client or API layer.
-            ValidationError: If local payload validation fails before sending."""
-
+            ValidationError: If local payload validation fails before sending.
+        """
         payload: dict[str, Any] = {
             "files": file,
             "new_open_password": new_open_password,
@@ -7229,8 +7230,8 @@ class AsyncPdfRestClient(_AsyncApiClient):
 
         Raises:
             PdfRestError: If request execution fails at the client or API layer.
-            ValidationError: If local payload validation fails before sending."""
-
+            ValidationError: If local payload validation fails before sending.
+        """
         payload: dict[str, Any] = {
             "files": file,
             "current_open_password": current_open_password,
@@ -7282,8 +7283,8 @@ class AsyncPdfRestClient(_AsyncApiClient):
 
         Raises:
             PdfRestError: If request execution fails at the client or API layer.
-            ValidationError: If local payload validation fails before sending."""
-
+            ValidationError: If local payload validation fails before sending.
+        """
         payload: dict[str, Any] = {
             "files": file,
             "current_open_password": current_open_password,
@@ -7334,8 +7335,8 @@ class AsyncPdfRestClient(_AsyncApiClient):
 
         Raises:
             PdfRestError: If request execution fails at the client or API layer.
-            ValidationError: If local payload validation fails before sending."""
-
+            ValidationError: If local payload validation fails before sending.
+        """
         payload: dict[str, Any] = {
             "files": file,
             "compression_level": compression_level,
@@ -7384,8 +7385,8 @@ class AsyncPdfRestClient(_AsyncApiClient):
 
         Raises:
             PdfRestError: If request execution fails at the client or API layer.
-            ValidationError: If local payload validation fails before sending."""
-
+            ValidationError: If local payload validation fails before sending.
+        """
         payload: dict[str, Any] = {"files": file, "attachment": attachment}
         if output is not None:
             payload["output"] = output
@@ -7433,8 +7434,8 @@ class AsyncPdfRestClient(_AsyncApiClient):
 
         Raises:
             PdfRestError: If request execution fails at the client or API layer.
-            ValidationError: If local payload validation fails before sending."""
-
+            ValidationError: If local payload validation fails before sending.
+        """
         payload: dict[str, Any] = {
             "files": file,
             "signature_configuration": signature_configuration,
@@ -7487,8 +7488,8 @@ class AsyncPdfRestClient(_AsyncApiClient):
 
         Raises:
             PdfRestError: If request execution fails at the client or API layer.
-            ValidationError: If local payload validation fails before sending."""
-
+            ValidationError: If local payload validation fails before sending.
+        """
         payload: dict[str, Any] = {
             "page_size": page_size,
             "page_count": page_count,
@@ -7539,8 +7540,8 @@ class AsyncPdfRestClient(_AsyncApiClient):
 
         Raises:
             PdfRestError: If request execution fails at the client or API layer.
-            ValidationError: If local payload validation fails before sending."""
-
+            ValidationError: If local payload validation fails before sending.
+        """
         payload: dict[str, Any] = {
             "files": file,
             "color_profile": color_profile,
@@ -7588,8 +7589,8 @@ class AsyncPdfRestClient(_AsyncApiClient):
 
         Raises:
             PdfRestError: If request execution fails at the client or API layer.
-            ValidationError: If local payload validation fails before sending."""
-
+            ValidationError: If local payload validation fails before sending.
+        """
         payload: dict[str, Any] = {"files": file, "quality": quality}
         if output is not None:
             payload["output"] = output
@@ -7631,8 +7632,8 @@ class AsyncPdfRestClient(_AsyncApiClient):
 
         Raises:
             PdfRestError: If request execution fails at the client or API layer.
-            ValidationError: If local payload validation fails before sending."""
-
+            ValidationError: If local payload validation fails before sending.
+        """
         payload: dict[str, Any] = {"files": file}
         if output is not None:
             payload["output"] = output
@@ -7674,8 +7675,8 @@ class AsyncPdfRestClient(_AsyncApiClient):
 
         Raises:
             PdfRestError: If request execution fails at the client or API layer.
-            ValidationError: If local payload validation fails before sending."""
-
+            ValidationError: If local payload validation fails before sending.
+        """
         payload: dict[str, Any] = {"files": file}
         if output is not None:
             payload["output"] = output
@@ -7717,8 +7718,8 @@ class AsyncPdfRestClient(_AsyncApiClient):
 
         Raises:
             PdfRestError: If request execution fails at the client or API layer.
-            ValidationError: If local payload validation fails before sending."""
-
+            ValidationError: If local payload validation fails before sending.
+        """
         payload: dict[str, Any] = {"files": file}
         if output is not None:
             payload["output"] = output
@@ -7760,8 +7761,8 @@ class AsyncPdfRestClient(_AsyncApiClient):
 
         Raises:
             PdfRestError: If request execution fails at the client or API layer.
-            ValidationError: If local payload validation fails before sending."""
-
+            ValidationError: If local payload validation fails before sending.
+        """
         payload: dict[str, Any] = {"files": file}
         if output is not None:
             payload["output"] = output
@@ -7819,8 +7820,8 @@ class AsyncPdfRestClient(_AsyncApiClient):
 
         Raises:
             PdfRestError: If request execution fails at the client or API layer.
-            ValidationError: If local payload validation fails before sending."""
-
+            ValidationError: If local payload validation fails before sending.
+        """
         payload: dict[str, Any] = {
             "files": file,
             "output": output,
@@ -7876,8 +7877,8 @@ class AsyncPdfRestClient(_AsyncApiClient):
 
         Raises:
             PdfRestError: If request execution fails at the client or API layer.
-            ValidationError: If local payload validation fails before sending."""
-
+            ValidationError: If local payload validation fails before sending.
+        """
         payload: dict[str, Any] = {
             "files": file,
             "output": output,
@@ -7923,8 +7924,8 @@ class AsyncPdfRestClient(_AsyncApiClient):
 
         Raises:
             PdfRestError: If request execution fails at the client or API layer.
-            ValidationError: If local payload validation fails before sending."""
-
+            ValidationError: If local payload validation fails before sending.
+        """
         payload: dict[str, Any] = {
             "files": file,
             "output": output,
@@ -7968,8 +7969,8 @@ class AsyncPdfRestClient(_AsyncApiClient):
 
         Raises:
             PdfRestError: If request execution fails at the client or API layer.
-            ValidationError: If local payload validation fails before sending."""
-
+            ValidationError: If local payload validation fails before sending.
+        """
         payload: dict[str, Any] = {
             "files": file,
             "output": output,
@@ -8025,8 +8026,8 @@ class AsyncPdfRestClient(_AsyncApiClient):
 
         Raises:
             PdfRestError: If request execution fails at the client or API layer.
-            ValidationError: If local payload validation fails before sending."""
-
+            ValidationError: If local payload validation fails before sending.
+        """
         payload: dict[str, Any] = {
             "files": file,
             "output": output,
@@ -8088,8 +8089,8 @@ class AsyncPdfRestClient(_AsyncApiClient):
 
         Raises:
             PdfRestError: If request execution fails at the client or API layer.
-            ValidationError: If local payload validation fails before sending."""
-
+            ValidationError: If local payload validation fails before sending.
+        """
         payload: dict[str, Any] = {
             "url": url,
             "output": output,
@@ -8163,8 +8164,8 @@ class AsyncPdfRestClient(_AsyncApiClient):
 
         Raises:
             PdfRestError: If request execution fails at the client or API layer.
-            ValidationError: If local payload validation fails before sending."""
-
+            ValidationError: If local payload validation fails before sending.
+        """
         payload: dict[str, Any] = {
             "files": file,
             "watermark_text": watermark_text,
@@ -8240,8 +8241,8 @@ class AsyncPdfRestClient(_AsyncApiClient):
 
         Raises:
             PdfRestError: If request execution fails at the client or API layer.
-            ValidationError: If local payload validation fails before sending."""
-
+            ValidationError: If local payload validation fails before sending.
+        """
         payload: dict[str, Any] = {
             "files": file,
             "watermark_file": watermark_file,
@@ -8299,8 +8300,8 @@ class AsyncPdfRestClient(_AsyncApiClient):
 
         Raises:
             PdfRestError: If request execution fails at the client or API layer.
-            ValidationError: If local payload validation fails before sending."""
-
+            ValidationError: If local payload validation fails before sending.
+        """
         payload: dict[str, Any] = {
             "files": file,
             "output_type": output_type,
@@ -8348,8 +8349,8 @@ class AsyncPdfRestClient(_AsyncApiClient):
 
         Raises:
             PdfRestError: If request execution fails at the client or API layer.
-            ValidationError: If local payload validation fails before sending."""
-
+            ValidationError: If local payload validation fails before sending.
+        """
         payload: dict[str, Any] = {"files": file, "output_type": output_type}
         if output is not None:
             payload["output"] = output
@@ -8399,8 +8400,8 @@ class AsyncPdfRestClient(_AsyncApiClient):
 
         Raises:
             PdfRestError: If request execution fails at the client or API layer.
-            ValidationError: If local payload validation fails before sending."""
-
+            ValidationError: If local payload validation fails before sending.
+        """
         payload: dict[str, Any] = {
             "files": files,
             "resolution": resolution,
@@ -8457,8 +8458,8 @@ class AsyncPdfRestClient(_AsyncApiClient):
 
         Raises:
             PdfRestError: If request execution fails at the client or API layer.
-            ValidationError: If local payload validation fails before sending."""
-
+            ValidationError: If local payload validation fails before sending.
+        """
         payload: dict[str, Any] = {
             "files": files,
             "resolution": resolution,
@@ -8515,8 +8516,8 @@ class AsyncPdfRestClient(_AsyncApiClient):
 
         Raises:
             PdfRestError: If request execution fails at the client or API layer.
-            ValidationError: If local payload validation fails before sending."""
-
+            ValidationError: If local payload validation fails before sending.
+        """
         payload: dict[str, Any] = {
             "files": files,
             "resolution": resolution,
@@ -8575,8 +8576,8 @@ class AsyncPdfRestClient(_AsyncApiClient):
 
         Raises:
             PdfRestError: If request execution fails at the client or API layer.
-            ValidationError: If local payload validation fails before sending."""
-
+            ValidationError: If local payload validation fails before sending.
+        """
         payload: dict[str, Any] = {
             "files": files,
             "resolution": resolution,
@@ -8634,8 +8635,8 @@ class AsyncPdfRestClient(_AsyncApiClient):
 
         Raises:
             PdfRestError: If request execution fails at the client or API layer.
-            ValidationError: If local payload validation fails before sending."""
-
+            ValidationError: If local payload validation fails before sending.
+        """
         payload: dict[str, Any] = {
             "files": files,
             "resolution": resolution,

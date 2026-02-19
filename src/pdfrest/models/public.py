@@ -46,8 +46,7 @@ __all__ = (
 
 
 class PdfRestFileID(str):
-    """
-    A str-like type representing:
+    """A str-like type representing:
       [optional '1' or '2' prefix] + [UUIDv4 with hyphens]
 
     Examples:
@@ -90,8 +89,7 @@ class PdfRestFileID(str):
 
     @property
     def prefix(self) -> str | None:
-        """
-        The leading prefix digit ('1' or '2') if present, else None.
+        """The leading prefix digit ('1' or '2') if present, else None.
 
         Note: Presence is unambiguous by length:
           - 36 chars => no prefix
@@ -118,8 +116,7 @@ class PdfRestFileID(str):
     def from_parts(
         cls, u: str | _uuid.UUID, prefix: int | str | None = None
     ) -> PdfRestFileID:
-        """
-        Build from a UUIDv4 (str or uuid.UUID) and an optional prefix (1 or 2).
+        """Build from a UUIDv4 (str or uuid.UUID) and an optional prefix (1 or 2).
         Raises ValueError if not a v4 UUID or bad prefix.
         """
         if isinstance(prefix, int):
@@ -159,10 +156,9 @@ class PdfRestFileID(str):
     # -------------------------
     @classmethod
     def __get_pydantic_core_schema__(cls, source_type: Any, handler: Any) -> CoreSchema:
-        """
-        Build a Pydantic v2 core schema that accepts:
-          - a UUID (validated as v4) -> converted to this type (no prefix)
-          - a string matching our pattern
+        """Build a Pydantic v2 core schema that accepts:
+        - a UUID (validated as v4) -> converted to this type (no prefix)
+        - a string matching our pattern
         """
         from pydantic_core import core_schema
 
@@ -187,9 +183,7 @@ class PdfRestFileID(str):
     def __get_pydantic_json_schema__(
         cls, core_schema: Any, handler: Any
     ) -> JsonSchemaValue:
-        """
-        Provide a clean JSON Schema for OpenAPI/JSON Schema generators.
-        """
+        """Provide a clean JSON Schema for OpenAPI/JSON Schema generators."""
         # Prefer a single-string schema with pattern and examples
         return {
             "type": "string",
@@ -278,8 +272,7 @@ class PdfRestFile(BaseModel):
 
 
 class PdfRestFileBasedResponse(BaseModel):
-    """
-    Represents a response from a pdfRest API operation that is file-based, allowing
+    """Represents a response from a pdfRest API operation that is file-based, allowing
     handling of input and output files along with additional warnings.
     """
 
@@ -321,7 +314,6 @@ class PdfRestFileBasedResponse(BaseModel):
         Raises:
             ValueError: If no input id is available or multiple input ids exist.
         """
-
         if len(self.input_ids) == 1:
             return self.input_ids[0]
         if len(self.input_ids) == 0:
@@ -337,7 +329,6 @@ class PdfRestFileBasedResponse(BaseModel):
         Raises:
             ValueError: If no output file is available or multiple outputs exist.
         """
-
         if len(self.output_files) == 1:
             return self.output_files[0]
         if len(self.output_files) == 0:
@@ -687,8 +678,7 @@ class ExtractedTextFullTextPages(BaseModel):
 
 
 class ExtractedTextFullText(RootModel[str | ExtractedTextFullTextPages]):
-    """
-    Represents full-text extraction in either "document" (str) or "page" (object)
+    """Represents full-text extraction in either "document" (str) or "page" (object)
     modes while providing convenience accessors for both forms.
     """
 
@@ -697,8 +687,7 @@ class ExtractedTextFullText(RootModel[str | ExtractedTextFullTextPages]):
 
     @property
     def document_text(self) -> str | None:
-        """
-        Return the document-level string. Falls back to space-joining per-page text
+        """Return the document-level string. Falls back to space-joining per-page text
         when only the page-structured payload is available.
         """
         if isinstance(self.root, str):
@@ -707,8 +696,7 @@ class ExtractedTextFullText(RootModel[str | ExtractedTextFullTextPages]):
 
     @property
     def pages(self) -> list[ExtractedTextFullTextPage]:
-        """
-        Return page entries when pdfRest emits per-page text.
+        """Return page entries when pdfRest emits per-page text.
         Raises ValueError when the payload is in document-string mode.
         """
         if isinstance(self.root, ExtractedTextFullTextPages):
@@ -717,8 +705,7 @@ class ExtractedTextFullText(RootModel[str | ExtractedTextFullTextPages]):
         raise ValueError(msg)
 
     def iter_pages(self) -> list[ExtractedTextFullTextPage]:
-        """
-        Convenience helper that provides a stable iterable without requiring
+        """Convenience helper that provides a stable iterable without requiring
         callers to guard against the document-only representation.
         """
         try:

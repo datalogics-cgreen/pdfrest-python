@@ -109,7 +109,6 @@ class PdfRestErrorGroup(ExceptionGroup):
 
 def translate_httpx_error(exc: httpx.HTTPError) -> PdfRestError:
     """Convert an httpx exception into a library-specific exception."""
-
     if isinstance(exc, httpx.ConnectTimeout):
         return PdfRestConnectTimeoutError(
             str(exc) or "Connection timed out while calling pdfRest."
