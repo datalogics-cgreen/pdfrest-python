@@ -130,6 +130,25 @@ def _split_comma_string(value: Any) -> list[Any] | None:
     raise ValueError(msg)
 
 
+def _route_text_color_by_channel_count(
+    *,
+    expected_channel_count: int,
+    alternate_channel_count: int,
+) -> Callable[[Any], list[Any] | None]:
+    def _validator(value: Any) -> list[Any] | None:
+        channels = _split_comma_string(value)
+        if channels is None:
+            return None
+        if len(channels) == expected_channel_count:
+            return channels
+        if len(channels) == alternate_channel_count:
+            return None
+        msg = "text_color must include exactly 3 (RGB) or 4 (CMYK) values."
+        raise ValueError(msg)
+
+    return _validator
+
+
 def _serialize_as_first_file_id(value: list[PdfRestFile]) -> str:
     return str(value[0].id)
 
@@ -1671,14 +1690,32 @@ class PdfTextWatermarkPayload(_BasePdfWatermarkPayload):
     ] = 72
     text_color_rgb: Annotated[
         tuple[RgbChannel, RgbChannel, RgbChannel] | None,
-        Field(serialization_alias="text_color_rgb", default=None),
-        BeforeValidator(_split_comma_string),
+        Field(
+            validation_alias="text_color",
+            serialization_alias="text_color_rgb",
+            default=None,
+        ),
+        BeforeValidator(
+            _route_text_color_by_channel_count(
+                expected_channel_count=3,
+                alternate_channel_count=4,
+            )
+        ),
         PlainSerializer(_serialize_as_comma_separated_string),
     ] = None
     text_color_cmyk: Annotated[
         tuple[CmykChannel, CmykChannel, CmykChannel, CmykChannel] | None,
-        Field(serialization_alias="text_color_cmyk", default=None),
-        BeforeValidator(_split_comma_string),
+        Field(
+            validation_alias="text_color",
+            serialization_alias="text_color_cmyk",
+            default=None,
+        ),
+        BeforeValidator(
+            _route_text_color_by_channel_count(
+                expected_channel_count=4,
+                alternate_channel_count=3,
+            )
+        ),
         PlainSerializer(_serialize_as_comma_separated_string),
     ] = None
 

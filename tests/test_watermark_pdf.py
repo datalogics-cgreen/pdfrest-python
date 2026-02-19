@@ -29,7 +29,7 @@ def test_watermark_pdf_with_text(monkeypatch: pytest.MonkeyPatch) -> None:
             "files": [input_file],
             "watermark_text": "Confidential",
             "text_size": 72,
-            "text_color_rgb": (255, 0, 0),
+            "text_color": (255, 0, 0),
             "opacity": 0.5,
             "horizontal_alignment": "center",
             "vertical_alignment": "center",
@@ -75,7 +75,7 @@ def test_watermark_pdf_with_text(monkeypatch: pytest.MonkeyPatch) -> None:
         response = client.watermark_pdf_with_text(
             input_file,
             watermark_text="Confidential",
-            text_color_rgb=(255, 0, 0),
+            text_color=(255, 0, 0),
             pages=["1", "3-5"],
             output="watermarked",
         )
@@ -205,7 +205,7 @@ def test_watermark_pdf_with_text_request_customization(
         response = client.watermark_pdf_with_text(
             input_file,
             watermark_text="Draft",
-            text_color_cmyk=(0, 0, 0, 50),
+            text_color=(0, 0, 0, 50),
             opacity=0.25,
             output="custom",
             extra_query={"trace": "true"},
@@ -226,7 +226,7 @@ def test_watermark_pdf_with_text_request_customization(
         assert timeout_value == pytest.approx(0.31)
 
 
-def test_watermark_pdf_with_text_validation_color_choice(
+def test_watermark_pdf_with_text_validation_rejects_invalid_text_color_channel_count(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.delenv("PDFREST_API_KEY", raising=False)
@@ -240,14 +240,15 @@ def test_watermark_pdf_with_text_validation_color_choice(
         ) as client,
         pytest.raises(
             ValidationError,
-            match=re.escape("Specify only one of text_color_rgb or text_color_cmyk."),
+            match=re.escape(
+                "text_color must include exactly 3 (RGB) or 4 (CMYK) values."
+            ),
         ),
     ):
         client.watermark_pdf_with_text(
             input_file,
             watermark_text="Confidential",
-            text_color_rgb=(0, 0, 0),
-            text_color_cmyk=(0, 0, 0, 0),
+            text_color=(0, 0),
         )
 
 
@@ -650,6 +651,29 @@ async def test_async_watermark_pdf_with_text_validation_rejects_out_of_range_tex
             )
 
 
+@pytest.mark.asyncio
+async def test_async_watermark_pdf_with_text_validation_rejects_invalid_text_color_channel_count(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.delenv("PDFREST_API_KEY", raising=False)
+    input_file = make_pdf_file(PdfRestFileID.generate(2))
+    transport = httpx.MockTransport(
+        lambda _: (_ for _ in ()).throw(RuntimeError("Should not be called"))
+    )
+    async with AsyncPdfRestClient(api_key=ASYNC_API_KEY, transport=transport) as client:
+        with pytest.raises(
+            ValidationError,
+            match=re.escape(
+                "text_color must include exactly 3 (RGB) or 4 (CMYK) values."
+            ),
+        ):
+            await client.watermark_pdf_with_text(
+                input_file,
+                watermark_text="AsyncColorValidation",
+                text_color=(0, 0),
+            )
+
+
 @pytest.mark.parametrize(
     ("opacity", "expected_opacity"),
     [
@@ -959,6 +983,7 @@ async def test_async_watermark_pdf_with_text_request_customization(
             captured_timeout["value"] = request.extensions.get("timeout")
             payload = json.loads(request.content.decode("utf-8"))
             assert payload["watermark_text"] == "AsyncDraft"
+            assert payload["text_color_rgb"] == "12,34,56"
             assert payload["horizontal_alignment"] == "left"
             assert payload["vertical_alignment"] == "bottom"
             assert payload["x"] == -72
@@ -991,6 +1016,7 @@ async def test_async_watermark_pdf_with_text_request_customization(
         response = await client.watermark_pdf_with_text(
             input_file,
             watermark_text="AsyncDraft",
+            text_color=(12, 34, 56),
             horizontal_alignment="left",
             vertical_alignment="bottom",
             x=-72,

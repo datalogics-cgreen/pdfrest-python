@@ -48,6 +48,7 @@ __all__ = (
     "PdfRedactionPreset",
     "PdfRedactionType",
     "PdfRestriction",
+    "PdfTextColor",
     "PdfXType",
     "PngColorModel",
     "SummaryFormat",
@@ -122,6 +123,7 @@ class PdfRedactionInstruction(TypedDict):
 
 PdfCMYKColor = tuple[int, int, int, int]
 PdfRGBColor = tuple[int, int, int]
+PdfTextColor = PdfRGBColor | PdfCMYKColor
 
 
 class PdfAddTextObject(TypedDict, total=False):
