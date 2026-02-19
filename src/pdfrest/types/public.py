@@ -52,6 +52,7 @@ __all__ = (
     "PdfSignatureCredentials",
     "PdfSignatureDisplay",
     "PdfSignatureLocation",
+    "PdfSignaturePoint",
     "PdfTextColor",
     "PdfXType",
     "PngColorModel",
@@ -64,8 +65,9 @@ __all__ = (
     "WatermarkVerticalAlignment",
 )
 
-#: Supported query keys for :meth:`pdfrest.PdfRestClient.query_pdf_info` and
-#: :meth:`pdfrest.AsyncPdfRestClient.query_pdf_info`.
+#: Supported query keys for
+#: [PdfRestClient.query_pdf_info][pdfrest.PdfRestClient.query_pdf_info] and
+#: [AsyncPdfRestClient.query_pdf_info][pdfrest.AsyncPdfRestClient.query_pdf_info].
 PdfInfoQuery = Literal[
     "tagged",
     "image_only",
@@ -104,7 +106,7 @@ ALL_PDF_INFO_QUERIES: tuple[PdfInfoQuery, ...] = cast(
     tuple[PdfInfoQuery, ...], get_args(PdfInfoQuery)
 )
 
-#: Redaction match mode used by :class:`PdfRedactionInstruction`.
+#: Redaction match mode used by [PdfRedactionInstruction][].
 PdfRedactionType = Literal["literal", "regex", "preset"]
 
 #: Built-in redaction presets accepted by pdfRest.
@@ -169,6 +171,13 @@ class PdfAddTextObject(TypedDict, total=False):
 
 
 class PdfCustomPageSize(TypedDict):
+    """Custom page dimensions for page-size aware conversions.
+
+    Attributes:
+        custom_height: Page height in points.
+        custom_width: Page width in points.
+    """
+
     custom_height: Required[float]
     custom_width: Required[float]
 
@@ -196,17 +205,43 @@ HtmlWebLayout = Literal["desktop", "tablet", "mobile"]
 
 
 class PdfSignaturePoint(TypedDict):
+    """Coordinate point used for signature placement in PDF points.
+
+    Attributes:
+        x: Horizontal position in points.
+        y: Vertical position in points.
+    """
+
     x: float
     y: float
 
 
 class PdfSignatureLocation(TypedDict):
+    """Bounding box and page where a signature field should be rendered.
+
+    Attributes:
+        bottom_left: Bottom-left [PdfSignaturePoint][pdfrest.types.PdfSignaturePoint] of the signature rectangle.
+        top_right: Top-right [PdfSignaturePoint][pdfrest.types.PdfSignaturePoint] of the signature rectangle.
+        page: One-based page index or ``"all"``.
+    """
+
     bottom_left: Required[PdfSignaturePoint]
     top_right: Required[PdfSignaturePoint]
     page: Required[str | int]
 
 
 class PdfSignatureDisplay(TypedDict, total=False):
+    """Optional text fields included in visible signature appearances.
+
+    Attributes:
+        include_distinguished_name: Whether to include signer DN text.
+        include_datetime: Whether to include signing date/time text.
+        contact: Contact text shown in the visible signature.
+        location: Location text shown in the visible signature.
+        name: Signer name text shown in the visible signature.
+        reason: Signing reason text shown in the visible signature.
+    """
+
     include_distinguished_name: bool
     include_datetime: bool
     contact: str
@@ -216,6 +251,16 @@ class PdfSignatureDisplay(TypedDict, total=False):
 
 
 class PdfNewSignatureConfiguration(TypedDict, total=False):
+    """Configuration for creating and signing a new signature field.
+
+    Attributes:
+        type: Must be ``"new"``.
+        location: Placement rectangle and page as [PdfSignatureLocation][pdfrest.types.PdfSignatureLocation].
+        name: Optional name for the signature field.
+        logo_opacity: Optional logo opacity in the range ``(0, 1]``.
+        display: Optional visible-signature settings as [PdfSignatureDisplay][pdfrest.types.PdfSignatureDisplay].
+    """
+
     type: Required[Literal["new"]]
     location: Required[PdfSignatureLocation]
     name: str
@@ -224,6 +269,16 @@ class PdfNewSignatureConfiguration(TypedDict, total=False):
 
 
 class PdfExistingSignatureConfiguration(TypedDict, total=False):
+    """Configuration for signing an existing signature field.
+
+    Attributes:
+        type: Must be ``"existing"``.
+        location: Optional placement override as [PdfSignatureLocation][pdfrest.types.PdfSignatureLocation].
+        name: Optional existing signature field name.
+        logo_opacity: Optional logo opacity in the range ``(0, 1]``.
+        display: Optional visible-signature settings as [PdfSignatureDisplay][pdfrest.types.PdfSignatureDisplay].
+    """
+
     type: Required[Literal["existing"]]
     location: PdfSignatureLocation
     name: str
@@ -231,21 +286,41 @@ class PdfExistingSignatureConfiguration(TypedDict, total=False):
     display: PdfSignatureDisplay
 
 
+#: Signature placement configuration accepted by
+#: [PdfRestClient.sign_pdf][pdfrest.PdfRestClient.sign_pdf] and
+#: [AsyncPdfRestClient.sign_pdf][pdfrest.AsyncPdfRestClient.sign_pdf].
 PdfSignatureConfiguration = (
     PdfNewSignatureConfiguration | PdfExistingSignatureConfiguration
 )
 
 
 class PdfPfxCredentials(TypedDict):
+    """Credentials bundle using a PFX/P12 file plus passphrase file.
+
+    Attributes:
+        pfx: Uploaded credentials archive as a [PdfRestFile][pdfrest.models.PdfRestFile].
+        passphrase: Uploaded text passphrase as a [PdfRestFile][pdfrest.models.PdfRestFile].
+    """
+
     pfx: Required[PdfRestFile]
     passphrase: Required[PdfRestFile]
 
 
 class PdfPemCredentials(TypedDict):
+    """Credentials bundle using certificate and private key uploads.
+
+    Attributes:
+        certificate: Uploaded certificate as a [PdfRestFile][pdfrest.models.PdfRestFile].
+        private_key: Uploaded private key as a [PdfRestFile][pdfrest.models.PdfRestFile].
+    """
+
     certificate: Required[PdfRestFile]
     private_key: Required[PdfRestFile]
 
 
+#: Credentials accepted by
+#: [PdfRestClient.sign_pdf][pdfrest.PdfRestClient.sign_pdf] and
+#: [AsyncPdfRestClient.sign_pdf][pdfrest.AsyncPdfRestClient.sign_pdf].
 PdfSignatureCredentials = PdfPfxCredentials | PdfPemCredentials
 
 #: PDF/A conformance targets accepted by ``convert_to_pdfa``.
