@@ -84,6 +84,8 @@ extend-select = [
     "RSE",  # raise https://docs.astral.sh/ruff/rules/#flake8-raise-rse
     "TRY",  # tryceratops https://docs.astral.sh/ruff/rules/#tryceratops-try exception antipatterns
     "COM818",  # prohibit trailing bare commas making tuples, see https://docs.astral.sh/ruff/rules/trailing-comma-on-bare-tuple/
+    "D",  # pydocstyle https://docs.astral.sh/ruff/rules/#pydocstyle-d
+    "D417",  # undocumented-param https://docs.astral.sh/ruff/rules/undocumented-param/
 ]
 # Allow autofix for all enabled rules (when `--fix`) is provided.
 fixable = ["ALL"]
@@ -101,7 +103,20 @@ known-first-party = ["pdfrest"]
     "S101",  # asserts allowed in tests...
     "ARG",  # Unused function args -> fixtures nevertheless are functionally relevant...
     "FBT",  # Don't care about booleans as positional arguments in tests, e.g. via @pytest.mark.parametrize()
+    "D",  # pydocstyle https://docs.astral.sh/ruff/rules/#pydocstyle-d
 ]
+"scripts/**/*.py" = [
+    "D",  # pydocstyle https://docs.astral.sh/ruff/rules/#pydocstyle-d
+]
+"examples/**/*.py" = [
+    "D",  # pydocstyle https://docs.astral.sh/ruff/rules/#pydocstyle-d
+]
+"noxfile.py" = [
+    "D",  # pydocstyle https://docs.astral.sh/ruff/rules/#pydocstyle-d
+]
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"  # https://docs.astral.sh/ruff/settings/#lint_pydocstyle_convention
 
 [tool.tomlsort]
 sort_first = ["project", "build-system"]
