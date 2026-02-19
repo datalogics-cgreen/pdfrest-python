@@ -30,7 +30,7 @@ __all__ = (
     "OcrLanguage",
     "PdfAType",
     "PdfAddTextObject",
-    "PdfCmykColor",
+    "PdfCMYKColor",
     "PdfColorProfile",
     "PdfConversionCompression",
     "PdfConversionDownsample",
@@ -48,6 +48,7 @@ __all__ = (
     "PdfRedactionPreset",
     "PdfRedactionType",
     "PdfRestriction",
+    "PdfTextColor",
     "PdfXType",
     "PngColorModel",
     "SummaryFormat",
@@ -55,6 +56,8 @@ __all__ = (
     "SummaryOutputType",
     "TiffColorModel",
     "TranslateOutputFormat",
+    "WatermarkHorizontalAlignment",
+    "WatermarkVerticalAlignment",
 )
 
 PdfInfoQuery = Literal[
@@ -118,9 +121,9 @@ class PdfRedactionInstruction(TypedDict):
     value: PdfRedactionPreset | str
 
 
+PdfCMYKColor = tuple[int, int, int, int]
 PdfRGBColor = tuple[int, int, int]
-
-PdfCmykColor = tuple[int, int, int, int]
+PdfTextColor = PdfRGBColor | PdfCMYKColor
 
 
 class PdfAddTextObject(TypedDict, total=False):
@@ -131,7 +134,7 @@ class PdfAddTextObject(TypedDict, total=False):
     rotation: Required[float]
     text: Required[str]
     text_color_rgb: PdfRGBColor
-    text_color_cmyk: PdfCmykColor
+    text_color_cmyk: PdfCMYKColor
     text_size: Required[float]
     x: Required[float]
     y: Required[float]
@@ -223,6 +226,7 @@ PdfRestriction = Literal[
 ALL_PDF_RESTRICTIONS: tuple[PdfRestriction, ...] = cast(
     tuple[PdfRestriction, ...], get_args(PdfRestriction)
 )
+
 PdfPageSize = Literal["letter", "legal", "ledger", "A3", "A4", "A5"] | PdfCustomPageSize
 PdfPageOrientation = Literal["portrait", "landscape"]
 PdfPresetColorProfile = Literal[
@@ -243,3 +247,5 @@ PdfPresetColorProfile = Literal[
 ]
 
 PdfColorProfile = PdfPresetColorProfile
+WatermarkHorizontalAlignment = Literal["left", "center", "right"]
+WatermarkVerticalAlignment = Literal["top", "center", "bottom"]

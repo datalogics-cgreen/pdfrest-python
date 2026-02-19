@@ -42,6 +42,8 @@ from ..types import (
     SummaryOutputFormat,
     SummaryOutputType,
     TranslateOutputFormat,
+    WatermarkHorizontalAlignment,
+    WatermarkVerticalAlignment,
 )
 from .public import PdfRestFile, PdfRestFileID
 
@@ -128,6 +130,25 @@ def _split_comma_string(value: Any) -> list[Any] | None:
     raise ValueError(msg)
 
 
+def _route_text_color_by_channel_count(
+    *,
+    expected_channel_count: int,
+    alternate_channel_count: int,
+) -> Callable[[Any], list[Any] | None]:
+    def _validator(value: Any) -> list[Any] | None:
+        channels = _split_comma_string(value)
+        if channels is None:
+            return None
+        if len(channels) == expected_channel_count:
+            return channels
+        if len(channels) == alternate_channel_count:
+            return None
+        msg = "text_color must include exactly 3 (RGB) or 4 (CMYK) values."
+        raise ValueError(msg)
+
+    return _validator
+
+
 def _serialize_as_first_file_id(value: list[PdfRestFile]) -> str:
     return str(value[0].id)
 
@@ -140,6 +161,10 @@ def _serialize_as_comma_separated_string(value: list[Any] | None) -> str | None:
     if value is None:
         return None
     return ",".join(str(element) for element in value)
+
+
+def _serialize_as_string(value: Any) -> str:
+    return str(value)
 
 
 def _serialize_file_ids(value: list[PdfRestFile]) -> str:
@@ -1602,6 +1627,148 @@ class PdfAddImagePayload(BaseModel):
         Field(serialization_alias="output", min_length=1, default=None),
         AfterValidator(_validate_output_prefix),
     ] = None
+
+
+class _BasePdfWatermarkPayload(BaseModel):
+    """Shared fields for watermark request payloads."""
+
+    files: Annotated[
+        list[PdfRestFile],
+        Field(
+            min_length=1,
+            max_length=1,
+            validation_alias=AliasChoices("file", "files"),
+            serialization_alias="id",
+        ),
+        BeforeValidator(_ensure_list),
+        AfterValidator(
+            _allowed_mime_types("application/pdf", error_msg="Must be a PDF file")
+        ),
+        PlainSerializer(_serialize_as_first_file_id),
+    ]
+    output: Annotated[
+        str | None,
+        Field(serialization_alias="output", min_length=1, default=None),
+        AfterValidator(_validate_output_prefix),
+    ] = None
+    opacity: Annotated[
+        float,
+        Field(serialization_alias="opacity", ge=0, le=1, default=0.5),
+        PlainSerializer(_serialize_as_string),
+    ] = 0.5
+    horizontal_alignment: Annotated[
+        WatermarkHorizontalAlignment,
+        Field(serialization_alias="horizontal_alignment", default="center"),
+    ] = "center"
+    vertical_alignment: Annotated[
+        WatermarkVerticalAlignment,
+        Field(serialization_alias="vertical_alignment", default="center"),
+    ] = "center"
+    x: Annotated[
+        int,
+        Field(serialization_alias="x", default=0),
+        PlainSerializer(_serialize_as_string),
+    ] = 0
+    y: Annotated[
+        int,
+        Field(serialization_alias="y", default=0),
+        PlainSerializer(_serialize_as_string),
+    ] = 0
+    rotation: Annotated[
+        int,
+        Field(serialization_alias="rotation", default=0),
+        PlainSerializer(_serialize_as_string),
+    ] = 0
+    pages: Annotated[
+        list[AscendingPageRange] | None,
+        Field(serialization_alias="pages", min_length=1, default=None),
+        BeforeValidator(_ensure_list),
+        BeforeValidator(_split_comma_list),
+        BeforeValidator(_int_to_string),
+        PlainSerializer(_serialize_page_ranges),
+    ] = None
+    behind_page: Annotated[
+        bool,
+        Field(serialization_alias="behind_page", default=False),
+        PlainSerializer(_bool_to_true_false),
+    ] = False
+
+
+class PdfTextWatermarkPayload(_BasePdfWatermarkPayload):
+    """Adapt caller options into a text watermark request payload."""
+
+    watermark_text: Annotated[
+        str,
+        Field(serialization_alias="watermark_text", min_length=1),
+    ]
+    font: Annotated[
+        str | None, Field(serialization_alias="font", min_length=1, default=None)
+    ] = None
+    text_size: Annotated[
+        int,
+        Field(serialization_alias="text_size", ge=5, le=100, default=72),
+        PlainSerializer(_serialize_as_string),
+    ] = 72
+    text_color_rgb: Annotated[
+        tuple[RgbChannel, RgbChannel, RgbChannel] | None,
+        Field(
+            validation_alias="text_color",
+            serialization_alias="text_color_rgb",
+            default=None,
+        ),
+        BeforeValidator(
+            _route_text_color_by_channel_count(
+                expected_channel_count=3,
+                alternate_channel_count=4,
+            )
+        ),
+        PlainSerializer(_serialize_as_comma_separated_string),
+    ] = None
+    text_color_cmyk: Annotated[
+        tuple[CmykChannel, CmykChannel, CmykChannel, CmykChannel] | None,
+        Field(
+            validation_alias="text_color",
+            serialization_alias="text_color_cmyk",
+            default=None,
+        ),
+        BeforeValidator(
+            _route_text_color_by_channel_count(
+                expected_channel_count=4,
+                alternate_channel_count=3,
+            )
+        ),
+        PlainSerializer(_serialize_as_comma_separated_string),
+    ] = None
+
+    @model_validator(mode="after")
+    def _validate_text_colors(self) -> PdfTextWatermarkPayload:
+        if self.text_color_rgb is not None and self.text_color_cmyk is not None:
+            msg = "Specify only one of text_color_rgb or text_color_cmyk."
+            raise ValueError(msg)
+        return self
+
+
+class PdfImageWatermarkPayload(_BasePdfWatermarkPayload):
+    """Adapt caller options into an image watermark request payload."""
+
+    watermark_file: Annotated[
+        list[PdfRestFile],
+        Field(
+            min_length=1,
+            max_length=1,
+            serialization_alias="watermark_file_id",
+        ),
+        BeforeValidator(_ensure_list),
+        AfterValidator(
+            _allowed_mime_types("application/pdf", error_msg="Must be a PDF file")
+        ),
+        PlainSerializer(_serialize_as_first_file_id),
+    ]
+    watermark_file_scale: Annotated[
+        float,
+        Field(serialization_alias="watermark_file_scale", ge=0, default=0.5),
+        PlainSerializer(_serialize_as_string),
+    ] = 0.5
 
 
 class PdfXfaToAcroformsPayload(BaseModel):
