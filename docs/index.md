@@ -1,4 +1,4 @@
-# pdfrest documentation
+# pdfRest API Toolkit Python SDK
 
 Welcome to the docs for `pdfrest`, a Python client for
 [pdfRest](https://pdfrest.com/).

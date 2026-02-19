@@ -24,3 +24,14 @@
   /* Body/docs links */
   --md-typeset-a-color: #5b2a86;
 }
+
+/* Left sidebar grouping: keep Home + Getting Started visually separated
+   from the rest of the navigation entries. */
+.md-sidebar--primary
+  .md-nav--primary
+  > .md-nav__list
+  > .md-nav__item:nth-child(3) {
+  border-top: 1px solid rgba(12, 12, 12, 0.18);
+  margin-top: 0.5rem;
+  padding-top: 0.5rem;
+}
