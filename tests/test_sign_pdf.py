@@ -72,6 +72,7 @@ def test_sign_pdf_with_pfx_credentials(monkeypatch: pytest.MonkeyPatch) -> None:
     pfx_file = make_pfx_file(str(PdfRestFileID.generate()))
     passphrase_file = make_passphrase_file(str(PdfRestFileID.generate()))
     output_id = str(PdfRestFileID.generate())
+    seen = {"post": 0, "get": 0}
 
     signature_configuration = {
         "type": "new",
@@ -90,6 +91,7 @@ def test_sign_pdf_with_pfx_credentials(monkeypatch: pytest.MonkeyPatch) -> None:
 
     def handler(request: httpx.Request) -> httpx.Response:
         if request.method == "POST" and request.url.path == "/signed-pdf":
+            seen["post"] += 1
             payload = json.loads(request.content.decode("utf-8"))
             assert payload == payload_dump
             return httpx.Response(
@@ -100,6 +102,7 @@ def test_sign_pdf_with_pfx_credentials(monkeypatch: pytest.MonkeyPatch) -> None:
                 },
             )
         if request.method == "GET" and request.url.path == f"/resource/{output_id}":
+            seen["get"] += 1
             assert request.url.params["format"] == "info"
             return httpx.Response(
                 200,
@@ -124,6 +127,7 @@ def test_sign_pdf_with_pfx_credentials(monkeypatch: pytest.MonkeyPatch) -> None:
     assert isinstance(response, PdfRestFileBasedResponse)
     assert response.output_file.name == "signed-pdf.pdf"
     assert str(input_file.id) in {str(item) for item in response.input_ids}
+    assert seen == {"post": 1, "get": 1}
 
 
 def test_sign_pdf_with_certificate_credentials_and_logo(
@@ -135,6 +139,7 @@ def test_sign_pdf_with_certificate_credentials_and_logo(
     private_key_file = make_private_key_file(str(PdfRestFileID.generate()))
     logo_file = make_logo_file(str(PdfRestFileID.generate()))
     output_id = str(PdfRestFileID.generate())
+    seen = {"post": 0, "get": 0}
 
     signature_configuration = {
         "type": "new",
@@ -159,6 +164,7 @@ def test_sign_pdf_with_certificate_credentials_and_logo(
 
     def handler(request: httpx.Request) -> httpx.Response:
         if request.method == "POST" and request.url.path == "/signed-pdf":
+            seen["post"] += 1
             payload = json.loads(request.content.decode("utf-8"))
             assert payload == payload_dump
             return httpx.Response(
@@ -174,6 +180,7 @@ def test_sign_pdf_with_certificate_credentials_and_logo(
                 },
             )
         if request.method == "GET" and request.url.path == f"/resource/{output_id}":
+            seen["get"] += 1
             return httpx.Response(
                 200,
                 json=build_file_info_payload(
@@ -198,6 +205,7 @@ def test_sign_pdf_with_certificate_credentials_and_logo(
     assert isinstance(response, PdfRestFileBasedResponse)
     assert response.output_file.name == "signed.pdf"
     assert logo_file.id in response.input_ids
+    assert seen == {"post": 1, "get": 1}
 
 
 def test_sign_pdf_requires_credential_pair(
@@ -266,6 +274,86 @@ def test_sign_pdf_requires_location_for_new_signature_type(
         )
 
 
+def test_sign_pdf_rejects_multiple_input_files(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.delenv("PDFREST_API_KEY", raising=False)
+    input_file_a = make_pdf_file(PdfRestFileID.generate())
+    input_file_b = make_pdf_file(PdfRestFileID.generate())
+    pfx_file = make_pfx_file(str(PdfRestFileID.generate()))
+    passphrase_file = make_passphrase_file(str(PdfRestFileID.generate()))
+    transport = httpx.MockTransport(lambda request: (_ for _ in ()).throw(RuntimeError))
+
+    with (
+        PdfRestClient(api_key=VALID_API_KEY, transport=transport) as client,
+        pytest.raises(ValidationError, match=r"files|at most 1 item"),
+    ):
+        client.sign_pdf(
+            [input_file_a, input_file_b],
+            signature_configuration={
+                "type": "new",
+                "location": make_signature_location(),
+            },
+            credentials={"pfx": pfx_file, "passphrase": passphrase_file},
+        )
+
+
+def test_sign_pdf_rejects_multiple_logo_files(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.delenv("PDFREST_API_KEY", raising=False)
+    input_file = make_pdf_file(PdfRestFileID.generate())
+    certificate_file = make_certificate_file(str(PdfRestFileID.generate()))
+    private_key_file = make_private_key_file(str(PdfRestFileID.generate()))
+    logo_file_a = make_logo_file(str(PdfRestFileID.generate()))
+    logo_file_b = make_logo_file(str(PdfRestFileID.generate()))
+    transport = httpx.MockTransport(lambda request: (_ for _ in ()).throw(RuntimeError))
+
+    with (
+        PdfRestClient(api_key=VALID_API_KEY, transport=transport) as client,
+        pytest.raises(ValidationError, match=r"logo|at most 1 item"),
+    ):
+        client.sign_pdf(
+            input_file,
+            signature_configuration={
+                "type": "new",
+                "location": make_signature_location(),
+            },
+            credentials={
+                "certificate": certificate_file,
+                "private_key": private_key_file,
+            },
+            logo=[logo_file_a, logo_file_b],
+        )
+
+
+def test_sign_pdf_rejects_multiple_pfx_credential_files(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.delenv("PDFREST_API_KEY", raising=False)
+    input_file = make_pdf_file(PdfRestFileID.generate())
+    pfx_file_a = make_pfx_file(str(PdfRestFileID.generate()))
+    pfx_file_b = make_pfx_file(str(PdfRestFileID.generate()))
+    passphrase_file = make_passphrase_file(str(PdfRestFileID.generate()))
+    transport = httpx.MockTransport(lambda request: (_ for _ in ()).throw(RuntimeError))
+
+    with (
+        PdfRestClient(api_key=VALID_API_KEY, transport=transport) as client,
+        pytest.raises(ValidationError, match=r"pfx|at most 1 item"),
+    ):
+        client.sign_pdf(
+            input_file,
+            signature_configuration={
+                "type": "new",
+                "location": make_signature_location(),
+            },
+            credentials={
+                "pfx": [pfx_file_a, pfx_file_b],  # type: ignore[list-item]
+                "passphrase": passphrase_file,
+            },
+        )
+
+
 @pytest.mark.asyncio
 async def test_async_sign_pdf_requires_credential_pair(
     monkeypatch: pytest.MonkeyPatch,
@@ -326,6 +414,83 @@ async def test_async_sign_pdf_requires_location_for_new_signature_type(
                 input_file,
                 signature_configuration={"type": "new"},
                 credentials={"pfx": pfx_file, "passphrase": passphrase_file},
+            )
+
+
+@pytest.mark.asyncio
+async def test_async_sign_pdf_rejects_multiple_input_files(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.delenv("PDFREST_API_KEY", raising=False)
+    input_file_a = make_pdf_file(PdfRestFileID.generate())
+    input_file_b = make_pdf_file(PdfRestFileID.generate())
+    pfx_file = make_pfx_file(str(PdfRestFileID.generate()))
+    passphrase_file = make_passphrase_file(str(PdfRestFileID.generate()))
+    transport = httpx.MockTransport(lambda request: (_ for _ in ()).throw(RuntimeError))
+
+    async with AsyncPdfRestClient(api_key=ASYNC_API_KEY, transport=transport) as client:
+        with pytest.raises(ValidationError, match=r"files|at most 1 item"):
+            await client.sign_pdf(
+                [input_file_a, input_file_b],
+                signature_configuration={
+                    "type": "new",
+                    "location": make_signature_location(),
+                },
+                credentials={"pfx": pfx_file, "passphrase": passphrase_file},
+            )
+
+
+@pytest.mark.asyncio
+async def test_async_sign_pdf_rejects_multiple_logo_files(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.delenv("PDFREST_API_KEY", raising=False)
+    input_file = make_pdf_file(PdfRestFileID.generate())
+    certificate_file = make_certificate_file(str(PdfRestFileID.generate()))
+    private_key_file = make_private_key_file(str(PdfRestFileID.generate()))
+    logo_file_a = make_logo_file(str(PdfRestFileID.generate()))
+    logo_file_b = make_logo_file(str(PdfRestFileID.generate()))
+    transport = httpx.MockTransport(lambda request: (_ for _ in ()).throw(RuntimeError))
+
+    async with AsyncPdfRestClient(api_key=ASYNC_API_KEY, transport=transport) as client:
+        with pytest.raises(ValidationError, match=r"logo|at most 1 item"):
+            await client.sign_pdf(
+                input_file,
+                signature_configuration={
+                    "type": "new",
+                    "location": make_signature_location(),
+                },
+                credentials={
+                    "certificate": certificate_file,
+                    "private_key": private_key_file,
+                },
+                logo=[logo_file_a, logo_file_b],
+            )
+
+
+@pytest.mark.asyncio
+async def test_async_sign_pdf_rejects_multiple_pfx_credential_files(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.delenv("PDFREST_API_KEY", raising=False)
+    input_file = make_pdf_file(PdfRestFileID.generate())
+    pfx_file_a = make_pfx_file(str(PdfRestFileID.generate()))
+    pfx_file_b = make_pfx_file(str(PdfRestFileID.generate()))
+    passphrase_file = make_passphrase_file(str(PdfRestFileID.generate()))
+    transport = httpx.MockTransport(lambda request: (_ for _ in ()).throw(RuntimeError))
+
+    async with AsyncPdfRestClient(api_key=ASYNC_API_KEY, transport=transport) as client:
+        with pytest.raises(ValidationError, match=r"pfx|at most 1 item"):
+            await client.sign_pdf(
+                input_file,
+                signature_configuration={
+                    "type": "new",
+                    "location": make_signature_location(),
+                },
+                credentials={
+                    "pfx": [pfx_file_a, pfx_file_b],  # type: ignore[list-item]
+                    "passphrase": passphrase_file,
+                },
             )
 
 
@@ -437,9 +602,11 @@ def test_sign_pdf_request_customization(
     private_key_file = make_private_key_file(str(PdfRestFileID.generate()))
     output_id = str(PdfRestFileID.generate())
     captured_timeout: dict[str, float | dict[str, float] | None] = {}
+    seen = {"post": 0, "get": 0}
 
     def handler(request: httpx.Request) -> httpx.Response:
         if request.method == "POST" and request.url.path == "/signed-pdf":
+            seen["post"] += 1
             assert request.url.params["trace"] == "sync"
             assert request.headers["X-Debug"] == "sync-sign"
             captured_timeout["value"] = request.extensions.get("timeout")
@@ -454,6 +621,7 @@ def test_sign_pdf_request_customization(
                 json={"inputId": [input_file.id], "outputId": [output_id]},
             )
         if request.method == "GET" and request.url.path == f"/resource/{output_id}":
+            seen["get"] += 1
             assert request.url.params["trace"] == "sync"
             assert request.headers["X-Debug"] == "sync-sign"
             return httpx.Response(
@@ -494,6 +662,7 @@ def test_sign_pdf_request_customization(
         assert all(pytest.approx(0.5) == value for value in timeout_value.values())
     else:
         assert timeout_value == pytest.approx(0.5)
+    assert seen == {"post": 1, "get": 1}
 
 
 @pytest.mark.asyncio
@@ -506,9 +675,11 @@ async def test_async_sign_pdf_request_customization(
     private_key_file = make_private_key_file(str(PdfRestFileID.generate()))
     output_id = str(PdfRestFileID.generate())
     captured_timeout: dict[str, float | dict[str, float] | None] = {}
+    seen = {"post": 0, "get": 0}
 
     def handler(request: httpx.Request) -> httpx.Response:
         if request.method == "POST" and request.url.path == "/signed-pdf":
+            seen["post"] += 1
             assert request.url.params["trace"] == "async"
             assert request.headers["X-Debug"] == "async-sign"
             captured_timeout["value"] = request.extensions.get("timeout")
@@ -523,6 +694,7 @@ async def test_async_sign_pdf_request_customization(
                 json={"inputId": [input_file.id], "outputId": [output_id]},
             )
         if request.method == "GET" and request.url.path == f"/resource/{output_id}":
+            seen["get"] += 1
             assert request.url.params["trace"] == "async"
             assert request.headers["X-Debug"] == "async-sign"
             return httpx.Response(
@@ -566,6 +738,7 @@ async def test_async_sign_pdf_request_customization(
         assert all(pytest.approx(0.5) == value for value in timeout_value.values())
     else:
         assert timeout_value == pytest.approx(0.5)
+    assert seen == {"post": 1, "get": 1}
 
 
 def test_sign_payload_requires_location_when_type_new() -> None:
