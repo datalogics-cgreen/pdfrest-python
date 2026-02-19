@@ -68,6 +68,14 @@ class PdfRestApiError(PdfRestError):
         *,
         retry_after: float | None = None,
     ) -> None:
+        """Initialize an API error with HTTP status and response details.
+
+        Args:
+            status_code: HTTP status code returned by pdfRest.
+            message: Optional human-readable error message.
+            response_content: Parsed or raw error payload from the API response.
+            retry_after: Optional retry delay in seconds parsed from headers.
+        """
         self.status_code = status_code
         self.response_content = response_content
         self.retry_after = retry_after
@@ -90,6 +98,12 @@ class PdfRestDeleteError(PdfRestError):
     """Raised when an individual file cannot be deleted."""
 
     def __init__(self, file_id: PdfRestFileID | str, message: str) -> None:
+        """Initialize a delete failure for one uploaded file.
+
+        Args:
+            file_id: Identifier of the file that failed to delete.
+            message: Error detail returned for the deletion attempt.
+        """
         self.file_id = str(file_id)
         self.detail = message
         super().__init__(f"Failed to delete file {self.file_id}: {message}")
@@ -99,6 +113,15 @@ class PdfRestErrorGroup(ExceptionGroup):
     """Group of PdfRestError exceptions produced by the PDF REST library."""
 
     def __init__(self, message: str, exceptions: Sequence[Exception], /) -> None:
+        """Initialize a grouped pdfRest failure.
+
+        Args:
+            message: Summary message for the grouped error.
+            exceptions: Collection of `PdfRestError` instances.
+
+        Raises:
+            TypeError: If any item in `exceptions` is not a `PdfRestError`.
+        """
         # enforce that everything inside is from your library
         for e in exceptions:
             if not isinstance(e, PdfRestError):

@@ -46,7 +46,9 @@ __all__ = (
 
 
 class PdfRestFileID(str):
-    """A str-like type representing:
+    """Str-like identifier for pdfRest files.
+
+    Format:
       [optional '1' or '2' prefix] + [UUIDv4 with hyphens]
 
     Examples:
@@ -71,6 +73,17 @@ class PdfRestFileID(str):
     )
 
     def __new__(cls, value: str) -> PdfRestFileID:
+        """Create a normalized file identifier from a validated string.
+
+        Args:
+            value: Candidate pdfRest file id string.
+
+        Returns:
+            Lower-cased, validated file id value.
+
+        Raises:
+            ValueError: If `value` is not a valid prefixed UUIDv4 identifier.
+        """
         if not cls._PY_PATTERN.fullmatch(value):
             msg = (
                 "Invalid PdfRestPrefixedUUID4. Expected: "
@@ -116,8 +129,14 @@ class PdfRestFileID(str):
     def from_parts(
         cls, u: str | _uuid.UUID, prefix: int | str | None = None
     ) -> PdfRestFileID:
-        """Build from a UUIDv4 (str or uuid.UUID) and an optional prefix (1 or 2).
-        Raises ValueError if not a v4 UUID or bad prefix.
+        """Build a file id from a UUIDv4 and optional prefix.
+
+        Args:
+            u: UUID value as string or `uuid.UUID`.
+            prefix: Optional leading prefix (`1` or `2`).
+
+        Raises:
+            ValueError: If the UUID is not version 4 or the prefix is invalid.
         """
         if isinstance(prefix, int):
             prefix = str(prefix)  # allow 1/2 as int
@@ -156,9 +175,11 @@ class PdfRestFileID(str):
     # -------------------------
     @classmethod
     def __get_pydantic_core_schema__(cls, source_type: Any, handler: Any) -> CoreSchema:
-        """Build a Pydantic v2 core schema that accepts:
-        - a UUID (validated as v4) -> converted to this type (no prefix)
-        - a string matching our pattern
+        """Build a Pydantic v2 core schema for `PdfRestFileID`.
+
+        Accepted inputs:
+        - a UUID (validated as v4) converted to this type with no prefix
+        - a string matching the `PdfRestFileID` pattern
         """
         from pydantic_core import core_schema
 
@@ -272,8 +293,10 @@ class PdfRestFile(BaseModel):
 
 
 class PdfRestFileBasedResponse(BaseModel):
-    """Represents a response from a pdfRest API operation that is file-based, allowing
-    handling of input and output files along with additional warnings.
+    """Response model for file-based pdfRest operations.
+
+    Includes input file identifiers, output files, and optional warnings from
+    the API response payload.
     """
 
     # Allow all extra fields to be stored and serialized
@@ -678,8 +701,10 @@ class ExtractedTextFullTextPages(BaseModel):
 
 
 class ExtractedTextFullText(RootModel[str | ExtractedTextFullTextPages]):
-    """Represents full-text extraction in either "document" (str) or "page" (object)
-    modes while providing convenience accessors for both forms.
+    """Full-text extraction payload in document or per-page mode.
+
+    Wraps either a single document-level string or a per-page text object and
+    provides convenience accessors for both shapes.
     """
 
     root: str | ExtractedTextFullTextPages
@@ -687,8 +712,10 @@ class ExtractedTextFullText(RootModel[str | ExtractedTextFullTextPages]):
 
     @property
     def document_text(self) -> str | None:
-        """Return the document-level string. Falls back to space-joining per-page text
-        when only the page-structured payload is available.
+        """Return document-level text for either payload shape.
+
+        Falls back to joining per-page text when only the page-structured
+        payload is available.
         """
         if isinstance(self.root, str):
             return self.root
@@ -696,8 +723,10 @@ class ExtractedTextFullText(RootModel[str | ExtractedTextFullTextPages]):
 
     @property
     def pages(self) -> list[ExtractedTextFullTextPage]:
-        """Return page entries when pdfRest emits per-page text.
-        Raises ValueError when the payload is in document-string mode.
+        """Return per-page text entries when page mode is available.
+
+        Raises:
+            ValueError: If the payload is in document-string mode.
         """
         if isinstance(self.root, ExtractedTextFullTextPages):
             return self.root.pages
@@ -705,8 +734,10 @@ class ExtractedTextFullText(RootModel[str | ExtractedTextFullTextPages]):
         raise ValueError(msg)
 
     def iter_pages(self) -> list[ExtractedTextFullTextPage]:
-        """Convenience helper that provides a stable iterable without requiring
-        callers to guard against the document-only representation.
+        """Return per-page text entries or an empty list in document mode.
+
+        This helper avoids forcing callers to catch mode errors when they only
+        need an iterable.
         """
         try:
             return self.pages

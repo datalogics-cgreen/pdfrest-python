@@ -1500,9 +1500,10 @@ class AsyncPdfRestFileStream:
 
 
 class PdfRestFilesClient(Protocol):
-    """Public interface for file operations returned by
-    [`PdfRestClient.files`][pdfrest.PdfRestClient.files].
+    """Public interface for file operations returned by files helpers.
 
+    This protocol describes the object returned by
+    [`PdfRestClient.files`][pdfrest.PdfRestClient.files].
     Retrieve this helper from `client.files`; do not instantiate it directly.
     """
 
@@ -1727,9 +1728,10 @@ class PdfRestFilesClient(Protocol):
 
 
 class AsyncPdfRestFilesClient(Protocol):
-    """Public interface for file operations returned by
-    [`AsyncPdfRestClient.files`][pdfrest.AsyncPdfRestClient.files].
+    """Public interface for async file operations returned by files helpers.
 
+    This protocol describes the object returned by
+    [`AsyncPdfRestClient.files`][pdfrest.AsyncPdfRestClient.files].
     Retrieve this helper from `client.files`; do not instantiate it directly.
     """
 

@@ -145,7 +145,7 @@ class PdfAddTextObject(TypedDict, total=False):
         font: Font family name used to render text.
         max_width: Maximum text box width in PDF points.
         opacity: Opacity value from 0.0 (transparent) to 1.0 (opaque).
-        page: One-based page number or ``\"all\"`` for every page.
+        page: One-based page number or ``"all"`` for every page.
         rotation: Rotation angle in degrees.
         text: Text content to draw.
         text_color_rgb: Optional RGB text color tuple.

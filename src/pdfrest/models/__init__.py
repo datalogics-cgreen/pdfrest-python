@@ -1,3 +1,5 @@
+"""Public model exports for the `pdfrest.models` package."""
+
 from .public import (
     ExtractedTextDocument,
     ExtractedTextFullText,
