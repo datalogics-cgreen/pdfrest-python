@@ -268,6 +268,75 @@ def test_watermark_pdf_with_text_request_customization(
         assert timeout_value == pytest.approx(0.31)
 
 
+def test_watermark_pdf_with_image_request_customization(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.delenv("PDFREST_API_KEY", raising=False)
+    input_file = make_pdf_file(PdfRestFileID.generate(1))
+    watermark_file = make_pdf_file(PdfRestFileID.generate(1), name="custom-stamp.pdf")
+    output_id = str(PdfRestFileID.generate())
+    captured_timeout: dict[str, float | dict[str, float] | None] = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.method == "POST" and request.url.path == "/watermarked-pdf":
+            assert request.url.params["trace"] == "true"
+            assert request.headers["X-Debug"] == "sync-image"
+            captured_timeout["value"] = request.extensions.get("timeout")
+            payload = json.loads(request.content.decode("utf-8"))
+            assert payload["id"] == str(input_file.id)
+            assert payload["watermark_file_id"] == str(watermark_file.id)
+            assert payload["watermark_file_scale"] == 0.75
+            assert payload["opacity"] == 0.2
+            assert payload["output"] == "custom-image"
+            assert payload["debug"] == "yes"
+            return httpx.Response(
+                200,
+                json={
+                    "inputId": [input_file.id, watermark_file.id],
+                    "outputId": [output_id],
+                },
+            )
+        if request.method == "GET" and request.url.path == f"/resource/{output_id}":
+            assert request.url.params["format"] == "info"
+            assert request.url.params["trace"] == "true"
+            assert request.headers["X-Debug"] == "sync-image"
+            return httpx.Response(
+                200,
+                json=build_file_info_payload(
+                    output_id,
+                    "custom-image.pdf",
+                    "application/pdf",
+                ),
+            )
+        msg = f"Unexpected request {request.method} {request.url}"
+        raise AssertionError(msg)
+
+    transport = httpx.MockTransport(handler)
+    with PdfRestClient(api_key=VALID_API_KEY, transport=transport) as client:
+        response = client.watermark_pdf_with_image(
+            input_file,
+            watermark_file=watermark_file,
+            watermark_file_scale=0.75,
+            opacity=0.2,
+            output="custom-image",
+            extra_query={"trace": "true"},
+            extra_headers={"X-Debug": "sync-image"},
+            extra_body={"debug": "yes"},
+            timeout=0.33,
+        )
+
+    assert isinstance(response, PdfRestFileBasedResponse)
+    assert response.output_file.name == "custom-image.pdf"
+    timeout_value = captured_timeout["value"]
+    assert timeout_value is not None
+    if isinstance(timeout_value, dict):
+        assert all(
+            component == pytest.approx(0.33) for component in timeout_value.values()
+        )
+    else:
+        assert timeout_value == pytest.approx(0.33)
+
+
 def test_watermark_pdf_with_text_validation_rejects_invalid_text_color_channel_count(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -1081,3 +1150,75 @@ async def test_async_watermark_pdf_with_text_request_customization(
         )
     else:
         assert timeout_value == pytest.approx(0.42)
+
+
+@pytest.mark.asyncio
+async def test_async_watermark_pdf_with_image_request_customization(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.delenv("PDFREST_API_KEY", raising=False)
+    input_file = make_pdf_file(PdfRestFileID.generate(2))
+    watermark_file = make_pdf_file(
+        PdfRestFileID.generate(2), name="async-custom-stamp.pdf"
+    )
+    output_id = str(PdfRestFileID.generate())
+    captured_timeout: dict[str, float | dict[str, float] | None] = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.method == "POST" and request.url.path == "/watermarked-pdf":
+            assert request.url.params["trace"] == "async"
+            assert request.headers["X-Debug"] == "async-image"
+            captured_timeout["value"] = request.extensions.get("timeout")
+            payload = json.loads(request.content.decode("utf-8"))
+            assert payload["id"] == str(input_file.id)
+            assert payload["watermark_file_id"] == str(watermark_file.id)
+            assert payload["watermark_file_scale"] == 0.6
+            assert payload["opacity"] == 0.25
+            assert payload["output"] == "async-custom-image"
+            assert payload["debug"] == "async"
+            return httpx.Response(
+                200,
+                json={
+                    "inputId": [input_file.id, watermark_file.id],
+                    "outputId": [output_id],
+                },
+            )
+        if request.method == "GET" and request.url.path == f"/resource/{output_id}":
+            assert request.url.params["format"] == "info"
+            assert request.url.params["trace"] == "async"
+            assert request.headers["X-Debug"] == "async-image"
+            return httpx.Response(
+                200,
+                json=build_file_info_payload(
+                    output_id,
+                    "async-custom-image.pdf",
+                    "application/pdf",
+                ),
+            )
+        msg = f"Unexpected request {request.method} {request.url}"
+        raise AssertionError(msg)
+
+    transport = httpx.MockTransport(handler)
+    async with AsyncPdfRestClient(api_key=ASYNC_API_KEY, transport=transport) as client:
+        response = await client.watermark_pdf_with_image(
+            input_file,
+            watermark_file=watermark_file,
+            watermark_file_scale=0.6,
+            opacity=0.25,
+            output="async-custom-image",
+            extra_query={"trace": "async"},
+            extra_headers={"X-Debug": "async-image"},
+            extra_body={"debug": "async"},
+            timeout=0.52,
+        )
+
+    assert isinstance(response, PdfRestFileBasedResponse)
+    assert response.output_file.name == "async-custom-image.pdf"
+    timeout_value = captured_timeout["value"]
+    assert timeout_value is not None
+    if isinstance(timeout_value, dict):
+        assert all(
+            component == pytest.approx(0.52) for component in timeout_value.values()
+        )
+    else:
+        assert timeout_value == pytest.approx(0.52)
