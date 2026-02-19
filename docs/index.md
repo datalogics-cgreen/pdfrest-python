@@ -19,6 +19,7 @@ Useful references:
 - [Getting started guide](getting-started.md)
 - [Client configuration guide](client-configuration.md)
 - [Using files guide](using-files.md)
+- [API guide](api-guide.md)
 
 ## How this Python API relates to pdfRest
 
