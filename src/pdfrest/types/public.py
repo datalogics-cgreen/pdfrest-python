@@ -52,6 +52,7 @@ __all__ = (
     "PdfSignatureCredentials",
     "PdfSignatureDisplay",
     "PdfSignatureLocation",
+    "PdfSignaturePoint",
     "PdfTextColor",
     "PdfXType",
     "PngColorModel",
@@ -64,6 +65,9 @@ __all__ = (
     "WatermarkVerticalAlignment",
 )
 
+#: Supported query keys for
+#: [PdfRestClient.query_pdf_info][pdfrest.PdfRestClient.query_pdf_info] and
+#: [AsyncPdfRestClient.query_pdf_info][pdfrest.AsyncPdfRestClient.query_pdf_info].
 PdfInfoQuery = Literal[
     "tagged",
     "image_only",
@@ -102,8 +106,10 @@ ALL_PDF_INFO_QUERIES: tuple[PdfInfoQuery, ...] = cast(
     tuple[PdfInfoQuery, ...], get_args(PdfInfoQuery)
 )
 
+#: Redaction match mode used by [PdfRedactionInstruction][].
 PdfRedactionType = Literal["literal", "regex", "preset"]
 
+#: Built-in redaction presets accepted by pdfRest.
 PdfRedactionPreset = Literal[
     "email",
     "phone_number",
@@ -121,6 +127,8 @@ PdfRedactionPreset = Literal[
 
 
 class PdfRedactionInstruction(TypedDict):
+    """Single redaction rule for preview/apply redaction operations."""
+
     type: PdfRedactionType
     value: PdfRedactionPreset | str
 
@@ -131,6 +139,23 @@ PdfTextColor = PdfRGBColor | PdfCMYKColor
 
 
 class PdfAddTextObject(TypedDict, total=False):
+    """Text overlay object used by add-text style operations.
+
+    Attributes:
+        font: Font family name used to render text.
+        max_width: Maximum text box width in PDF points.
+        opacity: Opacity value from 0.0 (transparent) to 1.0 (opaque).
+        page: One-based page number or ``"all"`` for every page.
+        rotation: Rotation angle in degrees.
+        text: Text content to draw.
+        text_color_rgb: Optional RGB text color tuple.
+        text_color_cmyk: Optional CMYK text color tuple.
+        text_size: Font size in points.
+        x: Horizontal origin in PDF points.
+        y: Vertical origin in PDF points.
+        is_right_to_left: Whether text should be rendered right-to-left.
+    """
+
     font: Required[str]
     max_width: Required[float]
     opacity: Required[float]
@@ -146,18 +171,29 @@ class PdfAddTextObject(TypedDict, total=False):
 
 
 class PdfCustomPageSize(TypedDict):
+    """Custom page dimensions for page-size aware conversions.
+
+    Attributes:
+        custom_height: Page height in points.
+        custom_width: Page width in points.
+    """
+
     custom_height: Required[float]
     custom_width: Required[float]
 
 
+#: Page selector accepted by endpoints that support page filtering.
 PdfPageSelection = str | int | Sequence[str | int]
 
 
 class PdfMergeSource(TypedDict, total=False):
+    """Merge item containing an uploaded file and optional page selection."""
+
     file: Required[PdfRestFile]
     pages: PdfPageSelection | None
 
 
+#: Merge input item accepted by merge APIs.
 PdfMergeInput = PdfRestFile | PdfMergeSource | tuple[PdfRestFile, PdfPageSelection]
 
 PdfConversionCompression = Literal["lossy", "lossless"]
@@ -169,17 +205,43 @@ HtmlWebLayout = Literal["desktop", "tablet", "mobile"]
 
 
 class PdfSignaturePoint(TypedDict):
+    """Coordinate point used for signature placement in PDF points.
+
+    Attributes:
+        x: Horizontal position in points.
+        y: Vertical position in points.
+    """
+
     x: float
     y: float
 
 
 class PdfSignatureLocation(TypedDict):
+    """Bounding box and page where a signature field should be rendered.
+
+    Attributes:
+        bottom_left: Bottom-left [PdfSignaturePoint][pdfrest.types.PdfSignaturePoint] of the signature rectangle.
+        top_right: Top-right [PdfSignaturePoint][pdfrest.types.PdfSignaturePoint] of the signature rectangle.
+        page: One-based page index or ``"all"``.
+    """
+
     bottom_left: Required[PdfSignaturePoint]
     top_right: Required[PdfSignaturePoint]
     page: Required[str | int]
 
 
 class PdfSignatureDisplay(TypedDict, total=False):
+    """Optional text fields included in visible signature appearances.
+
+    Attributes:
+        include_distinguished_name: Whether to include signer DN text.
+        include_datetime: Whether to include signing date/time text.
+        contact: Contact text shown in the visible signature.
+        location: Location text shown in the visible signature.
+        name: Signer name text shown in the visible signature.
+        reason: Signing reason text shown in the visible signature.
+    """
+
     include_distinguished_name: bool
     include_datetime: bool
     contact: str
@@ -189,6 +251,16 @@ class PdfSignatureDisplay(TypedDict, total=False):
 
 
 class PdfNewSignatureConfiguration(TypedDict, total=False):
+    """Configuration for creating and signing a new signature field.
+
+    Attributes:
+        type: Must be ``"new"``.
+        location: Placement rectangle and page as [PdfSignatureLocation][pdfrest.types.PdfSignatureLocation].
+        name: Optional name for the signature field.
+        logo_opacity: Optional logo opacity in the range ``(0, 1]``.
+        display: Optional visible-signature settings as [PdfSignatureDisplay][pdfrest.types.PdfSignatureDisplay].
+    """
+
     type: Required[Literal["new"]]
     location: Required[PdfSignatureLocation]
     name: str
@@ -197,6 +269,16 @@ class PdfNewSignatureConfiguration(TypedDict, total=False):
 
 
 class PdfExistingSignatureConfiguration(TypedDict, total=False):
+    """Configuration for signing an existing signature field.
+
+    Attributes:
+        type: Must be ``"existing"``.
+        location: Optional placement override as [PdfSignatureLocation][pdfrest.types.PdfSignatureLocation].
+        name: Optional existing signature field name.
+        logo_opacity: Optional logo opacity in the range ``(0, 1]``.
+        display: Optional visible-signature settings as [PdfSignatureDisplay][pdfrest.types.PdfSignatureDisplay].
+    """
+
     type: Required[Literal["existing"]]
     location: PdfSignatureLocation
     name: str
@@ -204,38 +286,70 @@ class PdfExistingSignatureConfiguration(TypedDict, total=False):
     display: PdfSignatureDisplay
 
 
+#: Signature placement configuration accepted by
+#: [PdfRestClient.sign_pdf][pdfrest.PdfRestClient.sign_pdf] and
+#: [AsyncPdfRestClient.sign_pdf][pdfrest.AsyncPdfRestClient.sign_pdf].
 PdfSignatureConfiguration = (
     PdfNewSignatureConfiguration | PdfExistingSignatureConfiguration
 )
 
 
 class PdfPfxCredentials(TypedDict):
+    """Credentials bundle using a PFX/P12 file plus passphrase file.
+
+    Attributes:
+        pfx: Uploaded credentials archive as a [PdfRestFile][pdfrest.models.PdfRestFile].
+        passphrase: Uploaded text passphrase as a [PdfRestFile][pdfrest.models.PdfRestFile].
+    """
+
     pfx: Required[PdfRestFile]
     passphrase: Required[PdfRestFile]
 
 
 class PdfPemCredentials(TypedDict):
+    """Credentials bundle using certificate and private key uploads.
+
+    Attributes:
+        certificate: Uploaded certificate as a [PdfRestFile][pdfrest.models.PdfRestFile].
+        private_key: Uploaded private key as a [PdfRestFile][pdfrest.models.PdfRestFile].
+    """
+
     certificate: Required[PdfRestFile]
     private_key: Required[PdfRestFile]
 
 
+#: Credentials accepted by
+#: [PdfRestClient.sign_pdf][pdfrest.PdfRestClient.sign_pdf] and
+#: [AsyncPdfRestClient.sign_pdf][pdfrest.AsyncPdfRestClient.sign_pdf].
 PdfSignatureCredentials = PdfPfxCredentials | PdfPemCredentials
 
+#: PDF/A conformance targets accepted by ``convert_to_pdfa``.
 PdfAType = Literal["PDF/A-1b", "PDF/A-2b", "PDF/A-2u", "PDF/A-3b", "PDF/A-3u"]
+#: PDF/X conformance targets accepted by ``convert_to_pdfx``.
 PdfXType = Literal["PDF/X-1a", "PDF/X-3", "PDF/X-4", "PDF/X-6"]
+#: Granularity modes for extracted full text payloads.
 ExtractTextGranularity = Literal["off", "by_page", "document"]
+#: Compression levels accepted by ``compress_pdf``.
 CompressionLevel = Literal["low", "medium", "high", "custom"]
+#: Quality presets for transparency flattening.
 FlattenQuality = Literal["low", "medium", "high"]
+#: PNG output color models accepted by ``convert_to_png``.
 PngColorModel = Literal["rgb", "rgba", "gray"]
+#: BMP output color models accepted by ``convert_to_bmp``.
 BmpColorModel = Literal["rgb", "gray"]
+#: GIF output color models accepted by ``convert_to_gif``.
 GifColorModel = Literal["rgb", "gray"]
+#: JPEG output color models accepted by ``convert_to_jpeg``.
 JpegColorModel = Literal["rgb", "cmyk", "gray"]
+#: TIFF output color models accepted by ``convert_to_tiff``.
 TiffColorModel = Literal["rgb", "rgba", "cmyk", "lab", "gray"]
+#: Graphic smoothing modes for image conversion endpoints.
 GraphicSmoothing = Literal["none", "all", "text", "line", "image"]
 # Server accepts all values here, but enforces form-type subsets at runtime:
 # AcroForm -> xfdf/fdf/xml, XFA -> xfd/xdp/xml.
 ExportDataFormat = Literal["fdf", "xfdf", "xml", "xdp", "xfd"]
 
+#: Summary styles accepted by summarize-text endpoints.
 SummaryFormat = Literal[
     "overview",
     "highlight",
@@ -248,11 +362,15 @@ SummaryFormat = Literal[
     "action_items",
 ]
 
+#: Output text format for summary endpoints.
 SummaryOutputFormat = Literal["plaintext", "markdown"]
+#: Output mode for summary endpoints.
 SummaryOutputType = Literal["json", "file"]
 
+#: Output text format for translate-text endpoints.
 TranslateOutputFormat = Literal["plaintext", "markdown"]
 
+#: OCR languages accepted by ``ocr_pdf``.
 OcrLanguage = Literal[
     "ChineseSimplified",
     "ChineseTraditional",
@@ -271,6 +389,7 @@ ALL_OCR_LANGUAGES: tuple[OcrLanguage, ...] = cast(
     tuple[OcrLanguage, ...], get_args(OcrLanguage)
 )
 
+#: Document permissions accepted by password restriction endpoints.
 PdfRestriction = Literal[
     "print_low",
     "print_high",

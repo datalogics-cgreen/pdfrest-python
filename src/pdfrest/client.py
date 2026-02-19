@@ -28,6 +28,7 @@ from typing import (
     Any,
     Generic,
     Literal,
+    Protocol,
     TypeAlias,
     TypeVar,
     cast,
@@ -170,7 +171,12 @@ from .types import (
     WatermarkVerticalAlignment,
 )
 
-__all__ = ("AsyncPdfRestClient", "PdfRestClient")
+__all__ = (
+    "AsyncPdfRestClient",
+    "AsyncPdfRestFilesClient",
+    "PdfRestClient",
+    "PdfRestFilesClient",
+)
 FileResponseModel = TypeVar("FileResponseModel", bound=PdfRestFileBasedResponse)
 
 DEFAULT_BASE_URL = "https://api.pdfrest.com"
@@ -682,7 +688,6 @@ class _BaseApiClient(Generic[ClientType]):
     @property
     def base_url(self) -> URL:
         """Resolved base URL for the client."""
-
         return self._config.base_url
 
     def _prepare_request(
@@ -1494,6 +1499,462 @@ class AsyncPdfRestFileStream:
         await self.close()
 
 
+class PdfRestFilesClient(Protocol):
+    """Public interface for file operations returned by files helpers.
+
+    This protocol describes the object returned by
+    [`PdfRestClient.files`][pdfrest.PdfRestClient.files].
+    Retrieve this helper from `client.files`; do not instantiate it directly.
+    """
+
+    def get(
+        self,
+        id: PdfRestFileID | str,
+        *,
+        extra_query: Query | None = None,
+        extra_headers: AnyMapping | None = None,
+        timeout: TimeoutTypes | None = None,
+    ) -> PdfRestFile:
+        """Retrieve metadata for an uploaded file.
+
+        Args:
+            id: Uploaded file identifier.
+            extra_query: Additional query parameters appended to the request.
+            extra_headers: Additional headers merged into the request.
+            timeout: Optional request timeout override.
+
+        Returns:
+            The resolved file metadata.
+        """
+        ...
+
+    def create(
+        self,
+        files: UploadFiles,
+        *,
+        extra_query: Query | None = None,
+        extra_headers: AnyMapping | None = None,
+        timeout: TimeoutTypes | None = None,
+    ) -> list[PdfRestFile]:
+        """Upload one or more local file objects.
+
+        Args:
+            files: Multipart file payload(s) accepted by httpx upload APIs.
+            extra_query: Additional query parameters appended to the request.
+            extra_headers: Additional headers merged into the request.
+            timeout: Optional request timeout override.
+
+        Returns:
+            Metadata for uploaded files.
+        """
+        ...
+
+    def create_from_paths(
+        self,
+        file_paths: FilePathInput,
+        *,
+        extra_query: Query | None = None,
+        extra_headers: AnyMapping | None = None,
+        timeout: TimeoutTypes | None = None,
+    ) -> list[PdfRestFile]:
+        """Upload one or more files by filesystem path.
+
+        Args:
+            file_paths: Path input(s), optionally with content type and headers.
+            extra_query: Additional query parameters appended to the request.
+            extra_headers: Additional headers merged into the request.
+            timeout: Optional request timeout override.
+
+        Returns:
+            Metadata for uploaded files.
+        """
+        ...
+
+    def create_from_urls(
+        self,
+        urls: UrlInput,
+        *,
+        extra_query: Query | None = None,
+        extra_headers: AnyMapping | None = None,
+        extra_body: Body | None = None,
+        timeout: TimeoutTypes | None = None,
+    ) -> list[PdfRestFile]:
+        """Upload one or more files by remote URL.
+
+        Args:
+            urls: One URL or a sequence of URLs to upload.
+            extra_query: Additional query parameters appended to the request.
+            extra_headers: Additional headers merged into the request.
+            extra_body: Additional JSON body fields merged into the request.
+            timeout: Optional request timeout override.
+
+        Returns:
+            Metadata for uploaded files.
+        """
+        ...
+
+    def delete(
+        self,
+        files: PdfRestFile | Sequence[PdfRestFile],
+        *,
+        extra_query: Query | None = None,
+        extra_headers: AnyMapping | None = None,
+        extra_body: Body | None = None,
+        timeout: TimeoutTypes | None = None,
+    ) -> None:
+        """Delete one or more previously uploaded files.
+
+        Args:
+            files: File reference(s) to delete.
+            extra_query: Additional query parameters appended to the request.
+            extra_headers: Additional headers merged into the request.
+            extra_body: Additional JSON body fields merged into the request.
+            timeout: Optional request timeout override.
+
+        Raises:
+            PdfRestErrorGroup: Raised when one or more deletions fail. Individual
+                failures are reported as `PdfRestDeleteError` items in the group.
+        """
+        ...
+
+    def read_bytes(
+        self,
+        file_ref: PdfRestFile | str,
+        *,
+        extra_query: Query | None = None,
+        extra_headers: AnyMapping | None = None,
+        timeout: TimeoutTypes | None = None,
+    ) -> bytes:
+        """Download a file and return its raw bytes.
+
+        Args:
+            file_ref: File object or file id to download.
+            extra_query: Additional query parameters appended to the request.
+            extra_headers: Additional headers merged into the request.
+            timeout: Optional request timeout override.
+
+        Returns:
+            The downloaded bytes.
+        """
+        ...
+
+    def read_text(
+        self,
+        file_ref: PdfRestFile | str,
+        *,
+        encoding: str = "utf-8",
+        extra_query: Query | None = None,
+        extra_headers: AnyMapping | None = None,
+        timeout: TimeoutTypes | None = None,
+    ) -> str:
+        """Download a file and decode it into text.
+
+        Args:
+            file_ref: File object or file id to download.
+            encoding: Text encoding used when decoding the response.
+            extra_query: Additional query parameters appended to the request.
+            extra_headers: Additional headers merged into the request.
+            timeout: Optional request timeout override.
+
+        Returns:
+            The decoded text content.
+        """
+        ...
+
+    def read_json(
+        self,
+        file_ref: PdfRestFile | str,
+        *,
+        extra_query: Query | None = None,
+        extra_headers: AnyMapping | None = None,
+        timeout: TimeoutTypes | None = None,
+    ) -> Any:
+        """Download a file and parse its content as JSON.
+
+        Args:
+            file_ref: File object or file id to download.
+            extra_query: Additional query parameters appended to the request.
+            extra_headers: Additional headers merged into the request.
+            timeout: Optional request timeout override.
+
+        Returns:
+            Parsed JSON value.
+        """
+        ...
+
+    def write_bytes(
+        self,
+        file_ref: PdfRestFile | str,
+        destination: DestinationPath,
+        *,
+        extra_query: Query | None = None,
+        extra_headers: AnyMapping | None = None,
+        timeout: TimeoutTypes | None = None,
+    ) -> Path:
+        """Download a file and persist it to disk.
+
+        Args:
+            file_ref: File object or file id to download.
+            destination: Output path for the downloaded file.
+            extra_query: Additional query parameters appended to the request.
+            extra_headers: Additional headers merged into the request.
+            timeout: Optional request timeout override.
+
+        Returns:
+            The written destination path.
+        """
+        ...
+
+    def stream(
+        self,
+        file_ref: PdfRestFile | str,
+        *,
+        extra_query: Query | None = None,
+        extra_headers: AnyMapping | None = None,
+        timeout: TimeoutTypes | None = None,
+    ) -> PdfRestFileStream:
+        """Open a streaming download for a file.
+
+        Args:
+            file_ref: File object or file id to download.
+            extra_query: Additional query parameters appended to the request.
+            extra_headers: Additional headers merged into the request.
+            timeout: Optional request timeout override.
+
+        Returns:
+            A synchronous streaming wrapper around the HTTP response.
+        """
+        ...
+
+
+class AsyncPdfRestFilesClient(Protocol):
+    """Public interface for async file operations returned by files helpers.
+
+    This protocol describes the object returned by
+    [`AsyncPdfRestClient.files`][pdfrest.AsyncPdfRestClient.files].
+    Retrieve this helper from `client.files`; do not instantiate it directly.
+    """
+
+    async def get(
+        self,
+        id: PdfRestFileID | str,
+        *,
+        extra_query: Query | None = None,
+        extra_headers: AnyMapping | None = None,
+        timeout: TimeoutTypes | None = None,
+    ) -> PdfRestFile:
+        """Retrieve metadata for an uploaded file.
+
+        Args:
+            id: Uploaded file identifier.
+            extra_query: Additional query parameters appended to the request.
+            extra_headers: Additional headers merged into the request.
+            timeout: Optional request timeout override.
+
+        Returns:
+            The resolved file metadata.
+        """
+        ...
+
+    async def create(
+        self,
+        files: UploadFiles,
+        *,
+        extra_query: Query | None = None,
+        extra_headers: AnyMapping | None = None,
+        timeout: TimeoutTypes | None = None,
+    ) -> list[PdfRestFile]:
+        """Upload one or more local file objects.
+
+        Args:
+            files: Multipart file payload(s) accepted by httpx upload APIs.
+            extra_query: Additional query parameters appended to the request.
+            extra_headers: Additional headers merged into the request.
+            timeout: Optional request timeout override.
+
+        Returns:
+            Metadata for uploaded files.
+        """
+        ...
+
+    async def create_from_paths(
+        self,
+        file_paths: FilePathInput,
+        *,
+        extra_query: Query | None = None,
+        extra_headers: AnyMapping | None = None,
+        timeout: TimeoutTypes | None = None,
+    ) -> list[PdfRestFile]:
+        """Upload one or more files by filesystem path.
+
+        Args:
+            file_paths: Path input(s), optionally with content type and headers.
+            extra_query: Additional query parameters appended to the request.
+            extra_headers: Additional headers merged into the request.
+            timeout: Optional request timeout override.
+
+        Returns:
+            Metadata for uploaded files.
+        """
+        ...
+
+    async def create_from_urls(
+        self,
+        urls: UrlInput,
+        *,
+        extra_query: Query | None = None,
+        extra_headers: AnyMapping | None = None,
+        extra_body: Body | None = None,
+        timeout: TimeoutTypes | None = None,
+    ) -> list[PdfRestFile]:
+        """Upload one or more files by remote URL.
+
+        Args:
+            urls: One URL or a sequence of URLs to upload.
+            extra_query: Additional query parameters appended to the request.
+            extra_headers: Additional headers merged into the request.
+            extra_body: Additional JSON body fields merged into the request.
+            timeout: Optional request timeout override.
+
+        Returns:
+            Metadata for uploaded files.
+        """
+        ...
+
+    async def delete(
+        self,
+        files: PdfRestFile | Sequence[PdfRestFile],
+        *,
+        extra_query: Query | None = None,
+        extra_headers: AnyMapping | None = None,
+        extra_body: Body | None = None,
+        timeout: TimeoutTypes | None = None,
+    ) -> None:
+        """Delete one or more previously uploaded files.
+
+        Args:
+            files: File reference(s) to delete.
+            extra_query: Additional query parameters appended to the request.
+            extra_headers: Additional headers merged into the request.
+            extra_body: Additional JSON body fields merged into the request.
+            timeout: Optional request timeout override.
+
+        Raises:
+            PdfRestErrorGroup: Raised when one or more deletions fail. Individual
+                failures are reported as `PdfRestDeleteError` items in the group.
+        """
+        ...
+
+    async def read_bytes(
+        self,
+        file_ref: PdfRestFile | str,
+        *,
+        extra_query: Query | None = None,
+        extra_headers: AnyMapping | None = None,
+        timeout: TimeoutTypes | None = None,
+    ) -> bytes:
+        """Download a file and return its raw bytes.
+
+        Args:
+            file_ref: File object or file id to download.
+            extra_query: Additional query parameters appended to the request.
+            extra_headers: Additional headers merged into the request.
+            timeout: Optional request timeout override.
+
+        Returns:
+            The downloaded bytes.
+        """
+        ...
+
+    async def read_text(
+        self,
+        file_ref: PdfRestFile | str,
+        *,
+        encoding: str = "utf-8",
+        extra_query: Query | None = None,
+        extra_headers: AnyMapping | None = None,
+        timeout: TimeoutTypes | None = None,
+    ) -> str:
+        """Download a file and decode it into text.
+
+        Args:
+            file_ref: File object or file id to download.
+            encoding: Text encoding used when decoding the response.
+            extra_query: Additional query parameters appended to the request.
+            extra_headers: Additional headers merged into the request.
+            timeout: Optional request timeout override.
+
+        Returns:
+            The decoded text content.
+        """
+        ...
+
+    async def read_json(
+        self,
+        file_ref: PdfRestFile | str,
+        *,
+        extra_query: Query | None = None,
+        extra_headers: AnyMapping | None = None,
+        timeout: TimeoutTypes | None = None,
+    ) -> Any:
+        """Download a file and parse its content as JSON.
+
+        Args:
+            file_ref: File object or file id to download.
+            extra_query: Additional query parameters appended to the request.
+            extra_headers: Additional headers merged into the request.
+            timeout: Optional request timeout override.
+
+        Returns:
+            Parsed JSON value.
+        """
+        ...
+
+    async def write_bytes(
+        self,
+        file_ref: PdfRestFile | str,
+        destination: DestinationPath,
+        *,
+        extra_query: Query | None = None,
+        extra_headers: AnyMapping | None = None,
+        timeout: TimeoutTypes | None = None,
+    ) -> Path:
+        """Download a file and persist it to disk.
+
+        Args:
+            file_ref: File object or file id to download.
+            destination: Output path for the downloaded file.
+            extra_query: Additional query parameters appended to the request.
+            extra_headers: Additional headers merged into the request.
+            timeout: Optional request timeout override.
+
+        Returns:
+            The written destination path.
+        """
+        ...
+
+    async def stream(
+        self,
+        file_ref: PdfRestFile | str,
+        *,
+        extra_query: Query | None = None,
+        extra_headers: AnyMapping | None = None,
+        timeout: TimeoutTypes | None = None,
+    ) -> AsyncPdfRestFileStream:
+        """Open a streaming download for a file.
+
+        Args:
+            file_ref: File object or file id to download.
+            extra_query: Additional query parameters appended to the request.
+            extra_headers: Additional headers merged into the request.
+            timeout: Optional request timeout override.
+
+        Returns:
+            An asynchronous streaming wrapper around the HTTP response.
+        """
+        ...
+
+
 class _FilesClient:
     """Expose file-related operations for the synchronous client."""
 
@@ -1617,7 +2078,6 @@ class _FilesClient:
         timeout: TimeoutTypes | None = None,
     ) -> list[PdfRestFile]:
         """Upload one or more files by providing remote URLs."""
-
         normalized_urls = UploadURLs.model_validate({"url": urls})
         request = self._client.prepare_request(
             "POST",
@@ -1650,7 +2110,6 @@ class _FilesClient:
         timeout: TimeoutTypes | None = None,
     ) -> None:
         """Delete one or more uploaded files by reference."""
-
         payload = DeletePayload.model_validate({"files": files})
         request = self._client.prepare_request(
             "POST",
@@ -1916,7 +2375,6 @@ class _AsyncFilesClient:
         timeout: TimeoutTypes | None = None,
     ) -> list[PdfRestFile]:
         """Upload one or more files by providing remote URLs."""
-
         normalized_urls = UploadURLs.model_validate({"url": urls})
         request = self._client.prepare_request(
             "POST",
@@ -1952,7 +2410,6 @@ class _AsyncFilesClient:
         timeout: TimeoutTypes | None = None,
     ) -> None:
         """Delete one or more uploaded files by reference."""
-
         payload = DeletePayload.model_validate({"files": files})
         request = self._client.prepare_request(
             "POST",
@@ -2088,8 +2545,17 @@ class PdfRestClient(_SyncApiClient):
         transport: httpx.BaseTransport | None = None,
         max_retries: int = DEFAULT_MAX_RETRIES,
     ) -> None:
-        """Create a synchronous pdfRest client."""
+        """Initialize a synchronous pdfRest client.
 
+        Args:
+            api_key: API key sent in the `Api-Key` header.
+            base_url: Base URL for the pdfRest API service.
+            timeout: Request timeout override for this call.
+            headers: Default headers merged into every request.
+            http_client: Optional preconfigured `httpx.Client` instance to reuse.
+            transport: Optional custom `httpx` transport.
+            max_retries: Maximum number of retries for retryable failures.
+        """
         super().__init__(
             api_key=api_key,
             base_url=base_url,
@@ -2099,19 +2565,37 @@ class PdfRestClient(_SyncApiClient):
             transport=transport,
             max_retries=max_retries,
         )
-        self._files_client = _FilesClient(self)
+        files_client: PdfRestFilesClient = _FilesClient(self)
+        self._files_client = files_client
 
     @override
     def __enter__(self) -> PdfRestClient:
+        """Enter the client context manager and return this client instance.
+
+        Returns:
+            The current client instance.
+        """
         _ = super().__enter__()
         return self
 
     @override
     def __exit__(self, exc_type: Any, exc: Any, traceback: Any) -> None:
+        """Exit the client context manager and close underlying HTTP resources.
+
+        Args:
+            exc_type: Exception type raised in the managed context, if any.
+            exc: Exception instance raised in the managed context, if any.
+            traceback: Traceback object for exceptions raised in the managed context.
+        """
         super().__exit__(exc_type, exc, traceback)
 
     @property
-    def files(self) -> _FilesClient:
+    def files(self) -> PdfRestFilesClient:
+        """Return the [PdfRestFilesClient][pdfrest.PdfRestFilesClient] helper bound to this client.
+
+        Returns:
+            The file-management helper bound to this client.
+        """
         return self._files_client
 
     def up(
@@ -2122,8 +2606,23 @@ class PdfRestClient(_SyncApiClient):
         extra_body: Body | None = None,
         timeout: TimeoutTypes | None = None,
     ) -> UpResponse:
-        """Call the `/up` health endpoint and return server metadata."""
+        """Call the `/up` health endpoint and return server metadata.
 
+        Calls the health endpoint and returns service metadata such as status, product, version, and release date. Use this as a lightweight connectivity check before running document workflows.
+
+        Args:
+            extra_headers: Additional HTTP headers merged into the request.
+            extra_query: Additional query parameters merged into the request.
+            extra_body: Additional request body fields merged into the payload.
+            timeout: Request timeout override for this call.
+
+        Returns:
+            Validated `UpResponse` model.
+
+        Raises:
+            PdfRestError: If request execution fails at the client or API layer.
+            ValidationError: If local payload validation fails before sending.
+        """
         request = self._prepare_request(
             "GET",
             "/up",
@@ -2146,6 +2645,20 @@ class PdfRestClient(_SyncApiClient):
         extra_body: Body | None = None,
         timeout: TimeoutTypes | None = None,
     ) -> PdfRestFileBasedResponse:
+        """Shared helper used by image conversion endpoint methods.
+
+        Args:
+            endpoint: API endpoint path used for this request helper.
+            payload: Raw payload values forwarded to payload validation.
+            payload_model: Payload model class used to validate and serialize inputs.
+            extra_query: Additional query parameters merged into the request.
+            extra_headers: Additional HTTP headers merged into the request.
+            extra_body: Additional request body fields merged into the payload.
+            timeout: Request timeout override for this call.
+
+        Returns:
+            Validated file-based response returned by pdfRest.
+        """
         return self._post_file_operation(
             endpoint=endpoint,
             payload=payload,
@@ -2166,8 +2679,25 @@ class PdfRestClient(_SyncApiClient):
         extra_body: Body | None = None,
         timeout: TimeoutTypes | None = None,
     ) -> PdfRestInfoResponse:
-        """Query pdfRest for metadata describing a PDF document."""
+        """Query pdfRest for metadata describing a PDF document.
 
+        Retrieves PDF metadata and structural flags (for example page count, tags, signatures, forms, transparency, and permission state). The `queries` argument controls which info keys pdfRest computes and returns.
+
+        Args:
+            file: Uploaded input file or files as `PdfRestFile` objects.
+            queries: Info fields to query from the `/pdf-info` endpoint.
+            extra_query: Additional query parameters merged into the request.
+            extra_headers: Additional HTTP headers merged into the request.
+            extra_body: Additional request body fields merged into the payload.
+            timeout: Request timeout override for this call.
+
+        Returns:
+            Validated `PdfRestInfoResponse` model.
+
+        Raises:
+            PdfRestError: If request execution fails at the client or API layer.
+            ValidationError: If local payload validation fails before sending.
+        """
         payload = PdfInfoPayload.model_validate({"file": file, "queries": queries})
         request = self.prepare_request(
             "POST",
@@ -2199,10 +2729,27 @@ class PdfRestClient(_SyncApiClient):
     ) -> SummarizePdfTextResponse:
         """Summarize the textual content of a PDF, Markdown, or text document.
 
-        Always requests JSON output and returns the inline summary response defined in
-        the pdfRest API reference.
-        """
+        Generates an inline summary from document text and returns it in a structured response model. You can scope to pages, choose summary style, and control output formatting for downstream display.
 
+        Args:
+            file: Uploaded input file or files as `PdfRestFile` objects.
+            target_word_count: Approximate target length for generated summary text.
+            summary_format: Summary layout/style requested from pdfRest.
+            pages: Page selection to constrain processing to specific pages.
+            output_format: Text format returned for generated textual output.
+            output: Output filename prefix used by pdfRest when creating files.
+            extra_query: Additional query parameters merged into the request.
+            extra_headers: Additional HTTP headers merged into the request.
+            extra_body: Additional request body fields merged into the payload.
+            timeout: Request timeout override for this call.
+
+        Returns:
+            Validated `SummarizePdfTextResponse` model.
+
+        Raises:
+            PdfRestError: If request execution fails at the client or API layer.
+            ValidationError: If local payload validation fails before sending.
+        """
         payload: dict[str, Any] = {
             "files": file,
             "target_word_count": target_word_count,
@@ -2244,8 +2791,29 @@ class PdfRestClient(_SyncApiClient):
         extra_body: Body | None = None,
         timeout: TimeoutTypes | None = None,
     ) -> PdfRestFileBasedResponse:
-        """Summarize a document and return the result as a downloadable file."""
+        """Summarize a document and return the result as a downloadable file.
 
+        Generates a summary and returns a file-based response containing the produced summary document. Use this when you want downloadable artifacts instead of inline summary text.
+
+        Args:
+            file: Uploaded input file or files as `PdfRestFile` objects.
+            target_word_count: Approximate target length for generated summary text.
+            summary_format: Summary layout/style requested from pdfRest.
+            pages: Page selection to constrain processing to specific pages.
+            output_format: Text format returned for generated textual output.
+            output: Output filename prefix used by pdfRest when creating files.
+            extra_query: Additional query parameters merged into the request.
+            extra_headers: Additional HTTP headers merged into the request.
+            extra_body: Additional request body fields merged into the payload.
+            timeout: Request timeout override for this call.
+
+        Returns:
+            Validated file-based response returned by pdfRest.
+
+        Raises:
+            PdfRestError: If request execution fails at the client or API layer.
+            ValidationError: If local payload validation fails before sending.
+        """
         payload: dict[str, Any] = {
             "files": file,
             "target_word_count": target_word_count,
@@ -2280,8 +2848,27 @@ class PdfRestClient(_SyncApiClient):
         extra_body: Body | None = None,
         timeout: TimeoutTypes | None = None,
     ) -> PdfRestFileBasedResponse:
-        """Convert a PDF to Markdown and return a file-based response."""
+        """Convert a PDF to Markdown and return a file-based response.
 
+        Converts document content into Markdown and supports either inline text output or file output. This is useful when preparing PDFs for LLM/RAG indexing and markdown-centric tooling.
+
+        Args:
+            file: Uploaded input file or files as `PdfRestFile` objects.
+            pages: Page selection to constrain processing to specific pages.
+            page_break_comments: When true, inserts page-break marker comments in generated Markdown between source pages.
+            output: Output filename prefix used by pdfRest when creating files.
+            extra_query: Additional query parameters merged into the request.
+            extra_headers: Additional HTTP headers merged into the request.
+            extra_body: Additional request body fields merged into the payload.
+            timeout: Request timeout override for this call.
+
+        Returns:
+            Validated file-based response returned by pdfRest.
+
+        Raises:
+            PdfRestError: If request execution fails at the client or API layer.
+            ValidationError: If local payload validation fails before sending.
+        """
         payload: dict[str, Any] = {
             "files": file,
             "output_type": "file",
@@ -2314,8 +2901,27 @@ class PdfRestClient(_SyncApiClient):
         extra_body: Body | None = None,
         timeout: TimeoutTypes | None = None,
     ) -> PdfRestFileBasedResponse:
-        """Perform OCR on a PDF to make text searchable and extractable."""
+        """Perform OCR on a PDF to make text searchable and extractable.
 
+        Runs OCR on image-based PDFs to produce searchable text layers while preserving PDF layout. Use `language` to guide recognition and `output` to control output naming.
+
+        Args:
+            file: Uploaded input file or files as `PdfRestFile` objects.
+            languages: OCR language(s) to use when recognizing text in scanned or image-based pages.
+            pages: Page selection to constrain processing to specific pages.
+            output: Output filename prefix used by pdfRest when creating files.
+            extra_query: Additional query parameters merged into the request.
+            extra_headers: Additional HTTP headers merged into the request.
+            extra_body: Additional request body fields merged into the payload.
+            timeout: Request timeout override for this call.
+
+        Returns:
+            Validated file-based response returned by pdfRest.
+
+        Raises:
+            PdfRestError: If request execution fails at the client or API layer.
+            ValidationError: If local payload validation fails before sending.
+        """
         payload: dict[str, Any] = {"files": file, "languages": languages}
         if pages is not None:
             payload["pages"] = pages
@@ -2345,8 +2951,28 @@ class PdfRestClient(_SyncApiClient):
         extra_body: Body | None = None,
         timeout: TimeoutTypes | None = None,
     ) -> TranslatePdfTextResponse:
-        """Translate the textual content of a PDF, Markdown, or text document (JSON)."""
+        """Translate the textual content of a PDF, Markdown, or text document (JSON).
 
+        Translates extracted document text and returns translated content inline when `output_type` is JSON. Supports page scoping and output formatting for multilingual text workflows.
+
+        Args:
+            file: Uploaded input file or files as `PdfRestFile` objects.
+            output_language: Target language for translated output text.
+            pages: Page selection to constrain processing to specific pages.
+            output_format: Text format returned for generated textual output.
+            output: Output filename prefix used by pdfRest when creating files.
+            extra_query: Additional query parameters merged into the request.
+            extra_headers: Additional HTTP headers merged into the request.
+            extra_body: Additional request body fields merged into the payload.
+            timeout: Request timeout override for this call.
+
+        Returns:
+            Validated `TranslatePdfTextResponse` model.
+
+        Raises:
+            PdfRestError: If request execution fails at the client or API layer.
+            ValidationError: If local payload validation fails before sending.
+        """
         payload: dict[str, Any] = {
             "files": file,
             "output_language": output_language,
@@ -2386,8 +3012,28 @@ class PdfRestClient(_SyncApiClient):
         extra_body: Body | None = None,
         timeout: TimeoutTypes | None = None,
     ) -> TranslatePdfTextFileResponse:
-        """Translate textual content and receive a file-based response."""
+        """Translate textual content and receive a file-based response.
 
+        Translates document text and returns a file-based response with translated output artifacts. Choose this when you need downloadable translated files instead of inline text.
+
+        Args:
+            file: Uploaded input file or files as `PdfRestFile` objects.
+            output_language: Target language for translated output text.
+            pages: Page selection to constrain processing to specific pages.
+            output_format: Text format returned for generated textual output.
+            output: Output filename prefix used by pdfRest when creating files.
+            extra_query: Additional query parameters merged into the request.
+            extra_headers: Additional HTTP headers merged into the request.
+            extra_body: Additional request body fields merged into the payload.
+            timeout: Request timeout override for this call.
+
+        Returns:
+            Validated `TranslatePdfTextFileResponse` model.
+
+        Raises:
+            PdfRestError: If request execution fails at the client or API layer.
+            ValidationError: If local payload validation fails before sending.
+        """
         payload: dict[str, Any] = {
             "files": file,
             "output_language": output_language,
@@ -2421,8 +3067,26 @@ class PdfRestClient(_SyncApiClient):
         extra_body: Body | None = None,
         timeout: TimeoutTypes | None = None,
     ) -> PdfRestFileBasedResponse:
-        """Extract embedded images from a PDF."""
+        """Extract embedded images from a PDF.
 
+        Extracts embedded images from the source PDF and returns them as output files. This is useful for asset reuse, auditing image quality, or downstream image processing.
+
+        Args:
+            file: Uploaded input file or files as `PdfRestFile` objects.
+            pages: Page selection to constrain processing to specific pages.
+            output: Output filename prefix used by pdfRest when creating files.
+            extra_query: Additional query parameters merged into the request.
+            extra_headers: Additional HTTP headers merged into the request.
+            extra_body: Additional request body fields merged into the payload.
+            timeout: Request timeout override for this call.
+
+        Returns:
+            Validated file-based response returned by pdfRest.
+
+        Raises:
+            PdfRestError: If request execution fails at the client or API layer.
+            ValidationError: If local payload validation fails before sending.
+        """
         payload: dict[str, Any] = {"files": file}
         if pages is not None:
             payload["pages"] = pages
@@ -2453,8 +3117,29 @@ class PdfRestClient(_SyncApiClient):
         extra_body: Body | None = None,
         timeout: TimeoutTypes | None = None,
     ) -> ExtractedTextDocument:
-        """Extract text content from a PDF and return parsed JSON results."""
+        """Extract text content from a PDF and return parsed JSON results.
 
+        Extracts text from a PDF as inline JSON text content. Use `pages` to limit scope and `granularity`/related options to control how text is aggregated.
+
+        Args:
+            file: Uploaded input file or files as `PdfRestFile` objects.
+            pages: Page selection to constrain processing to specific pages.
+            full_text: Controls full-text output mode: disabled, aggregated document text, or per-page text blocks.
+            preserve_line_breaks: Preserves detected line breaks in full-text output instead of flattening lines.
+            word_style: Includes per-word style metadata such as font, size, and color in structured output.
+            word_coordinates: Includes per-word coordinate metadata for positional text extraction.
+            extra_query: Additional query parameters merged into the request.
+            extra_headers: Additional HTTP headers merged into the request.
+            extra_body: Additional request body fields merged into the payload.
+            timeout: Request timeout override for this call.
+
+        Returns:
+            Validated `ExtractedTextDocument` model.
+
+        Raises:
+            PdfRestError: If request execution fails at the client or API layer.
+            ValidationError: If local payload validation fails before sending.
+        """
         payload: dict[str, Any] = {
             "files": file,
             "full_text": full_text,
@@ -2496,8 +3181,30 @@ class PdfRestClient(_SyncApiClient):
         extra_body: Body | None = None,
         timeout: TimeoutTypes | None = None,
     ) -> PdfRestFileBasedResponse:
-        """Extract text content from a PDF and return a file-based response."""
+        """Extract text content from a PDF and return a file-based response.
 
+        Extracts text into file outputs (including richer structured formats when requested). Use this for large outputs or when you need durable extracted-text artifacts.
+
+        Args:
+            file: Uploaded input file or files as `PdfRestFile` objects.
+            pages: Page selection to constrain processing to specific pages.
+            full_text: Controls full-text output mode: disabled, aggregated document text, or per-page text blocks.
+            preserve_line_breaks: Preserves detected line breaks in full-text output instead of flattening lines.
+            word_style: Includes per-word style metadata such as font, size, and color in structured output.
+            word_coordinates: Includes per-word coordinate metadata for positional text extraction.
+            output: Output filename prefix used by pdfRest when creating files.
+            extra_query: Additional query parameters merged into the request.
+            extra_headers: Additional HTTP headers merged into the request.
+            extra_body: Additional request body fields merged into the payload.
+            timeout: Request timeout override for this call.
+
+        Returns:
+            Validated file-based response returned by pdfRest.
+
+        Raises:
+            PdfRestError: If request execution fails at the client or API layer.
+            ValidationError: If local payload validation fails before sending.
+        """
         payload: dict[str, Any] = {
             "files": file,
             "full_text": full_text,
@@ -2532,8 +3239,26 @@ class PdfRestClient(_SyncApiClient):
         extra_body: Body | None = None,
         timeout: TimeoutTypes | None = None,
     ) -> PdfRestFileBasedResponse:
-        """Generate a PDF redaction preview with annotated redaction rectangles."""
+        """Generate a PDF redaction preview with annotated redaction rectangles.
 
+        Builds a redaction preview PDF so you can inspect matches before permanently removing content. Redaction rules support literals, regex patterns, and preset detectors.
+
+        Args:
+            file: Uploaded input file or files as `PdfRestFile` objects.
+            redactions: Redaction rules to preview or apply.
+            output: Output filename prefix used by pdfRest when creating files.
+            extra_query: Additional query parameters merged into the request.
+            extra_headers: Additional HTTP headers merged into the request.
+            extra_body: Additional request body fields merged into the payload.
+            timeout: Request timeout override for this call.
+
+        Returns:
+            Validated file-based response returned by pdfRest.
+
+        Raises:
+            PdfRestError: If request execution fails at the client or API layer.
+            ValidationError: If local payload validation fails before sending.
+        """
         payload: dict[str, Any] = {
             "files": file,
             "redactions": redactions,
@@ -2562,8 +3287,26 @@ class PdfRestClient(_SyncApiClient):
         extra_body: Body | None = None,
         timeout: TimeoutTypes | None = None,
     ) -> PdfRestFileBasedResponse:
-        """Apply previously previewed redactions and return the final redacted PDF."""
+        """Apply previously previewed redactions and return the final redacted PDF.
 
+        Applies irreversible redactions to the PDF based on provided rules and outputs a redacted document. Use this after validating coverage with `preview_redactions`.
+
+        Args:
+            file: Uploaded input file or files as `PdfRestFile` objects.
+            rgb_color: RGB fill color applied to redaction rectangles when previewing/applying redactions.
+            output: Output filename prefix used by pdfRest when creating files.
+            extra_query: Additional query parameters merged into the request.
+            extra_headers: Additional HTTP headers merged into the request.
+            extra_body: Additional request body fields merged into the payload.
+            timeout: Request timeout override for this call.
+
+        Returns:
+            Validated file-based response returned by pdfRest.
+
+        Raises:
+            PdfRestError: If request execution fails at the client or API layer.
+            ValidationError: If local payload validation fails before sending.
+        """
         payload: dict[str, Any] = {
             "files": file,
         }
@@ -2593,8 +3336,26 @@ class PdfRestClient(_SyncApiClient):
         extra_body: Body | None = None,
         timeout: TimeoutTypes | None = None,
     ) -> PdfRestFileBasedResponse:
-        """Insert one or more text blocks into a PDF."""
+        """Insert one or more text blocks into a PDF.
 
+        Places one or more text overlays onto a PDF with font, size, color, opacity, position, and rotation controls. This supports annotations, stamps, and templated labeling workflows.
+
+        Args:
+            file: Uploaded input file or files as `PdfRestFile` objects.
+            text_objects: Text overlay objects to draw onto the document.
+            output: Output filename prefix used by pdfRest when creating files.
+            extra_query: Additional query parameters merged into the request.
+            extra_headers: Additional HTTP headers merged into the request.
+            extra_body: Additional request body fields merged into the payload.
+            timeout: Request timeout override for this call.
+
+        Returns:
+            Validated file-based response returned by pdfRest.
+
+        Raises:
+            PdfRestError: If request execution fails at the client or API layer.
+            ValidationError: If local payload validation fails before sending.
+        """
         payload: dict[str, Any] = {
             "files": file,
             "text_objects": text_objects,
@@ -2626,8 +3387,29 @@ class PdfRestClient(_SyncApiClient):
         extra_body: Body | None = None,
         timeout: TimeoutTypes | None = None,
     ) -> PdfRestFileBasedResponse:
-        """Insert an image into a single page of a PDF."""
+        """Insert an image into a single page of a PDF.
 
+        Places an uploaded image onto target pages in a PDF with size/position controls. This is commonly used for logos, seals, and branding overlays.
+
+        Args:
+            file: Uploaded input file or files as `PdfRestFile` objects.
+            image: Image/PDF resource to place into the source document.
+            x: Horizontal position in PDF points.
+            y: Vertical position in PDF points.
+            page: Target page number (or selector) where inserted content should be applied.
+            output: Output filename prefix used by pdfRest when creating files.
+            extra_query: Additional query parameters merged into the request.
+            extra_headers: Additional HTTP headers merged into the request.
+            extra_body: Additional request body fields merged into the payload.
+            timeout: Request timeout override for this call.
+
+        Returns:
+            Validated file-based response returned by pdfRest.
+
+        Raises:
+            PdfRestError: If request execution fails at the client or API layer.
+            ValidationError: If local payload validation fails before sending.
+        """
         payload: dict[str, Any] = {
             "files": file,
             "image": image,
@@ -2659,8 +3441,26 @@ class PdfRestClient(_SyncApiClient):
         extra_body: Body | None = None,
         timeout: TimeoutTypes | None = None,
     ) -> PdfRestFileBasedResponse:
-        """Split a PDF into one or more PDF files based on the provided page groups."""
+        """Split a PDF into one or more PDF files based on the provided page groups.
 
+        Splits a PDF into multiple outputs using page selections and grouping rules. Use this to break long documents into per-range or per-section files.
+
+        Args:
+            file: Uploaded input file or files as `PdfRestFile` objects.
+            page_groups: Page-selection groups that define each split output document.
+            output_prefix: Filename prefix used for generated per-page/per-file image outputs.
+            extra_query: Additional query parameters merged into the request.
+            extra_headers: Additional HTTP headers merged into the request.
+            extra_body: Additional request body fields merged into the payload.
+            timeout: Request timeout override for this call.
+
+        Returns:
+            Validated file-based response returned by pdfRest.
+
+        Raises:
+            PdfRestError: If request execution fails at the client or API layer.
+            ValidationError: If local payload validation fails before sending.
+        """
         payload: dict[str, Any] = {"files": file}
         if page_groups is not None:
             payload["page_groups"] = page_groups
@@ -2687,8 +3487,25 @@ class PdfRestClient(_SyncApiClient):
         extra_body: Body | None = None,
         timeout: TimeoutTypes | None = None,
     ) -> PdfRestFileBasedResponse:
-        """Merge multiple PDFs (or page subsets) into a single PDF file."""
+        """Merge multiple PDFs (or page subsets) into a single PDF file.
 
+        Merges multiple uploaded PDFs into a single output, with optional per-input page selections. This is useful for packet assembly and document bundling.
+
+        Args:
+            sources: Merge source list containing files with optional page selections per source.
+            output_prefix: Filename prefix used for generated per-page/per-file image outputs.
+            extra_query: Additional query parameters merged into the request.
+            extra_headers: Additional HTTP headers merged into the request.
+            extra_body: Additional request body fields merged into the payload.
+            timeout: Request timeout override for this call.
+
+        Returns:
+            Validated file-based response returned by pdfRest.
+
+        Raises:
+            PdfRestError: If request execution fails at the client or API layer.
+            ValidationError: If local payload validation fails before sending.
+        """
         payload: dict[str, Any] = {"sources": sources}
         if output_prefix is not None:
             payload["output_prefix"] = output_prefix
@@ -2713,8 +3530,25 @@ class PdfRestClient(_SyncApiClient):
         extra_body: Body | None = None,
         timeout: TimeoutTypes | None = None,
     ) -> PdfRestFileBasedResponse:
-        """Compress one or more files into a zip archive."""
+        """Compress one or more files into a zip archive.
 
+        Packages uploaded files into a ZIP archive and returns it as a file-based response. Use this to consolidate multiple outputs for a single download.
+
+        Args:
+            files: Uploaded input file or files as `PdfRestFile` objects.
+            output: Output filename prefix used by pdfRest when creating files.
+            extra_query: Additional query parameters merged into the request.
+            extra_headers: Additional HTTP headers merged into the request.
+            extra_body: Additional request body fields merged into the payload.
+            timeout: Request timeout override for this call.
+
+        Returns:
+            Validated file-based response returned by pdfRest.
+
+        Raises:
+            PdfRestError: If request execution fails at the client or API layer.
+            ValidationError: If local payload validation fails before sending.
+        """
         payload: dict[str, Any] = {"files": files}
         if output is not None:
             payload["output"] = output
@@ -2739,8 +3573,25 @@ class PdfRestClient(_SyncApiClient):
         extra_body: Body | None = None,
         timeout: TimeoutTypes | None = None,
     ) -> PdfRestFileBasedResponse:
-        """Extract files from a zip archive."""
+        """Extract files from a zip archive.
 
+        Expands an uploaded ZIP archive into individual files on pdfRest storage and returns metadata for the extracted resources. This is useful when reusing uploaded bundles in later API calls.
+
+        Args:
+            file: Uploaded input file or files as `PdfRestFile` objects.
+            password: Password value used by encrypt/decrypt endpoints.
+            extra_query: Additional query parameters merged into the request.
+            extra_headers: Additional HTTP headers merged into the request.
+            extra_body: Additional request body fields merged into the payload.
+            timeout: Request timeout override for this call.
+
+        Returns:
+            Validated file-based response returned by pdfRest.
+
+        Raises:
+            PdfRestError: If request execution fails at the client or API layer.
+            ValidationError: If local payload validation fails before sending.
+        """
         payload: dict[str, Any] = {"files": file}
         if password is not None:
             payload["password"] = password
@@ -2765,8 +3616,25 @@ class PdfRestClient(_SyncApiClient):
         extra_body: Body | None = None,
         timeout: TimeoutTypes | None = None,
     ) -> PdfRestFileBasedResponse:
-        """Convert a PDF to an Excel spreadsheet."""
+        """Convert a PDF to an Excel spreadsheet.
 
+        Converts PDF content into Excel workbook output optimized for tabular data extraction. Use this for spreadsheet-centric review or data cleanup workflows.
+
+        Args:
+            file: Uploaded input file or files as `PdfRestFile` objects.
+            output: Output filename prefix used by pdfRest when creating files.
+            extra_query: Additional query parameters merged into the request.
+            extra_headers: Additional HTTP headers merged into the request.
+            extra_body: Additional request body fields merged into the payload.
+            timeout: Request timeout override for this call.
+
+        Returns:
+            Validated file-based response returned by pdfRest.
+
+        Raises:
+            PdfRestError: If request execution fails at the client or API layer.
+            ValidationError: If local payload validation fails before sending.
+        """
         payload: dict[str, Any] = {"files": file}
         if output is not None:
             payload["output"] = output
@@ -2791,8 +3659,25 @@ class PdfRestClient(_SyncApiClient):
         extra_body: Body | None = None,
         timeout: TimeoutTypes | None = None,
     ) -> PdfRestFileBasedResponse:
-        """Convert a PDF to a PowerPoint presentation."""
+        """Convert a PDF to a PowerPoint presentation.
 
+        Converts PDF pages into PowerPoint output suitable for slide editing and presentation reuse. This helps repurpose static PDF material into editable decks.
+
+        Args:
+            file: Uploaded input file or files as `PdfRestFile` objects.
+            output: Output filename prefix used by pdfRest when creating files.
+            extra_query: Additional query parameters merged into the request.
+            extra_headers: Additional HTTP headers merged into the request.
+            extra_body: Additional request body fields merged into the payload.
+            timeout: Request timeout override for this call.
+
+        Returns:
+            Validated file-based response returned by pdfRest.
+
+        Raises:
+            PdfRestError: If request execution fails at the client or API layer.
+            ValidationError: If local payload validation fails before sending.
+        """
         payload: dict[str, Any] = {"files": file}
         if output is not None:
             payload["output"] = output
@@ -2817,8 +3702,25 @@ class PdfRestClient(_SyncApiClient):
         extra_body: Body | None = None,
         timeout: TimeoutTypes | None = None,
     ) -> PdfRestFileBasedResponse:
-        """Convert an XFA PDF to an AcroForm-enabled PDF."""
+        """Convert an XFA PDF to an AcroForm-enabled PDF.
 
+        Converts XFA form PDFs into AcroForm-compatible PDFs for broader tooling compatibility. Use this before importing/exporting form data with AcroForm-focused flows.
+
+        Args:
+            file: Uploaded input file or files as `PdfRestFile` objects.
+            output: Output filename prefix used by pdfRest when creating files.
+            extra_query: Additional query parameters merged into the request.
+            extra_headers: Additional HTTP headers merged into the request.
+            extra_body: Additional request body fields merged into the payload.
+            timeout: Request timeout override for this call.
+
+        Returns:
+            Validated file-based response returned by pdfRest.
+
+        Raises:
+            PdfRestError: If request execution fails at the client or API layer.
+            ValidationError: If local payload validation fails before sending.
+        """
         payload: dict[str, Any] = {"files": file}
         if output is not None:
             payload["output"] = output
@@ -2843,8 +3745,25 @@ class PdfRestClient(_SyncApiClient):
         extra_body: Body | None = None,
         timeout: TimeoutTypes | None = None,
     ) -> PdfRestFileBasedResponse:
-        """Convert a PDF to a Word document."""
+        """Convert a PDF to a Word document.
 
+        Converts PDF content into Word output for document editing workflows. This is useful when users need editable text and layout reconstruction in DOCX format.
+
+        Args:
+            file: Uploaded input file or files as `PdfRestFile` objects.
+            output: Output filename prefix used by pdfRest when creating files.
+            extra_query: Additional query parameters merged into the request.
+            extra_headers: Additional HTTP headers merged into the request.
+            extra_body: Additional request body fields merged into the payload.
+            timeout: Request timeout override for this call.
+
+        Returns:
+            Validated file-based response returned by pdfRest.
+
+        Raises:
+            PdfRestError: If request execution fails at the client or API layer.
+            ValidationError: If local payload validation fails before sending.
+        """
         payload: dict[str, Any] = {"files": file}
         if output is not None:
             payload["output"] = output
@@ -2870,8 +3789,26 @@ class PdfRestClient(_SyncApiClient):
         extra_body: Body | None = None,
         timeout: TimeoutTypes | None = None,
     ) -> PdfRestFileBasedResponse:
-        """Import form data from a data file into an existing PDF with form fields."""
+        """Import form data from a data file into an existing PDF with form fields.
 
+        Imports external form-data files (XFDF/FDF/XML variants) into a source PDF and outputs a filled document. This supports bulk form-filling and integration pipelines.
+
+        Args:
+            file: Uploaded input file or files as `PdfRestFile` objects.
+            data_file: Uploaded form-data file (for example XFDF/FDF/XML/XDP/XFD) to import into the PDF.
+            output: Output filename prefix used by pdfRest when creating files.
+            extra_query: Additional query parameters merged into the request.
+            extra_headers: Additional HTTP headers merged into the request.
+            extra_body: Additional request body fields merged into the payload.
+            timeout: Request timeout override for this call.
+
+        Returns:
+            Validated file-based response returned by pdfRest.
+
+        Raises:
+            PdfRestError: If request execution fails at the client or API layer.
+            ValidationError: If local payload validation fails before sending.
+        """
         payload: dict[str, Any] = {"files": file, "data_file": data_file}
         if output is not None:
             payload["output"] = output
@@ -2899,11 +3836,24 @@ class PdfRestClient(_SyncApiClient):
     ) -> PdfRestFileBasedResponse:
         """Export form data from a PDF into an external data file.
 
-        `data_format` support depends on detected form type:
-        - AcroForm PDFs: `xfdf`, `fdf`, `xml`
-        - XFA PDFs: `xfd`, `xdp`, `xml`
-        """
+        Exports form field data from a PDF into a structured data format (such as XFDF/FDF/XML). Use this for downstream processing, storage, or migration of form values.
 
+        Args:
+            file: Uploaded input file or files as `PdfRestFile` objects.
+            data_format: Output form-data format to export (for example XFDF, FDF, XML, XDP, or XFD).
+            output: Output filename prefix used by pdfRest when creating files.
+            extra_query: Additional query parameters merged into the request.
+            extra_headers: Additional HTTP headers merged into the request.
+            extra_body: Additional request body fields merged into the payload.
+            timeout: Request timeout override for this call.
+
+        Returns:
+            Validated file-based response returned by pdfRest.
+
+        Raises:
+            PdfRestError: If request execution fails at the client or API layer.
+            ValidationError: If local payload validation fails before sending.
+        """
         payload: dict[str, Any] = {
             "files": file,
             "data_format": data_format,
@@ -2931,8 +3881,25 @@ class PdfRestClient(_SyncApiClient):
         extra_body: Body | None = None,
         timeout: TimeoutTypes | None = None,
     ) -> PdfRestFileBasedResponse:
-        """Flatten form fields in a PDF so they are no longer editable."""
+        """Flatten form fields in a PDF so they are no longer editable.
 
+        Flattens interactive form fields into static page content so values are no longer editable. This is commonly used for finalization and archival workflows.
+
+        Args:
+            file: Uploaded input file or files as `PdfRestFile` objects.
+            output: Output filename prefix used by pdfRest when creating files.
+            extra_query: Additional query parameters merged into the request.
+            extra_headers: Additional HTTP headers merged into the request.
+            extra_body: Additional request body fields merged into the payload.
+            timeout: Request timeout override for this call.
+
+        Returns:
+            Validated file-based response returned by pdfRest.
+
+        Raises:
+            PdfRestError: If request execution fails at the client or API layer.
+            ValidationError: If local payload validation fails before sending.
+        """
         payload: dict[str, Any] = {"files": file}
         if output is not None:
             payload["output"] = output
@@ -2960,8 +3927,28 @@ class PdfRestClient(_SyncApiClient):
         extra_body: Body | None = None,
         timeout: TimeoutTypes | None = None,
     ) -> PdfRestFileBasedResponse:
-        """Add a permissions password and optional restrictions to a PDF."""
+        """Add a permissions password and optional restrictions to a PDF.
 
+        Applies owner permissions and restriction flags (print/copy/edit controls) to a PDF. This secures document capabilities without requiring an open password.
+
+        Args:
+            file: Uploaded input file or files as `PdfRestFile` objects.
+            new_permissions_password: New owner/permissions password to apply to the output PDF.
+            restrictions: Permission restriction literals for protected PDFs.
+            current_open_password: Current user/open password required to unlock the source PDF before changes.
+            output: Output filename prefix used by pdfRest when creating files.
+            extra_query: Additional query parameters merged into the request.
+            extra_headers: Additional HTTP headers merged into the request.
+            extra_body: Additional request body fields merged into the payload.
+            timeout: Request timeout override for this call.
+
+        Returns:
+            Validated file-based response returned by pdfRest.
+
+        Raises:
+            PdfRestError: If request execution fails at the client or API layer.
+            ValidationError: If local payload validation fails before sending.
+        """
         payload: dict[str, Any] = {
             "files": file,
             "new_permissions_password": new_permissions_password,
@@ -2997,8 +3984,29 @@ class PdfRestClient(_SyncApiClient):
         extra_body: Body | None = None,
         timeout: TimeoutTypes | None = None,
     ) -> PdfRestFileBasedResponse:
-        """Rotate the permissions password and optionally update restrictions."""
+        """Rotate the permissions password and optionally update restrictions.
 
+        Updates owner permissions/password settings and restriction flags on an already protected PDF. Use this to rotate credentials or revise allowed actions.
+
+        Args:
+            file: Uploaded input file or files as `PdfRestFile` objects.
+            current_permissions_password: Current owner/permissions password used to authorize permission updates/removal.
+            new_permissions_password: New owner/permissions password to apply to the output PDF.
+            restrictions: Permission restriction literals for protected PDFs.
+            current_open_password: Current user/open password required to unlock the source PDF before changes.
+            output: Output filename prefix used by pdfRest when creating files.
+            extra_query: Additional query parameters merged into the request.
+            extra_headers: Additional HTTP headers merged into the request.
+            extra_body: Additional request body fields merged into the payload.
+            timeout: Request timeout override for this call.
+
+        Returns:
+            Validated file-based response returned by pdfRest.
+
+        Raises:
+            PdfRestError: If request execution fails at the client or API layer.
+            ValidationError: If local payload validation fails before sending.
+        """
         payload: dict[str, Any] = {
             "files": file,
             "current_permissions_password": current_permissions_password,
@@ -3033,8 +4041,27 @@ class PdfRestClient(_SyncApiClient):
         extra_body: Body | None = None,
         timeout: TimeoutTypes | None = None,
     ) -> PdfRestFileBasedResponse:
-        """Encrypt a PDF with a new open password."""
+        """Encrypt a PDF with a new open password.
 
+        Applies a user/open password so the PDF requires authentication before viewing. Optional permissions controls can also be set for opened documents.
+
+        Args:
+            file: Uploaded input file or files as `PdfRestFile` objects.
+            new_open_password: New user/open password required to open the output PDF.
+            current_permissions_password: Current owner/permissions password used to authorize permission updates/removal.
+            output: Output filename prefix used by pdfRest when creating files.
+            extra_query: Additional query parameters merged into the request.
+            extra_headers: Additional HTTP headers merged into the request.
+            extra_body: Additional request body fields merged into the payload.
+            timeout: Request timeout override for this call.
+
+        Returns:
+            Validated file-based response returned by pdfRest.
+
+        Raises:
+            PdfRestError: If request execution fails at the client or API layer.
+            ValidationError: If local payload validation fails before sending.
+        """
         payload: dict[str, Any] = {
             "files": file,
             "new_open_password": new_open_password,
@@ -3067,8 +4094,28 @@ class PdfRestClient(_SyncApiClient):
         extra_body: Body | None = None,
         timeout: TimeoutTypes | None = None,
     ) -> PdfRestFileBasedResponse:
-        """Rotate the open password for an encrypted PDF."""
+        """Rotate the open password for an encrypted PDF.
 
+        Replaces the existing open password with a new one while preserving or updating related protection options. Use this for credential rotation.
+
+        Args:
+            file: Uploaded input file or files as `PdfRestFile` objects.
+            current_open_password: Current user/open password required to unlock the source PDF before changes.
+            new_open_password: New user/open password required to open the output PDF.
+            current_permissions_password: Current owner/permissions password used to authorize permission updates/removal.
+            output: Output filename prefix used by pdfRest when creating files.
+            extra_query: Additional query parameters merged into the request.
+            extra_headers: Additional HTTP headers merged into the request.
+            extra_body: Additional request body fields merged into the payload.
+            timeout: Request timeout override for this call.
+
+        Returns:
+            Validated file-based response returned by pdfRest.
+
+        Raises:
+            PdfRestError: If request execution fails at the client or API layer.
+            ValidationError: If local payload validation fails before sending.
+        """
         payload: dict[str, Any] = {
             "files": file,
             "current_open_password": current_open_password,
@@ -3101,8 +4148,27 @@ class PdfRestClient(_SyncApiClient):
         extra_body: Body | None = None,
         timeout: TimeoutTypes | None = None,
     ) -> PdfRestFileBasedResponse:
-        """Decrypt a PDF by removing its open password."""
+        """Decrypt a PDF by removing its open password.
 
+        Removes the user/open password requirement from a PDF when the current password is provided. The output document can be opened without viewer authentication.
+
+        Args:
+            file: Uploaded input file or files as `PdfRestFile` objects.
+            current_open_password: Current user/open password required to unlock the source PDF before changes.
+            current_permissions_password: Current owner/permissions password used to authorize permission updates/removal.
+            output: Output filename prefix used by pdfRest when creating files.
+            extra_query: Additional query parameters merged into the request.
+            extra_headers: Additional HTTP headers merged into the request.
+            extra_body: Additional request body fields merged into the payload.
+            timeout: Request timeout override for this call.
+
+        Returns:
+            Validated file-based response returned by pdfRest.
+
+        Raises:
+            PdfRestError: If request execution fails at the client or API layer.
+            ValidationError: If local payload validation fails before sending.
+        """
         payload: dict[str, Any] = {
             "files": file,
             "current_open_password": current_open_password,
@@ -3134,8 +4200,27 @@ class PdfRestClient(_SyncApiClient):
         extra_body: Body | None = None,
         timeout: TimeoutTypes | None = None,
     ) -> PdfRestFileBasedResponse:
-        """Remove permissions restrictions from a PDF."""
+        """Remove permissions restrictions from a PDF.
 
+        Removes owner permission restrictions from a PDF when authorized with the existing owner password. This restores unrestricted editing/printing capabilities.
+
+        Args:
+            file: Uploaded input file or files as `PdfRestFile` objects.
+            current_permissions_password: Current owner/permissions password used to authorize permission updates/removal.
+            current_open_password: Current user/open password required to unlock the source PDF before changes.
+            output: Output filename prefix used by pdfRest when creating files.
+            extra_query: Additional query parameters merged into the request.
+            extra_headers: Additional HTTP headers merged into the request.
+            extra_body: Additional request body fields merged into the payload.
+            timeout: Request timeout override for this call.
+
+        Returns:
+            Validated file-based response returned by pdfRest.
+
+        Raises:
+            PdfRestError: If request execution fails at the client or API layer.
+            ValidationError: If local payload validation fails before sending.
+        """
         payload: dict[str, Any] = {
             "files": file,
             "current_permissions_password": current_permissions_password,
@@ -3167,8 +4252,27 @@ class PdfRestClient(_SyncApiClient):
         extra_body: Body | None = None,
         timeout: TimeoutTypes | None = None,
     ) -> PdfRestFileBasedResponse:
-        """Compress a PDF using preset or custom compression profiles."""
+        """Compress a PDF using preset or custom compression profiles.
 
+        Reduces PDF file size using preset or custom compression settings, with optional profile uploads. Use this for storage/bandwidth optimization while balancing quality.
+
+        Args:
+            file: Uploaded input file or files as `PdfRestFile` objects.
+            compression_level: Compression level or strategy option.
+            profile: Uploaded color/compression profile as a `PdfRestFile`.
+            output: Output filename prefix used by pdfRest when creating files.
+            extra_query: Additional query parameters merged into the request.
+            extra_headers: Additional HTTP headers merged into the request.
+            extra_body: Additional request body fields merged into the payload.
+            timeout: Request timeout override for this call.
+
+        Returns:
+            Validated file-based response returned by pdfRest.
+
+        Raises:
+            PdfRestError: If request execution fails at the client or API layer.
+            ValidationError: If local payload validation fails before sending.
+        """
         payload: dict[str, Any] = {
             "files": file,
             "compression_level": compression_level,
@@ -3199,8 +4303,26 @@ class PdfRestClient(_SyncApiClient):
         extra_body: Body | None = None,
         timeout: TimeoutTypes | None = None,
     ) -> PdfRestFileBasedResponse:
-        """Attach an uploaded file to a PDF."""
+        """Attach an uploaded file to a PDF.
 
+        Embeds an uploaded file as an attachment inside a PDF container document. This supports package-style delivery where supplemental files travel with the PDF.
+
+        Args:
+            file: Uploaded input file or files as `PdfRestFile` objects.
+            attachment: Uploaded file to embed as an attachment in the output PDF.
+            output: Output filename prefix used by pdfRest when creating files.
+            extra_query: Additional query parameters merged into the request.
+            extra_headers: Additional HTTP headers merged into the request.
+            extra_body: Additional request body fields merged into the payload.
+            timeout: Request timeout override for this call.
+
+        Returns:
+            Validated file-based response returned by pdfRest.
+
+        Raises:
+            PdfRestError: If request execution fails at the client or API layer.
+            ValidationError: If local payload validation fails before sending.
+        """
         payload: dict[str, Any] = {"files": file, "attachment": attachment}
         if output is not None:
             payload["output"] = output
@@ -3228,8 +4350,28 @@ class PdfRestClient(_SyncApiClient):
         extra_body: Body | None = None,
         timeout: TimeoutTypes | None = None,
     ) -> PdfRestFileBasedResponse:
-        """Digitally sign a PDF using PFX credentials or a certificate/private key."""
+        """Digitally sign a PDF using PFX credentials or a certificate/private key.
 
+        Applies digital signatures using either PFX credentials or certificate/private-key inputs, with configurable visible signature placement and appearance. Use this for integrity, authenticity, and non-repudiation workflows.
+
+        Args:
+            file: Uploaded input file or files as `PdfRestFile` objects.
+            signature_configuration: Signature placement and appearance settings.
+            credentials: Digital signing credential bundle (PFX or cert/key files).
+            logo: Optional uploaded logo file displayed in visible digital signature appearances.
+            output: Output filename prefix used by pdfRest when creating files.
+            extra_query: Additional query parameters merged into the request.
+            extra_headers: Additional HTTP headers merged into the request.
+            extra_body: Additional request body fields merged into the payload.
+            timeout: Request timeout override for this call.
+
+        Returns:
+            Validated file-based response returned by pdfRest.
+
+        Raises:
+            PdfRestError: If request execution fails at the client or API layer.
+            ValidationError: If local payload validation fails before sending.
+        """
         payload: dict[str, Any] = {
             "files": file,
             "signature_configuration": signature_configuration,
@@ -3263,8 +4405,27 @@ class PdfRestClient(_SyncApiClient):
         extra_body: Body | None = None,
         timeout: TimeoutTypes | None = None,
     ) -> PdfRestFileBasedResponse:
-        """Create a blank PDF with configurable size, count, and orientation."""
+        """Create a blank PDF with configurable size, count, and orientation.
 
+        Creates a new blank PDF with configurable page size, orientation, and page count. This is useful as a template baseline for downstream stamping/filling workflows.
+
+        Args:
+            page_size: Target page size preset or custom size settings used for output page dimensions.
+            page_count: Number of blank pages to generate in the new PDF.
+            page_orientation: Page orientation for standard page sizes (portrait or landscape).
+            output: Output filename prefix used by pdfRest when creating files.
+            extra_query: Additional query parameters merged into the request.
+            extra_headers: Additional HTTP headers merged into the request.
+            extra_body: Additional request body fields merged into the payload.
+            timeout: Request timeout override for this call.
+
+        Returns:
+            Validated file-based response returned by pdfRest.
+
+        Raises:
+            PdfRestError: If request execution fails at the client or API layer.
+            ValidationError: If local payload validation fails before sending.
+        """
         payload: dict[str, Any] = {
             "page_size": page_size,
             "page_count": page_count,
@@ -3296,8 +4457,27 @@ class PdfRestClient(_SyncApiClient):
         extra_body: Body | None = None,
         timeout: TimeoutTypes | None = None,
     ) -> PdfRestFileBasedResponse:
-        """Convert PDF colors using presets or a custom uploaded ICC profile."""
+        """Convert PDF colors using presets or a custom uploaded ICC profile.
 
+        Converts document color spaces using preset profiles and optional black-preservation behavior. Use this to normalize output for print pipelines or color-management requirements.
+
+        Args:
+            file: Uploaded input file or files as `PdfRestFile` objects.
+            color_profile: Named color profile used by color conversion.
+            preserve_black: When true, keeps pure black content from being remapped during color-profile conversion.
+            output: Output filename prefix used by pdfRest when creating files.
+            extra_query: Additional query parameters merged into the request.
+            extra_headers: Additional HTTP headers merged into the request.
+            extra_body: Additional request body fields merged into the payload.
+            timeout: Request timeout override for this call.
+
+        Returns:
+            Validated file-based response returned by pdfRest.
+
+        Raises:
+            PdfRestError: If request execution fails at the client or API layer.
+            ValidationError: If local payload validation fails before sending.
+        """
         payload: dict[str, Any] = {
             "files": file,
             "color_profile": color_profile,
@@ -3327,8 +4507,26 @@ class PdfRestClient(_SyncApiClient):
         extra_body: Body | None = None,
         timeout: TimeoutTypes | None = None,
     ) -> PdfRestFileBasedResponse:
-        """Flatten transparent objects in a PDF."""
+        """Flatten transparent objects in a PDF.
 
+        Flattens transparent objects into opaque content using selectable quality levels. This improves compatibility with workflows/devices that do not fully support transparency.
+
+        Args:
+            file: Uploaded input file or files as `PdfRestFile` objects.
+            output: Output filename prefix used by pdfRest when creating files.
+            quality: Quality preset understood by the selected endpoint.
+            extra_query: Additional query parameters merged into the request.
+            extra_headers: Additional HTTP headers merged into the request.
+            extra_body: Additional request body fields merged into the payload.
+            timeout: Request timeout override for this call.
+
+        Returns:
+            Validated file-based response returned by pdfRest.
+
+        Raises:
+            PdfRestError: If request execution fails at the client or API layer.
+            ValidationError: If local payload validation fails before sending.
+        """
         payload: dict[str, Any] = {"files": file, "quality": quality}
         if output is not None:
             payload["output"] = output
@@ -3353,8 +4551,25 @@ class PdfRestClient(_SyncApiClient):
         extra_body: Body | None = None,
         timeout: TimeoutTypes | None = None,
     ) -> PdfRestFileBasedResponse:
-        """Linearize a PDF for optimized fast web view."""
+        """Linearize a PDF for optimized fast web view.
 
+        Linearizes the PDF for fast web view so first pages render sooner over network delivery. This improves user experience for browser-based document viewing.
+
+        Args:
+            file: Uploaded input file or files as `PdfRestFile` objects.
+            output: Output filename prefix used by pdfRest when creating files.
+            extra_query: Additional query parameters merged into the request.
+            extra_headers: Additional HTTP headers merged into the request.
+            extra_body: Additional request body fields merged into the payload.
+            timeout: Request timeout override for this call.
+
+        Returns:
+            Validated file-based response returned by pdfRest.
+
+        Raises:
+            PdfRestError: If request execution fails at the client or API layer.
+            ValidationError: If local payload validation fails before sending.
+        """
         payload: dict[str, Any] = {"files": file}
         if output is not None:
             payload["output"] = output
@@ -3379,8 +4594,25 @@ class PdfRestClient(_SyncApiClient):
         extra_body: Body | None = None,
         timeout: TimeoutTypes | None = None,
     ) -> PdfRestFileBasedResponse:
-        """Flatten annotations into the PDF content."""
+        """Flatten annotations into the PDF content.
 
+        Burns annotation markup into page content so comments/highlights become static and non-editable. Use this when sharing finalized review copies.
+
+        Args:
+            file: Uploaded input file or files as `PdfRestFile` objects.
+            output: Output filename prefix used by pdfRest when creating files.
+            extra_query: Additional query parameters merged into the request.
+            extra_headers: Additional HTTP headers merged into the request.
+            extra_body: Additional request body fields merged into the payload.
+            timeout: Request timeout override for this call.
+
+        Returns:
+            Validated file-based response returned by pdfRest.
+
+        Raises:
+            PdfRestError: If request execution fails at the client or API layer.
+            ValidationError: If local payload validation fails before sending.
+        """
         payload: dict[str, Any] = {"files": file}
         if output is not None:
             payload["output"] = output
@@ -3405,8 +4637,25 @@ class PdfRestClient(_SyncApiClient):
         extra_body: Body | None = None,
         timeout: TimeoutTypes | None = None,
     ) -> PdfRestFileBasedResponse:
-        """Flatten all layers in a PDF into a single layer."""
+        """Flatten all layers in a PDF into a single layer.
 
+        Flattens optional content groups (layers) into a single visible page representation. This avoids layer-dependent rendering differences across viewers.
+
+        Args:
+            file: Uploaded input file or files as `PdfRestFile` objects.
+            output: Output filename prefix used by pdfRest when creating files.
+            extra_query: Additional query parameters merged into the request.
+            extra_headers: Additional HTTP headers merged into the request.
+            extra_body: Additional request body fields merged into the payload.
+            timeout: Request timeout override for this call.
+
+        Returns:
+            Validated file-based response returned by pdfRest.
+
+        Raises:
+            PdfRestError: If request execution fails at the client or API layer.
+            ValidationError: If local payload validation fails before sending.
+        """
         payload: dict[str, Any] = {"files": file}
         if output is not None:
             payload["output"] = output
@@ -3431,8 +4680,25 @@ class PdfRestClient(_SyncApiClient):
         extra_body: Body | None = None,
         timeout: TimeoutTypes | None = None,
     ) -> PdfRestFileBasedResponse:
-        """Rasterize a PDF into a flattened bitmap-based PDF."""
+        """Rasterize a PDF into a flattened bitmap-based PDF.
 
+        Rasterizes PDF pages into image-based page content at a specified resolution. Use this for visual normalization, redaction hardening, or viewer compatibility scenarios.
+
+        Args:
+            file: Uploaded input file or files as `PdfRestFile` objects.
+            output: Output filename prefix used by pdfRest when creating files.
+            extra_query: Additional query parameters merged into the request.
+            extra_headers: Additional HTTP headers merged into the request.
+            extra_body: Additional request body fields merged into the payload.
+            timeout: Request timeout override for this call.
+
+        Returns:
+            Validated file-based response returned by pdfRest.
+
+        Raises:
+            PdfRestError: If request execution fails at the client or API layer.
+            ValidationError: If local payload validation fails before sending.
+        """
         payload: dict[str, Any] = {"files": file}
         if output is not None:
             payload["output"] = output
@@ -3465,8 +4731,33 @@ class PdfRestClient(_SyncApiClient):
         extra_body: Body | None = None,
         timeout: TimeoutTypes | None = None,
     ) -> PdfRestFileBasedResponse:
-        """Convert a Microsoft Office file (Word, Excel, PowerPoint) to PDF."""
+        """Convert a Microsoft Office file (Word, Excel, PowerPoint) to PDF.
 
+        Converts Office documents into PDF output using conversion options for layout and fidelity. This is the main entry point for Word/Excel/PowerPoint-to-PDF workflows.
+
+        Args:
+            file: Uploaded input file or files as `PdfRestFile` objects.
+            output: Output filename prefix used by pdfRest when creating files.
+            compression: Compression mode used during conversion.
+            downsample: Image downsampling setting for conversion.
+            tagged_pdf: For Office conversion, toggles generation of tagged PDFs for accessibility workflows.
+            locale: Locale used by locale-aware conversion options.
+            page_size: Target page size preset or custom size settings used for output page dimensions.
+            page_margin: Page margin setting (for example `8mm` or `0.5in`) for HTML/URL rendering outputs.
+            page_orientation: Page orientation for standard page sizes (portrait or landscape).
+            web_layout: Rendering viewport profile (`desktop`, `tablet`, or `mobile`) for HTML/URL conversion.
+            extra_query: Additional query parameters merged into the request.
+            extra_headers: Additional HTTP headers merged into the request.
+            extra_body: Additional request body fields merged into the payload.
+            timeout: Request timeout override for this call.
+
+        Returns:
+            Validated file-based response returned by pdfRest.
+
+        Raises:
+            PdfRestError: If request execution fails at the client or API layer.
+            ValidationError: If local payload validation fails before sending.
+        """
         payload: dict[str, Any] = {
             "files": file,
             "output": output,
@@ -3503,8 +4794,27 @@ class PdfRestClient(_SyncApiClient):
         extra_body: Body | None = None,
         timeout: TimeoutTypes | None = None,
     ) -> PdfRestFileBasedResponse:
-        """Convert a PostScript or EPS file to PDF."""
+        """Convert a PostScript or EPS file to PDF.
 
+        Converts PostScript content to PDF while preserving page content for modern PDF workflows. Use this when ingesting legacy print-oriented document formats.
+
+        Args:
+            file: Uploaded input file or files as `PdfRestFile` objects.
+            output: Output filename prefix used by pdfRest when creating files.
+            compression: Compression mode used during conversion.
+            downsample: Image downsampling setting for conversion.
+            extra_query: Additional query parameters merged into the request.
+            extra_headers: Additional HTTP headers merged into the request.
+            extra_body: Additional request body fields merged into the payload.
+            timeout: Request timeout override for this call.
+
+        Returns:
+            Validated file-based response returned by pdfRest.
+
+        Raises:
+            PdfRestError: If request execution fails at the client or API layer.
+            ValidationError: If local payload validation fails before sending.
+        """
         payload: dict[str, Any] = {
             "files": file,
             "output": output,
@@ -3533,8 +4843,25 @@ class PdfRestClient(_SyncApiClient):
         extra_body: Body | None = None,
         timeout: TimeoutTypes | None = None,
     ) -> PdfRestFileBasedResponse:
-        """Convert an RFC822 email file to PDF."""
+        """Convert an RFC822 email file to PDF.
 
+        Converts email message files into PDF, including rendered message content and supported metadata/body parts. This supports archiving and compliance workflows.
+
+        Args:
+            file: Uploaded input file or files as `PdfRestFile` objects.
+            output: Output filename prefix used by pdfRest when creating files.
+            extra_query: Additional query parameters merged into the request.
+            extra_headers: Additional HTTP headers merged into the request.
+            extra_body: Additional request body fields merged into the payload.
+            timeout: Request timeout override for this call.
+
+        Returns:
+            Validated file-based response returned by pdfRest.
+
+        Raises:
+            PdfRestError: If request execution fails at the client or API layer.
+            ValidationError: If local payload validation fails before sending.
+        """
         payload: dict[str, Any] = {
             "files": file,
             "output": output,
@@ -3561,8 +4888,25 @@ class PdfRestClient(_SyncApiClient):
         extra_body: Body | None = None,
         timeout: TimeoutTypes | None = None,
     ) -> PdfRestFileBasedResponse:
-        """Convert a supported image file to PDF."""
+        """Convert a supported image file to PDF.
 
+        Converts one or more image files into PDF output and can combine them into multipage documents. Use this to normalize scanned/image assets into PDF containers.
+
+        Args:
+            file: Uploaded input file or files as `PdfRestFile` objects.
+            output: Output filename prefix used by pdfRest when creating files.
+            extra_query: Additional query parameters merged into the request.
+            extra_headers: Additional HTTP headers merged into the request.
+            extra_body: Additional request body fields merged into the payload.
+            timeout: Request timeout override for this call.
+
+        Returns:
+            Validated file-based response returned by pdfRest.
+
+        Raises:
+            PdfRestError: If request execution fails at the client or API layer.
+            ValidationError: If local payload validation fails before sending.
+        """
         payload: dict[str, Any] = {
             "files": file,
             "output": output,
@@ -3595,8 +4939,31 @@ class PdfRestClient(_SyncApiClient):
         extra_body: Body | None = None,
         timeout: TimeoutTypes | None = None,
     ) -> PdfRestFileBasedResponse:
-        """Convert an uploaded HTML file to PDF."""
+        """Convert an uploaded HTML file to PDF.
 
+        Renders HTML content into PDF with page-size/orientation/layout and related rendering controls. This supports report generation and web-to-PDF publishing use cases.
+
+        Args:
+            file: Uploaded input file or files as `PdfRestFile` objects.
+            output: Output filename prefix used by pdfRest when creating files.
+            compression: Compression mode used during conversion.
+            downsample: Image downsampling setting for conversion.
+            page_size: Target page size preset or custom size settings used for output page dimensions.
+            page_margin: Page margin setting (for example `8mm` or `0.5in`) for HTML/URL rendering outputs.
+            page_orientation: Page orientation for standard page sizes (portrait or landscape).
+            web_layout: Rendering viewport profile (`desktop`, `tablet`, or `mobile`) for HTML/URL conversion.
+            extra_query: Additional query parameters merged into the request.
+            extra_headers: Additional HTTP headers merged into the request.
+            extra_body: Additional request body fields merged into the payload.
+            timeout: Request timeout override for this call.
+
+        Returns:
+            Validated file-based response returned by pdfRest.
+
+        Raises:
+            PdfRestError: If request execution fails at the client or API layer.
+            ValidationError: If local payload validation fails before sending.
+        """
         payload: dict[str, Any] = {
             "files": file,
             "output": output,
@@ -3635,8 +5002,31 @@ class PdfRestClient(_SyncApiClient):
         extra_body: Body | None = None,
         timeout: TimeoutTypes | None = None,
     ) -> PdfRestFileBasedResponse:
-        """Convert HTML content from one URL to PDF."""
+        """Convert HTML content from one URL to PDF.
 
+        Fetches remote web content by URL and renders it to PDF using HTML rendering options. Use this for automated webpage capture and archival.
+
+        Args:
+            url: Remote URL to ingest and convert.
+            output: Output filename prefix used by pdfRest when creating files.
+            compression: Compression mode used during conversion.
+            downsample: Image downsampling setting for conversion.
+            page_size: Target page size preset or custom size settings used for output page dimensions.
+            page_margin: Page margin setting (for example `8mm` or `0.5in`) for HTML/URL rendering outputs.
+            page_orientation: Page orientation for standard page sizes (portrait or landscape).
+            web_layout: Rendering viewport profile (`desktop`, `tablet`, or `mobile`) for HTML/URL conversion.
+            extra_query: Additional query parameters merged into the request.
+            extra_headers: Additional HTTP headers merged into the request.
+            extra_body: Additional request body fields merged into the payload.
+            timeout: Request timeout override for this call.
+
+        Returns:
+            Validated file-based response returned by pdfRest.
+
+        Raises:
+            PdfRestError: If request execution fails at the client or API layer.
+            ValidationError: If local payload validation fails before sending.
+        """
         payload: dict[str, Any] = {
             "url": url,
             "output": output,
@@ -3681,8 +5071,37 @@ class PdfRestClient(_SyncApiClient):
         extra_body: Body | None = None,
         timeout: TimeoutTypes | None = None,
     ) -> PdfRestFileBasedResponse:
-        """Apply a text watermark to a PDF."""
+        """Apply a text watermark to a PDF.
 
+        Applies text watermarks with control over placement, rotation, color, opacity, and alignment. Use this for confidentiality marks, drafts, and document branding.
+
+        Args:
+            file: Uploaded input file or files as `PdfRestFile` objects.
+            watermark_text: Text content to render as the watermark.
+            output: Output filename prefix used by pdfRest when creating files.
+            font: Font family name for rendered text.
+            text_size: Watermark text size in points.
+            text_color: Watermark text color as RGB or CMYK channel values.
+            opacity: Opacity in range 0.0 to 1.0.
+            horizontal_alignment: Horizontal alignment anchor used when placing watermark content.
+            vertical_alignment: Vertical alignment anchor used when placing watermark content.
+            x: Horizontal position in PDF points.
+            y: Vertical position in PDF points.
+            rotation: Rotation angle in degrees.
+            pages: Page selection to constrain processing to specific pages.
+            behind_page: Target page number (or selector) where inserted content should be applied.
+            extra_query: Additional query parameters merged into the request.
+            extra_headers: Additional HTTP headers merged into the request.
+            extra_body: Additional request body fields merged into the payload.
+            timeout: Request timeout override for this call.
+
+        Returns:
+            Validated file-based response returned by pdfRest.
+
+        Raises:
+            PdfRestError: If request execution fails at the client or API layer.
+            ValidationError: If local payload validation fails before sending.
+        """
         payload: dict[str, Any] = {
             "files": file,
             "watermark_text": watermark_text,
@@ -3731,8 +5150,35 @@ class PdfRestClient(_SyncApiClient):
         extra_body: Body | None = None,
         timeout: TimeoutTypes | None = None,
     ) -> PdfRestFileBasedResponse:
-        """Apply an image watermark to a PDF."""
+        """Apply an image watermark to a PDF.
 
+        Applies image watermarks (for example logos/seals) with placement and opacity controls. This is useful for branded overlays and visual ownership marks.
+
+        Args:
+            file: Uploaded input file or files as `PdfRestFile` objects.
+            watermark_file: Uploaded image used as watermark content.
+            output: Output filename prefix used by pdfRest when creating files.
+            watermark_file_scale: Scale multiplier applied to the watermark file graphic before placement.
+            opacity: Opacity in range 0.0 to 1.0.
+            horizontal_alignment: Horizontal alignment anchor used when placing watermark content.
+            vertical_alignment: Vertical alignment anchor used when placing watermark content.
+            x: Horizontal position in PDF points.
+            y: Vertical position in PDF points.
+            rotation: Rotation angle in degrees.
+            pages: Page selection to constrain processing to specific pages.
+            behind_page: Target page number (or selector) where inserted content should be applied.
+            extra_query: Additional query parameters merged into the request.
+            extra_headers: Additional HTTP headers merged into the request.
+            extra_body: Additional request body fields merged into the payload.
+            timeout: Request timeout override for this call.
+
+        Returns:
+            Validated file-based response returned by pdfRest.
+
+        Raises:
+            PdfRestError: If request execution fails at the client or API layer.
+            ValidationError: If local payload validation fails before sending.
+        """
         payload: dict[str, Any] = {
             "files": file,
             "watermark_file": watermark_file,
@@ -3771,8 +5217,27 @@ class PdfRestClient(_SyncApiClient):
         extra_body: Body | None = None,
         timeout: TimeoutTypes | None = None,
     ) -> PdfRestFileBasedResponse:
-        """Convert a PDF to a specified PDF/A version."""
+        """Convert a PDF to a specified PDF/A version.
 
+        Converts input PDFs to selected PDF/A conformance levels for long-term archival compatibility. Choose the target conformance profile that matches your compliance requirements.
+
+        Args:
+            file: Uploaded input file or files as `PdfRestFile` objects.
+            output_type: Output mode for endpoints supporting inline or file output.
+            output: Output filename prefix used by pdfRest when creating files.
+            rasterize_if_errors_encountered: When enabled, allows rasterized fallback if strict conformance conversion encounters nonconforming content.
+            extra_query: Additional query parameters merged into the request.
+            extra_headers: Additional HTTP headers merged into the request.
+            extra_body: Additional request body fields merged into the payload.
+            timeout: Request timeout override for this call.
+
+        Returns:
+            Validated file-based response returned by pdfRest.
+
+        Raises:
+            PdfRestError: If request execution fails at the client or API layer.
+            ValidationError: If local payload validation fails before sending.
+        """
         payload: dict[str, Any] = {
             "files": file,
             "output_type": output_type,
@@ -3801,8 +5266,26 @@ class PdfRestClient(_SyncApiClient):
         extra_body: Body | None = None,
         timeout: TimeoutTypes | None = None,
     ) -> PdfRestFileBasedResponse:
-        """Convert a PDF to a specified PDF/X version."""
+        """Convert a PDF to a specified PDF/X version.
 
+        Converts input PDFs to selected PDF/X conformance levels for print-production workflows. Use this when downstream print tooling expects standardized PDF/X output.
+
+        Args:
+            file: Uploaded input file or files as `PdfRestFile` objects.
+            output_type: Output mode for endpoints supporting inline or file output.
+            output: Output filename prefix used by pdfRest when creating files.
+            extra_query: Additional query parameters merged into the request.
+            extra_headers: Additional HTTP headers merged into the request.
+            extra_body: Additional request body fields merged into the payload.
+            timeout: Request timeout override for this call.
+
+        Returns:
+            Validated file-based response returned by pdfRest.
+
+        Raises:
+            PdfRestError: If request execution fails at the client or API layer.
+            ValidationError: If local payload validation fails before sending.
+        """
         payload: dict[str, Any] = {"files": file, "output_type": output_type}
         if output is not None:
             payload["output"] = output
@@ -3831,8 +5314,29 @@ class PdfRestClient(_SyncApiClient):
         extra_body: Body | None = None,
         timeout: TimeoutTypes | None = None,
     ) -> PdfRestFileBasedResponse:
-        """Convert one or more pdfRest files to PNG images."""
+        """Convert one or more pdfRest files to PNG images.
 
+        Converts PDF pages to PNG images with configurable color model, smoothing, and page selection controls. Suitable for high-fidelity raster exports and previews.
+
+        Args:
+            files: Uploaded input file or files as `PdfRestFile` objects.
+            output_prefix: Filename prefix used for generated per-page/per-file image outputs.
+            page_range: Page selection string/list for image conversion outputs.
+            resolution: Raster output resolution in DPI for generated image files.
+            color_model: Output image color model.
+            smoothing: Graphic smoothing mode for image output endpoints.
+            extra_query: Additional query parameters merged into the request.
+            extra_headers: Additional HTTP headers merged into the request.
+            extra_body: Additional request body fields merged into the payload.
+            timeout: Request timeout override for this call.
+
+        Returns:
+            Validated file-based response returned by pdfRest.
+
+        Raises:
+            PdfRestError: If request execution fails at the client or API layer.
+            ValidationError: If local payload validation fails before sending.
+        """
         payload: dict[str, Any] = {
             "files": files,
             "resolution": resolution,
@@ -3868,8 +5372,29 @@ class PdfRestClient(_SyncApiClient):
         extra_body: Body | None = None,
         timeout: TimeoutTypes | None = None,
     ) -> PdfRestFileBasedResponse:
-        """Convert one or more pdfRest files to BMP images."""
+        """Convert one or more pdfRest files to BMP images.
 
+        Converts PDF pages to BMP images with configurable color model and page selection. Use this for legacy bitmap workflows that require BMP output.
+
+        Args:
+            files: Uploaded input file or files as `PdfRestFile` objects.
+            output_prefix: Filename prefix used for generated per-page/per-file image outputs.
+            page_range: Page selection string/list for image conversion outputs.
+            resolution: Raster output resolution in DPI for generated image files.
+            color_model: Output image color model.
+            smoothing: Graphic smoothing mode for image output endpoints.
+            extra_query: Additional query parameters merged into the request.
+            extra_headers: Additional HTTP headers merged into the request.
+            extra_body: Additional request body fields merged into the payload.
+            timeout: Request timeout override for this call.
+
+        Returns:
+            Validated file-based response returned by pdfRest.
+
+        Raises:
+            PdfRestError: If request execution fails at the client or API layer.
+            ValidationError: If local payload validation fails before sending.
+        """
         payload: dict[str, Any] = {
             "files": files,
             "resolution": resolution,
@@ -3905,8 +5430,29 @@ class PdfRestClient(_SyncApiClient):
         extra_body: Body | None = None,
         timeout: TimeoutTypes | None = None,
     ) -> PdfRestFileBasedResponse:
-        """Convert one or more pdfRest files to GIF images."""
+        """Convert one or more pdfRest files to GIF images.
 
+        Converts PDF pages to GIF images with configurable color model and page selection. Useful for lightweight graphics workflows and compatibility scenarios.
+
+        Args:
+            files: Uploaded input file or files as `PdfRestFile` objects.
+            output_prefix: Filename prefix used for generated per-page/per-file image outputs.
+            page_range: Page selection string/list for image conversion outputs.
+            resolution: Raster output resolution in DPI for generated image files.
+            color_model: Output image color model.
+            smoothing: Graphic smoothing mode for image output endpoints.
+            extra_query: Additional query parameters merged into the request.
+            extra_headers: Additional HTTP headers merged into the request.
+            extra_body: Additional request body fields merged into the payload.
+            timeout: Request timeout override for this call.
+
+        Returns:
+            Validated file-based response returned by pdfRest.
+
+        Raises:
+            PdfRestError: If request execution fails at the client or API layer.
+            ValidationError: If local payload validation fails before sending.
+        """
         payload: dict[str, Any] = {
             "files": files,
             "resolution": resolution,
@@ -3943,8 +5489,30 @@ class PdfRestClient(_SyncApiClient):
         extra_body: Body | None = None,
         timeout: TimeoutTypes | None = None,
     ) -> PdfRestFileBasedResponse:
-        """Convert one or more pdfRest files to JPEG images."""
+        """Convert one or more pdfRest files to JPEG images.
 
+        Converts PDF pages to JPEG images with configurable color model and page selection. Use this for compressed photo-friendly page exports.
+
+        Args:
+            files: Uploaded input file or files as `PdfRestFile` objects.
+            output_prefix: Filename prefix used for generated per-page/per-file image outputs.
+            page_range: Page selection string/list for image conversion outputs.
+            resolution: Raster output resolution in DPI for generated image files.
+            color_model: Output image color model.
+            smoothing: Graphic smoothing mode for image output endpoints.
+            jpeg_quality: JPEG quality setting (1-100) controlling compression level and output fidelity.
+            extra_query: Additional query parameters merged into the request.
+            extra_headers: Additional HTTP headers merged into the request.
+            extra_body: Additional request body fields merged into the payload.
+            timeout: Request timeout override for this call.
+
+        Returns:
+            Validated file-based response returned by pdfRest.
+
+        Raises:
+            PdfRestError: If request execution fails at the client or API layer.
+            ValidationError: If local payload validation fails before sending.
+        """
         payload: dict[str, Any] = {
             "files": files,
             "resolution": resolution,
@@ -3981,8 +5549,29 @@ class PdfRestClient(_SyncApiClient):
         extra_body: Body | None = None,
         timeout: TimeoutTypes | None = None,
     ) -> PdfRestFileBasedResponse:
-        """Convert one or more pdfRest files to TIFF images."""
+        """Convert one or more pdfRest files to TIFF images.
 
+        Converts PDF pages to TIFF images with configurable color model and page selection. This is commonly used in archival, scanning, and print-imaging pipelines.
+
+        Args:
+            files: Uploaded input file or files as `PdfRestFile` objects.
+            output_prefix: Filename prefix used for generated per-page/per-file image outputs.
+            page_range: Page selection string/list for image conversion outputs.
+            resolution: Raster output resolution in DPI for generated image files.
+            color_model: Output image color model.
+            smoothing: Graphic smoothing mode for image output endpoints.
+            extra_query: Additional query parameters merged into the request.
+            extra_headers: Additional HTTP headers merged into the request.
+            extra_body: Additional request body fields merged into the payload.
+            timeout: Request timeout override for this call.
+
+        Returns:
+            Validated file-based response returned by pdfRest.
+
+        Raises:
+            PdfRestError: If request execution fails at the client or API layer.
+            ValidationError: If local payload validation fails before sending.
+        """
         payload: dict[str, Any] = {
             "files": files,
             "resolution": resolution,
@@ -4020,8 +5609,18 @@ class AsyncPdfRestClient(_AsyncApiClient):
         concurrency_limit: int = DEFAULT_FILE_INFO_CONCURRENCY,
         max_retries: int = DEFAULT_MAX_RETRIES,
     ) -> None:
-        """Create an asynchronous pdfRest client."""
+        """Initialize an asynchronous pdfRest client.
 
+        Args:
+            api_key: API key sent in the `Api-Key` header.
+            base_url: Base URL for the pdfRest API service.
+            timeout: Request timeout override for this call.
+            headers: Default headers merged into every request.
+            http_client: Optional preconfigured `httpx.Client` instance to reuse.
+            transport: Optional custom `httpx` transport.
+            concurrency_limit: Maximum concurrent file-info fetch operations used by async file helper methods.
+            max_retries: Maximum number of retries for retryable failures.
+        """
         super().__init__(
             api_key=api_key,
             base_url=base_url,
@@ -4032,19 +5631,37 @@ class AsyncPdfRestClient(_AsyncApiClient):
             concurrency_limit=concurrency_limit,
             max_retries=max_retries,
         )
-        self._files_client = _AsyncFilesClient(self)
+        files_client: AsyncPdfRestFilesClient = _AsyncFilesClient(self)
+        self._files_client = files_client
 
     @override
     async def __aenter__(self) -> AsyncPdfRestClient:
+        """Enter the client context manager and return this client instance.
+
+        Returns:
+            The current client instance.
+        """
         _ = await super().__aenter__()
         return self
 
     @override
     async def __aexit__(self, exc_type: Any, exc: Any, traceback: Any) -> None:
+        """Exit the client context manager and close underlying HTTP resources.
+
+        Args:
+            exc_type: Exception type raised in the managed context, if any.
+            exc: Exception instance raised in the managed context, if any.
+            traceback: Traceback object for exceptions raised in the managed context.
+        """
         await super().__aexit__(exc_type, exc, traceback)
 
     @property
-    def files(self) -> _AsyncFilesClient:
+    def files(self) -> AsyncPdfRestFilesClient:
+        """Return the [AsyncPdfRestFilesClient][pdfrest.AsyncPdfRestFilesClient] helper bound to this client.
+
+        Returns:
+            The file-management helper bound to this client.
+        """
         return self._files_client
 
     async def query_pdf_info(
@@ -4057,8 +5674,25 @@ class AsyncPdfRestClient(_AsyncApiClient):
         extra_body: Body | None = None,
         timeout: TimeoutTypes | None = None,
     ) -> PdfRestInfoResponse:
-        """Query pdfRest for metadata describing a PDF document asynchronously."""
+        """Asynchronous variant of [PdfRestClient.query_pdf_info][pdfrest.PdfRestClient.query_pdf_info].
 
+        Retrieves PDF metadata and structural flags (for example page count, tags, signatures, forms, transparency, and permission state). The `queries` argument controls which info keys pdfRest computes and returns.
+
+        Args:
+            file: Uploaded input file or files as `PdfRestFile` objects.
+            queries: Info fields to query from the `/pdf-info` endpoint.
+            extra_query: Additional query parameters merged into the request.
+            extra_headers: Additional HTTP headers merged into the request.
+            extra_body: Additional request body fields merged into the payload.
+            timeout: Request timeout override for this call.
+
+        Returns:
+            Validated `PdfRestInfoResponse` model.
+
+        Raises:
+            PdfRestError: If request execution fails at the client or API layer.
+            ValidationError: If local payload validation fails before sending.
+        """
         payload = PdfInfoPayload.model_validate({"file": file, "queries": queries})
         request = self.prepare_request(
             "POST",
@@ -4088,12 +5722,29 @@ class AsyncPdfRestClient(_AsyncApiClient):
         extra_body: Body | None = None,
         timeout: TimeoutTypes | None = None,
     ) -> SummarizePdfTextResponse:
-        """Summarize the textual content of a PDF, Markdown, or text document.
+        """Asynchronous variant of [PdfRestClient.summarize_text][pdfrest.PdfRestClient.summarize_text].
 
-        Always requests JSON output and returns the inline summary response defined in
-        the pdfRest API reference.
+        Generates an inline summary from document text and returns it in a structured response model. You can scope to pages, choose summary style, and control output formatting for downstream display.
+
+        Args:
+            file: Uploaded input file or files as `PdfRestFile` objects.
+            target_word_count: Approximate target length for generated summary text.
+            summary_format: Summary layout/style requested from pdfRest.
+            pages: Page selection to constrain processing to specific pages.
+            output_format: Text format returned for generated textual output.
+            output: Output filename prefix used by pdfRest when creating files.
+            extra_query: Additional query parameters merged into the request.
+            extra_headers: Additional HTTP headers merged into the request.
+            extra_body: Additional request body fields merged into the payload.
+            timeout: Request timeout override for this call.
+
+        Returns:
+            Validated `SummarizePdfTextResponse` model.
+
+        Raises:
+            PdfRestError: If request execution fails at the client or API layer.
+            ValidationError: If local payload validation fails before sending.
         """
-
         payload: dict[str, Any] = {
             "files": file,
             "target_word_count": target_word_count,
@@ -4135,8 +5786,29 @@ class AsyncPdfRestClient(_AsyncApiClient):
         extra_body: Body | None = None,
         timeout: TimeoutTypes | None = None,
     ) -> PdfRestFileBasedResponse:
-        """Summarize a document and return the result as a downloadable file."""
+        """Asynchronous variant of [PdfRestClient.summarize_text_to_file][pdfrest.PdfRestClient.summarize_text_to_file].
 
+        Generates a summary and returns a file-based response containing the produced summary document. Use this when you want downloadable artifacts instead of inline summary text.
+
+        Args:
+            file: Uploaded input file or files as `PdfRestFile` objects.
+            target_word_count: Approximate target length for generated summary text.
+            summary_format: Summary layout/style requested from pdfRest.
+            pages: Page selection to constrain processing to specific pages.
+            output_format: Text format returned for generated textual output.
+            output: Output filename prefix used by pdfRest when creating files.
+            extra_query: Additional query parameters merged into the request.
+            extra_headers: Additional HTTP headers merged into the request.
+            extra_body: Additional request body fields merged into the payload.
+            timeout: Request timeout override for this call.
+
+        Returns:
+            Validated file-based response returned by pdfRest.
+
+        Raises:
+            PdfRestError: If request execution fails at the client or API layer.
+            ValidationError: If local payload validation fails before sending.
+        """
         payload: dict[str, Any] = {
             "files": file,
             "target_word_count": target_word_count,
@@ -4171,8 +5843,27 @@ class AsyncPdfRestClient(_AsyncApiClient):
         extra_body: Body | None = None,
         timeout: TimeoutTypes | None = None,
     ) -> PdfRestFileBasedResponse:
-        """Convert a PDF to Markdown and return a file-based response."""
+        """Asynchronous variant of [PdfRestClient.convert_to_markdown][pdfrest.PdfRestClient.convert_to_markdown].
 
+        Converts document content into Markdown and supports either inline text output or file output. This is useful when preparing PDFs for LLM/RAG indexing and markdown-centric tooling.
+
+        Args:
+            file: Uploaded input file or files as `PdfRestFile` objects.
+            pages: Page selection to constrain processing to specific pages.
+            page_break_comments: When true, inserts page-break marker comments in generated Markdown between source pages.
+            output: Output filename prefix used by pdfRest when creating files.
+            extra_query: Additional query parameters merged into the request.
+            extra_headers: Additional HTTP headers merged into the request.
+            extra_body: Additional request body fields merged into the payload.
+            timeout: Request timeout override for this call.
+
+        Returns:
+            Validated file-based response returned by pdfRest.
+
+        Raises:
+            PdfRestError: If request execution fails at the client or API layer.
+            ValidationError: If local payload validation fails before sending.
+        """
         payload: dict[str, Any] = {
             "files": file,
             "output_type": "file",
@@ -4205,8 +5896,27 @@ class AsyncPdfRestClient(_AsyncApiClient):
         extra_body: Body | None = None,
         timeout: TimeoutTypes | None = None,
     ) -> PdfRestFileBasedResponse:
-        """Perform OCR on a PDF to make text searchable and extractable."""
+        """Asynchronous variant of [PdfRestClient.ocr_pdf][pdfrest.PdfRestClient.ocr_pdf].
 
+        Runs OCR on image-based PDFs to produce searchable text layers while preserving PDF layout. Use `language` to guide recognition and `output` to control output naming.
+
+        Args:
+            file: Uploaded input file or files as `PdfRestFile` objects.
+            languages: OCR language(s) to use when recognizing text in scanned or image-based pages.
+            pages: Page selection to constrain processing to specific pages.
+            output: Output filename prefix used by pdfRest when creating files.
+            extra_query: Additional query parameters merged into the request.
+            extra_headers: Additional HTTP headers merged into the request.
+            extra_body: Additional request body fields merged into the payload.
+            timeout: Request timeout override for this call.
+
+        Returns:
+            Validated file-based response returned by pdfRest.
+
+        Raises:
+            PdfRestError: If request execution fails at the client or API layer.
+            ValidationError: If local payload validation fails before sending.
+        """
         payload: dict[str, Any] = {"files": file, "languages": languages}
         if pages is not None:
             payload["pages"] = pages
@@ -4236,8 +5946,28 @@ class AsyncPdfRestClient(_AsyncApiClient):
         extra_body: Body | None = None,
         timeout: TimeoutTypes | None = None,
     ) -> TranslatePdfTextResponse:
-        """Translate the textual content of a PDF, Markdown, or text document (JSON)."""
+        """Asynchronous variant of [PdfRestClient.translate_pdf_text][pdfrest.PdfRestClient.translate_pdf_text].
 
+        Translates extracted document text and returns translated content inline when `output_type` is JSON. Supports page scoping and output formatting for multilingual text workflows.
+
+        Args:
+            file: Uploaded input file or files as `PdfRestFile` objects.
+            output_language: Target language for translated output text.
+            pages: Page selection to constrain processing to specific pages.
+            output_format: Text format returned for generated textual output.
+            output: Output filename prefix used by pdfRest when creating files.
+            extra_query: Additional query parameters merged into the request.
+            extra_headers: Additional HTTP headers merged into the request.
+            extra_body: Additional request body fields merged into the payload.
+            timeout: Request timeout override for this call.
+
+        Returns:
+            Validated `TranslatePdfTextResponse` model.
+
+        Raises:
+            PdfRestError: If request execution fails at the client or API layer.
+            ValidationError: If local payload validation fails before sending.
+        """
         payload: dict[str, Any] = {
             "files": file,
             "output_language": output_language,
@@ -4277,8 +6007,28 @@ class AsyncPdfRestClient(_AsyncApiClient):
         extra_body: Body | None = None,
         timeout: TimeoutTypes | None = None,
     ) -> TranslatePdfTextFileResponse:
-        """Translate textual content and receive a file-based response."""
+        """Asynchronous variant of [PdfRestClient.translate_pdf_text_to_file][pdfrest.PdfRestClient.translate_pdf_text_to_file].
 
+        Translates document text and returns a file-based response with translated output artifacts. Choose this when you need downloadable translated files instead of inline text.
+
+        Args:
+            file: Uploaded input file or files as `PdfRestFile` objects.
+            output_language: Target language for translated output text.
+            pages: Page selection to constrain processing to specific pages.
+            output_format: Text format returned for generated textual output.
+            output: Output filename prefix used by pdfRest when creating files.
+            extra_query: Additional query parameters merged into the request.
+            extra_headers: Additional HTTP headers merged into the request.
+            extra_body: Additional request body fields merged into the payload.
+            timeout: Request timeout override for this call.
+
+        Returns:
+            Validated `TranslatePdfTextFileResponse` model.
+
+        Raises:
+            PdfRestError: If request execution fails at the client or API layer.
+            ValidationError: If local payload validation fails before sending.
+        """
         payload: dict[str, Any] = {
             "files": file,
             "output_language": output_language,
@@ -4312,8 +6062,26 @@ class AsyncPdfRestClient(_AsyncApiClient):
         extra_body: Body | None = None,
         timeout: TimeoutTypes | None = None,
     ) -> PdfRestFileBasedResponse:
-        """Extract embedded images from a PDF."""
+        """Asynchronous variant of [PdfRestClient.extract_images][pdfrest.PdfRestClient.extract_images].
 
+        Extracts embedded images from the source PDF and returns them as output files. This is useful for asset reuse, auditing image quality, or downstream image processing.
+
+        Args:
+            file: Uploaded input file or files as `PdfRestFile` objects.
+            pages: Page selection to constrain processing to specific pages.
+            output: Output filename prefix used by pdfRest when creating files.
+            extra_query: Additional query parameters merged into the request.
+            extra_headers: Additional HTTP headers merged into the request.
+            extra_body: Additional request body fields merged into the payload.
+            timeout: Request timeout override for this call.
+
+        Returns:
+            Validated file-based response returned by pdfRest.
+
+        Raises:
+            PdfRestError: If request execution fails at the client or API layer.
+            ValidationError: If local payload validation fails before sending.
+        """
         payload: dict[str, Any] = {"files": file}
         if pages is not None:
             payload["pages"] = pages
@@ -4344,8 +6112,29 @@ class AsyncPdfRestClient(_AsyncApiClient):
         extra_body: Body | None = None,
         timeout: TimeoutTypes | None = None,
     ) -> ExtractedTextDocument:
-        """Extract text content from a PDF and return parsed JSON results."""
+        """Asynchronous variant of [PdfRestClient.extract_pdf_text][pdfrest.PdfRestClient.extract_pdf_text].
 
+        Extracts text from a PDF as inline JSON text content. Use `pages` to limit scope and `granularity`/related options to control how text is aggregated.
+
+        Args:
+            file: Uploaded input file or files as `PdfRestFile` objects.
+            pages: Page selection to constrain processing to specific pages.
+            full_text: Controls full-text output mode: disabled, aggregated document text, or per-page text blocks.
+            preserve_line_breaks: Preserves detected line breaks in full-text output instead of flattening lines.
+            word_style: Includes per-word style metadata such as font, size, and color in structured output.
+            word_coordinates: Includes per-word coordinate metadata for positional text extraction.
+            extra_query: Additional query parameters merged into the request.
+            extra_headers: Additional HTTP headers merged into the request.
+            extra_body: Additional request body fields merged into the payload.
+            timeout: Request timeout override for this call.
+
+        Returns:
+            Validated `ExtractedTextDocument` model.
+
+        Raises:
+            PdfRestError: If request execution fails at the client or API layer.
+            ValidationError: If local payload validation fails before sending.
+        """
         payload: dict[str, Any] = {
             "files": file,
             "full_text": full_text,
@@ -4387,8 +6176,30 @@ class AsyncPdfRestClient(_AsyncApiClient):
         extra_body: Body | None = None,
         timeout: TimeoutTypes | None = None,
     ) -> PdfRestFileBasedResponse:
-        """Extract text content from a PDF and return a file-based response."""
+        """Asynchronous variant of [PdfRestClient.extract_pdf_text_to_file][pdfrest.PdfRestClient.extract_pdf_text_to_file].
 
+        Extracts text into file outputs (including richer structured formats when requested). Use this for large outputs or when you need durable extracted-text artifacts.
+
+        Args:
+            file: Uploaded input file or files as `PdfRestFile` objects.
+            pages: Page selection to constrain processing to specific pages.
+            full_text: Controls full-text output mode: disabled, aggregated document text, or per-page text blocks.
+            preserve_line_breaks: Preserves detected line breaks in full-text output instead of flattening lines.
+            word_style: Includes per-word style metadata such as font, size, and color in structured output.
+            word_coordinates: Includes per-word coordinate metadata for positional text extraction.
+            output: Output filename prefix used by pdfRest when creating files.
+            extra_query: Additional query parameters merged into the request.
+            extra_headers: Additional HTTP headers merged into the request.
+            extra_body: Additional request body fields merged into the payload.
+            timeout: Request timeout override for this call.
+
+        Returns:
+            Validated file-based response returned by pdfRest.
+
+        Raises:
+            PdfRestError: If request execution fails at the client or API layer.
+            ValidationError: If local payload validation fails before sending.
+        """
         payload: dict[str, Any] = {
             "files": file,
             "full_text": full_text,
@@ -4423,8 +6234,26 @@ class AsyncPdfRestClient(_AsyncApiClient):
         extra_body: Body | None = None,
         timeout: TimeoutTypes | None = None,
     ) -> PdfRestFileBasedResponse:
-        """Asynchronously generate a PDF redaction preview."""
+        """Asynchronous variant of [PdfRestClient.preview_redactions][pdfrest.PdfRestClient.preview_redactions].
 
+        Builds a redaction preview PDF so you can inspect matches before permanently removing content. Redaction rules support literals, regex patterns, and preset detectors.
+
+        Args:
+            file: Uploaded input file or files as `PdfRestFile` objects.
+            redactions: Redaction rules to preview or apply.
+            output: Output filename prefix used by pdfRest when creating files.
+            extra_query: Additional query parameters merged into the request.
+            extra_headers: Additional HTTP headers merged into the request.
+            extra_body: Additional request body fields merged into the payload.
+            timeout: Request timeout override for this call.
+
+        Returns:
+            Validated file-based response returned by pdfRest.
+
+        Raises:
+            PdfRestError: If request execution fails at the client or API layer.
+            ValidationError: If local payload validation fails before sending.
+        """
         payload: dict[str, Any] = {
             "files": file,
             "redactions": redactions,
@@ -4453,8 +6282,26 @@ class AsyncPdfRestClient(_AsyncApiClient):
         extra_body: Body | None = None,
         timeout: TimeoutTypes | None = None,
     ) -> PdfRestFileBasedResponse:
-        """Asynchronously apply PDF redactions."""
+        """Asynchronous variant of [PdfRestClient.apply_redactions][pdfrest.PdfRestClient.apply_redactions].
 
+        Applies irreversible redactions to the PDF based on provided rules and outputs a redacted document. Use this after validating coverage with `preview_redactions`.
+
+        Args:
+            file: Uploaded input file or files as `PdfRestFile` objects.
+            rgb_color: RGB fill color applied to redaction rectangles when previewing/applying redactions.
+            output: Output filename prefix used by pdfRest when creating files.
+            extra_query: Additional query parameters merged into the request.
+            extra_headers: Additional HTTP headers merged into the request.
+            extra_body: Additional request body fields merged into the payload.
+            timeout: Request timeout override for this call.
+
+        Returns:
+            Validated file-based response returned by pdfRest.
+
+        Raises:
+            PdfRestError: If request execution fails at the client or API layer.
+            ValidationError: If local payload validation fails before sending.
+        """
         payload: dict[str, Any] = {
             "files": file,
         }
@@ -4484,8 +6331,26 @@ class AsyncPdfRestClient(_AsyncApiClient):
         extra_body: Body | None = None,
         timeout: TimeoutTypes | None = None,
     ) -> PdfRestFileBasedResponse:
-        """Asynchronously insert text blocks into a PDF."""
+        """Asynchronous variant of [PdfRestClient.add_text_to_pdf][pdfrest.PdfRestClient.add_text_to_pdf].
 
+        Places one or more text overlays onto a PDF with font, size, color, opacity, position, and rotation controls. This supports annotations, stamps, and templated labeling workflows.
+
+        Args:
+            file: Uploaded input file or files as `PdfRestFile` objects.
+            text_objects: Text overlay objects to draw onto the document.
+            output: Output filename prefix used by pdfRest when creating files.
+            extra_query: Additional query parameters merged into the request.
+            extra_headers: Additional HTTP headers merged into the request.
+            extra_body: Additional request body fields merged into the payload.
+            timeout: Request timeout override for this call.
+
+        Returns:
+            Validated file-based response returned by pdfRest.
+
+        Raises:
+            PdfRestError: If request execution fails at the client or API layer.
+            ValidationError: If local payload validation fails before sending.
+        """
         payload: dict[str, Any] = {
             "files": file,
             "text_objects": text_objects,
@@ -4517,8 +6382,29 @@ class AsyncPdfRestClient(_AsyncApiClient):
         extra_body: Body | None = None,
         timeout: TimeoutTypes | None = None,
     ) -> PdfRestFileBasedResponse:
-        """Asynchronously insert an image into a PDF."""
+        """Asynchronous variant of [PdfRestClient.add_image_to_pdf][pdfrest.PdfRestClient.add_image_to_pdf].
 
+        Places an uploaded image onto target pages in a PDF with size/position controls. This is commonly used for logos, seals, and branding overlays.
+
+        Args:
+            file: Uploaded input file or files as `PdfRestFile` objects.
+            image: Image/PDF resource to place into the source document.
+            x: Horizontal position in PDF points.
+            y: Vertical position in PDF points.
+            page: Target page number (or selector) where inserted content should be applied.
+            output: Output filename prefix used by pdfRest when creating files.
+            extra_query: Additional query parameters merged into the request.
+            extra_headers: Additional HTTP headers merged into the request.
+            extra_body: Additional request body fields merged into the payload.
+            timeout: Request timeout override for this call.
+
+        Returns:
+            Validated file-based response returned by pdfRest.
+
+        Raises:
+            PdfRestError: If request execution fails at the client or API layer.
+            ValidationError: If local payload validation fails before sending.
+        """
         payload: dict[str, Any] = {
             "files": file,
             "image": image,
@@ -4547,8 +6433,23 @@ class AsyncPdfRestClient(_AsyncApiClient):
         extra_body: Body | None = None,
         timeout: TimeoutTypes | None = None,
     ) -> UpResponse:
-        """Call the `/up` health endpoint asynchronously and return server metadata."""
+        """Asynchronous variant of [PdfRestClient.up][pdfrest.PdfRestClient.up].
 
+        Calls the health endpoint and returns service metadata such as status, product, version, and release date. Use this as a lightweight connectivity check before running document workflows.
+
+        Args:
+            extra_headers: Additional HTTP headers merged into the request.
+            extra_query: Additional query parameters merged into the request.
+            extra_body: Additional request body fields merged into the payload.
+            timeout: Request timeout override for this call.
+
+        Returns:
+            Validated `UpResponse` model.
+
+        Raises:
+            PdfRestError: If request execution fails at the client or API layer.
+            ValidationError: If local payload validation fails before sending.
+        """
         request = self._prepare_request(
             "GET",
             "/up",
@@ -4571,6 +6472,20 @@ class AsyncPdfRestClient(_AsyncApiClient):
         extra_body: Body | None = None,
         timeout: TimeoutTypes | None = None,
     ) -> PdfRestFileBasedResponse:
+        """Asynchronous shared helper for image conversion endpoint methods. Mirrors [PdfRestClient._convert_to_graphic][pdfrest.PdfRestClient._convert_to_graphic].
+
+        Args:
+            endpoint: API endpoint path used for this request helper.
+            payload: Raw payload values forwarded to payload validation.
+            payload_model: Payload model class used to validate and serialize inputs.
+            extra_query: Additional query parameters merged into the request.
+            extra_headers: Additional HTTP headers merged into the request.
+            extra_body: Additional request body fields merged into the payload.
+            timeout: Request timeout override for this call.
+
+        Returns:
+            Validated file-based response returned by pdfRest.
+        """
         return await self._post_file_operation(
             endpoint=endpoint,
             payload=payload,
@@ -4592,8 +6507,26 @@ class AsyncPdfRestClient(_AsyncApiClient):
         extra_body: Body | None = None,
         timeout: TimeoutTypes | None = None,
     ) -> PdfRestFileBasedResponse:
-        """Asynchronously split a PDF into one or more PDF files."""
+        """Asynchronous variant of [PdfRestClient.split_pdf][pdfrest.PdfRestClient.split_pdf].
 
+        Splits a PDF into multiple outputs using page selections and grouping rules. Use this to break long documents into per-range or per-section files.
+
+        Args:
+            file: Uploaded input file or files as `PdfRestFile` objects.
+            page_groups: Page-selection groups that define each split output document.
+            output_prefix: Filename prefix used for generated per-page/per-file image outputs.
+            extra_query: Additional query parameters merged into the request.
+            extra_headers: Additional HTTP headers merged into the request.
+            extra_body: Additional request body fields merged into the payload.
+            timeout: Request timeout override for this call.
+
+        Returns:
+            Validated file-based response returned by pdfRest.
+
+        Raises:
+            PdfRestError: If request execution fails at the client or API layer.
+            ValidationError: If local payload validation fails before sending.
+        """
         payload: dict[str, Any] = {"files": file}
         if page_groups is not None:
             payload["page_groups"] = page_groups
@@ -4620,8 +6553,25 @@ class AsyncPdfRestClient(_AsyncApiClient):
         extra_body: Body | None = None,
         timeout: TimeoutTypes | None = None,
     ) -> PdfRestFileBasedResponse:
-        """Asynchronously merge multiple PDFs (or page subsets) into a single PDF."""
+        """Asynchronous variant of [PdfRestClient.merge_pdfs][pdfrest.PdfRestClient.merge_pdfs].
 
+        Merges multiple uploaded PDFs into a single output, with optional per-input page selections. This is useful for packet assembly and document bundling.
+
+        Args:
+            sources: Merge source list containing files with optional page selections per source.
+            output_prefix: Filename prefix used for generated per-page/per-file image outputs.
+            extra_query: Additional query parameters merged into the request.
+            extra_headers: Additional HTTP headers merged into the request.
+            extra_body: Additional request body fields merged into the payload.
+            timeout: Request timeout override for this call.
+
+        Returns:
+            Validated file-based response returned by pdfRest.
+
+        Raises:
+            PdfRestError: If request execution fails at the client or API layer.
+            ValidationError: If local payload validation fails before sending.
+        """
         payload: dict[str, Any] = {"sources": sources}
         if output_prefix is not None:
             payload["output_prefix"] = output_prefix
@@ -4646,8 +6596,25 @@ class AsyncPdfRestClient(_AsyncApiClient):
         extra_body: Body | None = None,
         timeout: TimeoutTypes | None = None,
     ) -> PdfRestFileBasedResponse:
-        """Asynchronously compress one or more files into a zip archive."""
+        """Asynchronous variant of [PdfRestClient.zip_files][pdfrest.PdfRestClient.zip_files].
 
+        Packages uploaded files into a ZIP archive and returns it as a file-based response. Use this to consolidate multiple outputs for a single download.
+
+        Args:
+            files: Uploaded input file or files as `PdfRestFile` objects.
+            output: Output filename prefix used by pdfRest when creating files.
+            extra_query: Additional query parameters merged into the request.
+            extra_headers: Additional HTTP headers merged into the request.
+            extra_body: Additional request body fields merged into the payload.
+            timeout: Request timeout override for this call.
+
+        Returns:
+            Validated file-based response returned by pdfRest.
+
+        Raises:
+            PdfRestError: If request execution fails at the client or API layer.
+            ValidationError: If local payload validation fails before sending.
+        """
         payload: dict[str, Any] = {"files": files}
         if output is not None:
             payload["output"] = output
@@ -4672,8 +6639,25 @@ class AsyncPdfRestClient(_AsyncApiClient):
         extra_body: Body | None = None,
         timeout: TimeoutTypes | None = None,
     ) -> PdfRestFileBasedResponse:
-        """Asynchronously extract files from a zip archive."""
+        """Asynchronous variant of [PdfRestClient.unzip_file][pdfrest.PdfRestClient.unzip_file].
 
+        Expands an uploaded ZIP archive into individual files on pdfRest storage and returns metadata for the extracted resources. This is useful when reusing uploaded bundles in later API calls.
+
+        Args:
+            file: Uploaded input file or files as `PdfRestFile` objects.
+            password: Password value used by encrypt/decrypt endpoints.
+            extra_query: Additional query parameters merged into the request.
+            extra_headers: Additional HTTP headers merged into the request.
+            extra_body: Additional request body fields merged into the payload.
+            timeout: Request timeout override for this call.
+
+        Returns:
+            Validated file-based response returned by pdfRest.
+
+        Raises:
+            PdfRestError: If request execution fails at the client or API layer.
+            ValidationError: If local payload validation fails before sending.
+        """
         payload: dict[str, Any] = {"files": file}
         if password is not None:
             payload["password"] = password
@@ -4698,8 +6682,25 @@ class AsyncPdfRestClient(_AsyncApiClient):
         extra_body: Body | None = None,
         timeout: TimeoutTypes | None = None,
     ) -> PdfRestFileBasedResponse:
-        """Asynchronously convert a PDF to an Excel spreadsheet."""
+        """Asynchronous variant of [PdfRestClient.convert_to_excel][pdfrest.PdfRestClient.convert_to_excel].
 
+        Converts PDF content into Excel workbook output optimized for tabular data extraction. Use this for spreadsheet-centric review or data cleanup workflows.
+
+        Args:
+            file: Uploaded input file or files as `PdfRestFile` objects.
+            output: Output filename prefix used by pdfRest when creating files.
+            extra_query: Additional query parameters merged into the request.
+            extra_headers: Additional HTTP headers merged into the request.
+            extra_body: Additional request body fields merged into the payload.
+            timeout: Request timeout override for this call.
+
+        Returns:
+            Validated file-based response returned by pdfRest.
+
+        Raises:
+            PdfRestError: If request execution fails at the client or API layer.
+            ValidationError: If local payload validation fails before sending.
+        """
         payload: dict[str, Any] = {"files": file}
         if output is not None:
             payload["output"] = output
@@ -4724,8 +6725,25 @@ class AsyncPdfRestClient(_AsyncApiClient):
         extra_body: Body | None = None,
         timeout: TimeoutTypes | None = None,
     ) -> PdfRestFileBasedResponse:
-        """Asynchronously convert a PDF to a PowerPoint presentation."""
+        """Asynchronous variant of [PdfRestClient.convert_to_powerpoint][pdfrest.PdfRestClient.convert_to_powerpoint].
 
+        Converts PDF pages into PowerPoint output suitable for slide editing and presentation reuse. This helps repurpose static PDF material into editable decks.
+
+        Args:
+            file: Uploaded input file or files as `PdfRestFile` objects.
+            output: Output filename prefix used by pdfRest when creating files.
+            extra_query: Additional query parameters merged into the request.
+            extra_headers: Additional HTTP headers merged into the request.
+            extra_body: Additional request body fields merged into the payload.
+            timeout: Request timeout override for this call.
+
+        Returns:
+            Validated file-based response returned by pdfRest.
+
+        Raises:
+            PdfRestError: If request execution fails at the client or API layer.
+            ValidationError: If local payload validation fails before sending.
+        """
         payload: dict[str, Any] = {"files": file}
         if output is not None:
             payload["output"] = output
@@ -4750,8 +6768,25 @@ class AsyncPdfRestClient(_AsyncApiClient):
         extra_body: Body | None = None,
         timeout: TimeoutTypes | None = None,
     ) -> PdfRestFileBasedResponse:
-        """Asynchronously convert an XFA PDF to an AcroForm-enabled PDF."""
+        """Asynchronous variant of [PdfRestClient.convert_xfa_to_acroforms][pdfrest.PdfRestClient.convert_xfa_to_acroforms].
 
+        Converts XFA form PDFs into AcroForm-compatible PDFs for broader tooling compatibility. Use this before importing/exporting form data with AcroForm-focused flows.
+
+        Args:
+            file: Uploaded input file or files as `PdfRestFile` objects.
+            output: Output filename prefix used by pdfRest when creating files.
+            extra_query: Additional query parameters merged into the request.
+            extra_headers: Additional HTTP headers merged into the request.
+            extra_body: Additional request body fields merged into the payload.
+            timeout: Request timeout override for this call.
+
+        Returns:
+            Validated file-based response returned by pdfRest.
+
+        Raises:
+            PdfRestError: If request execution fails at the client or API layer.
+            ValidationError: If local payload validation fails before sending.
+        """
         payload: dict[str, Any] = {"files": file}
         if output is not None:
             payload["output"] = output
@@ -4776,8 +6811,25 @@ class AsyncPdfRestClient(_AsyncApiClient):
         extra_body: Body | None = None,
         timeout: TimeoutTypes | None = None,
     ) -> PdfRestFileBasedResponse:
-        """Asynchronously convert a PDF to a Word document."""
+        """Asynchronous variant of [PdfRestClient.convert_to_word][pdfrest.PdfRestClient.convert_to_word].
 
+        Converts PDF content into Word output for document editing workflows. This is useful when users need editable text and layout reconstruction in DOCX format.
+
+        Args:
+            file: Uploaded input file or files as `PdfRestFile` objects.
+            output: Output filename prefix used by pdfRest when creating files.
+            extra_query: Additional query parameters merged into the request.
+            extra_headers: Additional HTTP headers merged into the request.
+            extra_body: Additional request body fields merged into the payload.
+            timeout: Request timeout override for this call.
+
+        Returns:
+            Validated file-based response returned by pdfRest.
+
+        Raises:
+            PdfRestError: If request execution fails at the client or API layer.
+            ValidationError: If local payload validation fails before sending.
+        """
         payload: dict[str, Any] = {"files": file}
         if output is not None:
             payload["output"] = output
@@ -4803,8 +6855,26 @@ class AsyncPdfRestClient(_AsyncApiClient):
         extra_body: Body | None = None,
         timeout: TimeoutTypes | None = None,
     ) -> PdfRestFileBasedResponse:
-        """Asynchronously import form data from a data file into a PDF."""
+        """Asynchronous variant of [PdfRestClient.import_form_data][pdfrest.PdfRestClient.import_form_data].
 
+        Imports external form-data files (XFDF/FDF/XML variants) into a source PDF and outputs a filled document. This supports bulk form-filling and integration pipelines.
+
+        Args:
+            file: Uploaded input file or files as `PdfRestFile` objects.
+            data_file: Uploaded form-data file (for example XFDF/FDF/XML/XDP/XFD) to import into the PDF.
+            output: Output filename prefix used by pdfRest when creating files.
+            extra_query: Additional query parameters merged into the request.
+            extra_headers: Additional HTTP headers merged into the request.
+            extra_body: Additional request body fields merged into the payload.
+            timeout: Request timeout override for this call.
+
+        Returns:
+            Validated file-based response returned by pdfRest.
+
+        Raises:
+            PdfRestError: If request execution fails at the client or API layer.
+            ValidationError: If local payload validation fails before sending.
+        """
         payload: dict[str, Any] = {"files": file, "data_file": data_file}
         if output is not None:
             payload["output"] = output
@@ -4830,13 +6900,26 @@ class AsyncPdfRestClient(_AsyncApiClient):
         extra_body: Body | None = None,
         timeout: TimeoutTypes | None = None,
     ) -> PdfRestFileBasedResponse:
-        """Asynchronously export form data from a PDF into a data file.
+        """Asynchronous variant of [PdfRestClient.export_form_data][pdfrest.PdfRestClient.export_form_data].
 
-        `data_format` support depends on detected form type:
-        - AcroForm PDFs: `xfdf`, `fdf`, `xml`
-        - XFA PDFs: `xfd`, `xdp`, `xml`
+        Exports form field data from a PDF into a structured data format (such as XFDF/FDF/XML). Use this for downstream processing, storage, or migration of form values.
+
+        Args:
+            file: Uploaded input file or files as `PdfRestFile` objects.
+            data_format: Output form-data format to export (for example XFDF, FDF, XML, XDP, or XFD).
+            output: Output filename prefix used by pdfRest when creating files.
+            extra_query: Additional query parameters merged into the request.
+            extra_headers: Additional HTTP headers merged into the request.
+            extra_body: Additional request body fields merged into the payload.
+            timeout: Request timeout override for this call.
+
+        Returns:
+            Validated file-based response returned by pdfRest.
+
+        Raises:
+            PdfRestError: If request execution fails at the client or API layer.
+            ValidationError: If local payload validation fails before sending.
         """
-
         payload: dict[str, Any] = {
             "files": file,
             "data_format": data_format,
@@ -4864,8 +6947,25 @@ class AsyncPdfRestClient(_AsyncApiClient):
         extra_body: Body | None = None,
         timeout: TimeoutTypes | None = None,
     ) -> PdfRestFileBasedResponse:
-        """Asynchronously flatten form fields in a PDF."""
+        """Asynchronous variant of [PdfRestClient.flatten_pdf_forms][pdfrest.PdfRestClient.flatten_pdf_forms].
 
+        Flattens interactive form fields into static page content so values are no longer editable. This is commonly used for finalization and archival workflows.
+
+        Args:
+            file: Uploaded input file or files as `PdfRestFile` objects.
+            output: Output filename prefix used by pdfRest when creating files.
+            extra_query: Additional query parameters merged into the request.
+            extra_headers: Additional HTTP headers merged into the request.
+            extra_body: Additional request body fields merged into the payload.
+            timeout: Request timeout override for this call.
+
+        Returns:
+            Validated file-based response returned by pdfRest.
+
+        Raises:
+            PdfRestError: If request execution fails at the client or API layer.
+            ValidationError: If local payload validation fails before sending.
+        """
         payload: dict[str, Any] = {"files": file}
         if output is not None:
             payload["output"] = output
@@ -4893,8 +6993,28 @@ class AsyncPdfRestClient(_AsyncApiClient):
         extra_body: Body | None = None,
         timeout: TimeoutTypes | None = None,
     ) -> PdfRestFileBasedResponse:
-        """Asynchronously add a permissions password and optional restrictions to a PDF."""
+        """Asynchronous variant of [PdfRestClient.add_permissions_password][pdfrest.PdfRestClient.add_permissions_password].
 
+        Applies owner permissions and restriction flags (print/copy/edit controls) to a PDF. This secures document capabilities without requiring an open password.
+
+        Args:
+            file: Uploaded input file or files as `PdfRestFile` objects.
+            new_permissions_password: New owner/permissions password to apply to the output PDF.
+            restrictions: Permission restriction literals for protected PDFs.
+            current_open_password: Current user/open password required to unlock the source PDF before changes.
+            output: Output filename prefix used by pdfRest when creating files.
+            extra_query: Additional query parameters merged into the request.
+            extra_headers: Additional HTTP headers merged into the request.
+            extra_body: Additional request body fields merged into the payload.
+            timeout: Request timeout override for this call.
+
+        Returns:
+            Validated file-based response returned by pdfRest.
+
+        Raises:
+            PdfRestError: If request execution fails at the client or API layer.
+            ValidationError: If local payload validation fails before sending.
+        """
         payload: dict[str, Any] = {
             "files": file,
             "new_permissions_password": new_permissions_password,
@@ -4930,8 +7050,29 @@ class AsyncPdfRestClient(_AsyncApiClient):
         extra_body: Body | None = None,
         timeout: TimeoutTypes | None = None,
     ) -> PdfRestFileBasedResponse:
-        """Asynchronously rotate the permissions password and optionally update restrictions."""
+        """Asynchronous variant of [PdfRestClient.change_permissions_password][pdfrest.PdfRestClient.change_permissions_password].
 
+        Updates owner permissions/password settings and restriction flags on an already protected PDF. Use this to rotate credentials or revise allowed actions.
+
+        Args:
+            file: Uploaded input file or files as `PdfRestFile` objects.
+            current_permissions_password: Current owner/permissions password used to authorize permission updates/removal.
+            new_permissions_password: New owner/permissions password to apply to the output PDF.
+            restrictions: Permission restriction literals for protected PDFs.
+            current_open_password: Current user/open password required to unlock the source PDF before changes.
+            output: Output filename prefix used by pdfRest when creating files.
+            extra_query: Additional query parameters merged into the request.
+            extra_headers: Additional HTTP headers merged into the request.
+            extra_body: Additional request body fields merged into the payload.
+            timeout: Request timeout override for this call.
+
+        Returns:
+            Validated file-based response returned by pdfRest.
+
+        Raises:
+            PdfRestError: If request execution fails at the client or API layer.
+            ValidationError: If local payload validation fails before sending.
+        """
         payload: dict[str, Any] = {
             "files": file,
             "current_permissions_password": current_permissions_password,
@@ -4966,8 +7107,27 @@ class AsyncPdfRestClient(_AsyncApiClient):
         extra_body: Body | None = None,
         timeout: TimeoutTypes | None = None,
     ) -> PdfRestFileBasedResponse:
-        """Asynchronously remove permissions restrictions from a PDF."""
+        """Asynchronous variant of [PdfRestClient.remove_permissions_password][pdfrest.PdfRestClient.remove_permissions_password].
 
+        Removes owner permission restrictions from a PDF when authorized with the existing owner password. This restores unrestricted editing/printing capabilities.
+
+        Args:
+            file: Uploaded input file or files as `PdfRestFile` objects.
+            current_permissions_password: Current owner/permissions password used to authorize permission updates/removal.
+            current_open_password: Current user/open password required to unlock the source PDF before changes.
+            output: Output filename prefix used by pdfRest when creating files.
+            extra_query: Additional query parameters merged into the request.
+            extra_headers: Additional HTTP headers merged into the request.
+            extra_body: Additional request body fields merged into the payload.
+            timeout: Request timeout override for this call.
+
+        Returns:
+            Validated file-based response returned by pdfRest.
+
+        Raises:
+            PdfRestError: If request execution fails at the client or API layer.
+            ValidationError: If local payload validation fails before sending.
+        """
         payload: dict[str, Any] = {
             "files": file,
             "current_permissions_password": current_permissions_password,
@@ -4999,8 +7159,27 @@ class AsyncPdfRestClient(_AsyncApiClient):
         extra_body: Body | None = None,
         timeout: TimeoutTypes | None = None,
     ) -> PdfRestFileBasedResponse:
-        """Asynchronously encrypt a PDF with a new open password."""
+        """Asynchronous variant of [PdfRestClient.add_open_password][pdfrest.PdfRestClient.add_open_password].
 
+        Applies a user/open password so the PDF requires authentication before viewing. Optional permissions controls can also be set for opened documents.
+
+        Args:
+            file: Uploaded input file or files as `PdfRestFile` objects.
+            new_open_password: New user/open password required to open the output PDF.
+            current_permissions_password: Current owner/permissions password used to authorize permission updates/removal.
+            output: Output filename prefix used by pdfRest when creating files.
+            extra_query: Additional query parameters merged into the request.
+            extra_headers: Additional HTTP headers merged into the request.
+            extra_body: Additional request body fields merged into the payload.
+            timeout: Request timeout override for this call.
+
+        Returns:
+            Validated file-based response returned by pdfRest.
+
+        Raises:
+            PdfRestError: If request execution fails at the client or API layer.
+            ValidationError: If local payload validation fails before sending.
+        """
         payload: dict[str, Any] = {
             "files": file,
             "new_open_password": new_open_password,
@@ -5033,8 +7212,28 @@ class AsyncPdfRestClient(_AsyncApiClient):
         extra_body: Body | None = None,
         timeout: TimeoutTypes | None = None,
     ) -> PdfRestFileBasedResponse:
-        """Asynchronously rotate the open password for an encrypted PDF."""
+        """Asynchronous variant of [PdfRestClient.change_open_password][pdfrest.PdfRestClient.change_open_password].
 
+        Replaces the existing open password with a new one while preserving or updating related protection options. Use this for credential rotation.
+
+        Args:
+            file: Uploaded input file or files as `PdfRestFile` objects.
+            current_open_password: Current user/open password required to unlock the source PDF before changes.
+            new_open_password: New user/open password required to open the output PDF.
+            current_permissions_password: Current owner/permissions password used to authorize permission updates/removal.
+            output: Output filename prefix used by pdfRest when creating files.
+            extra_query: Additional query parameters merged into the request.
+            extra_headers: Additional HTTP headers merged into the request.
+            extra_body: Additional request body fields merged into the payload.
+            timeout: Request timeout override for this call.
+
+        Returns:
+            Validated file-based response returned by pdfRest.
+
+        Raises:
+            PdfRestError: If request execution fails at the client or API layer.
+            ValidationError: If local payload validation fails before sending.
+        """
         payload: dict[str, Any] = {
             "files": file,
             "current_open_password": current_open_password,
@@ -5067,8 +7266,27 @@ class AsyncPdfRestClient(_AsyncApiClient):
         extra_body: Body | None = None,
         timeout: TimeoutTypes | None = None,
     ) -> PdfRestFileBasedResponse:
-        """Asynchronously decrypt a PDF by removing its open password."""
+        """Asynchronous variant of [PdfRestClient.remove_open_password][pdfrest.PdfRestClient.remove_open_password].
 
+        Removes the user/open password requirement from a PDF when the current password is provided. The output document can be opened without viewer authentication.
+
+        Args:
+            file: Uploaded input file or files as `PdfRestFile` objects.
+            current_open_password: Current user/open password required to unlock the source PDF before changes.
+            current_permissions_password: Current owner/permissions password used to authorize permission updates/removal.
+            output: Output filename prefix used by pdfRest when creating files.
+            extra_query: Additional query parameters merged into the request.
+            extra_headers: Additional HTTP headers merged into the request.
+            extra_body: Additional request body fields merged into the payload.
+            timeout: Request timeout override for this call.
+
+        Returns:
+            Validated file-based response returned by pdfRest.
+
+        Raises:
+            PdfRestError: If request execution fails at the client or API layer.
+            ValidationError: If local payload validation fails before sending.
+        """
         payload: dict[str, Any] = {
             "files": file,
             "current_open_password": current_open_password,
@@ -5100,8 +7318,27 @@ class AsyncPdfRestClient(_AsyncApiClient):
         extra_body: Body | None = None,
         timeout: TimeoutTypes | None = None,
     ) -> PdfRestFileBasedResponse:
-        """Asynchronously compress a PDF."""
+        """Asynchronous variant of [PdfRestClient.compress_pdf][pdfrest.PdfRestClient.compress_pdf].
 
+        Reduces PDF file size using preset or custom compression settings, with optional profile uploads. Use this for storage/bandwidth optimization while balancing quality.
+
+        Args:
+            file: Uploaded input file or files as `PdfRestFile` objects.
+            compression_level: Compression level or strategy option.
+            profile: Uploaded color/compression profile as a `PdfRestFile`.
+            output: Output filename prefix used by pdfRest when creating files.
+            extra_query: Additional query parameters merged into the request.
+            extra_headers: Additional HTTP headers merged into the request.
+            extra_body: Additional request body fields merged into the payload.
+            timeout: Request timeout override for this call.
+
+        Returns:
+            Validated file-based response returned by pdfRest.
+
+        Raises:
+            PdfRestError: If request execution fails at the client or API layer.
+            ValidationError: If local payload validation fails before sending.
+        """
         payload: dict[str, Any] = {
             "files": file,
             "compression_level": compression_level,
@@ -5132,8 +7369,26 @@ class AsyncPdfRestClient(_AsyncApiClient):
         extra_body: Body | None = None,
         timeout: TimeoutTypes | None = None,
     ) -> PdfRestFileBasedResponse:
-        """Asynchronously attach an uploaded file to a PDF."""
+        """Asynchronous variant of [PdfRestClient.add_attachment_to_pdf][pdfrest.PdfRestClient.add_attachment_to_pdf].
 
+        Embeds an uploaded file as an attachment inside a PDF container document. This supports package-style delivery where supplemental files travel with the PDF.
+
+        Args:
+            file: Uploaded input file or files as `PdfRestFile` objects.
+            attachment: Uploaded file to embed as an attachment in the output PDF.
+            output: Output filename prefix used by pdfRest when creating files.
+            extra_query: Additional query parameters merged into the request.
+            extra_headers: Additional HTTP headers merged into the request.
+            extra_body: Additional request body fields merged into the payload.
+            timeout: Request timeout override for this call.
+
+        Returns:
+            Validated file-based response returned by pdfRest.
+
+        Raises:
+            PdfRestError: If request execution fails at the client or API layer.
+            ValidationError: If local payload validation fails before sending.
+        """
         payload: dict[str, Any] = {"files": file, "attachment": attachment}
         if output is not None:
             payload["output"] = output
@@ -5161,8 +7416,28 @@ class AsyncPdfRestClient(_AsyncApiClient):
         extra_body: Body | None = None,
         timeout: TimeoutTypes | None = None,
     ) -> PdfRestFileBasedResponse:
-        """Digitally sign a PDF using PFX credentials or a certificate/private key."""
+        """Asynchronous variant of [PdfRestClient.sign_pdf][pdfrest.PdfRestClient.sign_pdf].
 
+        Applies digital signatures using either PFX credentials or certificate/private-key inputs, with configurable visible signature placement and appearance. Use this for integrity, authenticity, and non-repudiation workflows.
+
+        Args:
+            file: Uploaded input file or files as `PdfRestFile` objects.
+            signature_configuration: Signature placement and appearance settings.
+            credentials: Digital signing credential bundle (PFX or cert/key files).
+            logo: Optional uploaded logo file displayed in visible digital signature appearances.
+            output: Output filename prefix used by pdfRest when creating files.
+            extra_query: Additional query parameters merged into the request.
+            extra_headers: Additional HTTP headers merged into the request.
+            extra_body: Additional request body fields merged into the payload.
+            timeout: Request timeout override for this call.
+
+        Returns:
+            Validated file-based response returned by pdfRest.
+
+        Raises:
+            PdfRestError: If request execution fails at the client or API layer.
+            ValidationError: If local payload validation fails before sending.
+        """
         payload: dict[str, Any] = {
             "files": file,
             "signature_configuration": signature_configuration,
@@ -5196,8 +7471,27 @@ class AsyncPdfRestClient(_AsyncApiClient):
         extra_body: Body | None = None,
         timeout: TimeoutTypes | None = None,
     ) -> PdfRestFileBasedResponse:
-        """Asynchronously create a blank PDF with configurable size and count."""
+        """Asynchronous variant of [PdfRestClient.blank_pdf][pdfrest.PdfRestClient.blank_pdf].
 
+        Creates a new blank PDF with configurable page size, orientation, and page count. This is useful as a template baseline for downstream stamping/filling workflows.
+
+        Args:
+            page_size: Target page size preset or custom size settings used for output page dimensions.
+            page_count: Number of blank pages to generate in the new PDF.
+            page_orientation: Page orientation for standard page sizes (portrait or landscape).
+            output: Output filename prefix used by pdfRest when creating files.
+            extra_query: Additional query parameters merged into the request.
+            extra_headers: Additional HTTP headers merged into the request.
+            extra_body: Additional request body fields merged into the payload.
+            timeout: Request timeout override for this call.
+
+        Returns:
+            Validated file-based response returned by pdfRest.
+
+        Raises:
+            PdfRestError: If request execution fails at the client or API layer.
+            ValidationError: If local payload validation fails before sending.
+        """
         payload: dict[str, Any] = {
             "page_size": page_size,
             "page_count": page_count,
@@ -5229,8 +7523,27 @@ class AsyncPdfRestClient(_AsyncApiClient):
         extra_body: Body | None = None,
         timeout: TimeoutTypes | None = None,
     ) -> PdfRestFileBasedResponse:
-        """Asynchronously convert PDF colors using presets or a custom ICC profile."""
+        """Asynchronous variant of [PdfRestClient.convert_colors][pdfrest.PdfRestClient.convert_colors].
 
+        Converts document color spaces using preset profiles and optional black-preservation behavior. Use this to normalize output for print pipelines or color-management requirements.
+
+        Args:
+            file: Uploaded input file or files as `PdfRestFile` objects.
+            color_profile: Named color profile used by color conversion.
+            preserve_black: When true, keeps pure black content from being remapped during color-profile conversion.
+            output: Output filename prefix used by pdfRest when creating files.
+            extra_query: Additional query parameters merged into the request.
+            extra_headers: Additional HTTP headers merged into the request.
+            extra_body: Additional request body fields merged into the payload.
+            timeout: Request timeout override for this call.
+
+        Returns:
+            Validated file-based response returned by pdfRest.
+
+        Raises:
+            PdfRestError: If request execution fails at the client or API layer.
+            ValidationError: If local payload validation fails before sending.
+        """
         payload: dict[str, Any] = {
             "files": file,
             "color_profile": color_profile,
@@ -5260,8 +7573,26 @@ class AsyncPdfRestClient(_AsyncApiClient):
         extra_body: Body | None = None,
         timeout: TimeoutTypes | None = None,
     ) -> PdfRestFileBasedResponse:
-        """Asynchronously flatten transparent objects in a PDF."""
+        """Asynchronous variant of [PdfRestClient.flatten_transparencies][pdfrest.PdfRestClient.flatten_transparencies].
 
+        Flattens transparent objects into opaque content using selectable quality levels. This improves compatibility with workflows/devices that do not fully support transparency.
+
+        Args:
+            file: Uploaded input file or files as `PdfRestFile` objects.
+            output: Output filename prefix used by pdfRest when creating files.
+            quality: Quality preset understood by the selected endpoint.
+            extra_query: Additional query parameters merged into the request.
+            extra_headers: Additional HTTP headers merged into the request.
+            extra_body: Additional request body fields merged into the payload.
+            timeout: Request timeout override for this call.
+
+        Returns:
+            Validated file-based response returned by pdfRest.
+
+        Raises:
+            PdfRestError: If request execution fails at the client or API layer.
+            ValidationError: If local payload validation fails before sending.
+        """
         payload: dict[str, Any] = {"files": file, "quality": quality}
         if output is not None:
             payload["output"] = output
@@ -5286,8 +7617,25 @@ class AsyncPdfRestClient(_AsyncApiClient):
         extra_body: Body | None = None,
         timeout: TimeoutTypes | None = None,
     ) -> PdfRestFileBasedResponse:
-        """Asynchronously linearize a PDF for optimized fast web view."""
+        """Asynchronous variant of [PdfRestClient.linearize_pdf][pdfrest.PdfRestClient.linearize_pdf].
 
+        Linearizes the PDF for fast web view so first pages render sooner over network delivery. This improves user experience for browser-based document viewing.
+
+        Args:
+            file: Uploaded input file or files as `PdfRestFile` objects.
+            output: Output filename prefix used by pdfRest when creating files.
+            extra_query: Additional query parameters merged into the request.
+            extra_headers: Additional HTTP headers merged into the request.
+            extra_body: Additional request body fields merged into the payload.
+            timeout: Request timeout override for this call.
+
+        Returns:
+            Validated file-based response returned by pdfRest.
+
+        Raises:
+            PdfRestError: If request execution fails at the client or API layer.
+            ValidationError: If local payload validation fails before sending.
+        """
         payload: dict[str, Any] = {"files": file}
         if output is not None:
             payload["output"] = output
@@ -5312,8 +7660,25 @@ class AsyncPdfRestClient(_AsyncApiClient):
         extra_body: Body | None = None,
         timeout: TimeoutTypes | None = None,
     ) -> PdfRestFileBasedResponse:
-        """Asynchronously flatten annotations into the PDF content."""
+        """Asynchronous variant of [PdfRestClient.flatten_annotations][pdfrest.PdfRestClient.flatten_annotations].
 
+        Burns annotation markup into page content so comments/highlights become static and non-editable. Use this when sharing finalized review copies.
+
+        Args:
+            file: Uploaded input file or files as `PdfRestFile` objects.
+            output: Output filename prefix used by pdfRest when creating files.
+            extra_query: Additional query parameters merged into the request.
+            extra_headers: Additional HTTP headers merged into the request.
+            extra_body: Additional request body fields merged into the payload.
+            timeout: Request timeout override for this call.
+
+        Returns:
+            Validated file-based response returned by pdfRest.
+
+        Raises:
+            PdfRestError: If request execution fails at the client or API layer.
+            ValidationError: If local payload validation fails before sending.
+        """
         payload: dict[str, Any] = {"files": file}
         if output is not None:
             payload["output"] = output
@@ -5338,8 +7703,25 @@ class AsyncPdfRestClient(_AsyncApiClient):
         extra_body: Body | None = None,
         timeout: TimeoutTypes | None = None,
     ) -> PdfRestFileBasedResponse:
-        """Asynchronously flatten all layers in a PDF."""
+        """Asynchronous variant of [PdfRestClient.flatten_layers][pdfrest.PdfRestClient.flatten_layers].
 
+        Flattens optional content groups (layers) into a single visible page representation. This avoids layer-dependent rendering differences across viewers.
+
+        Args:
+            file: Uploaded input file or files as `PdfRestFile` objects.
+            output: Output filename prefix used by pdfRest when creating files.
+            extra_query: Additional query parameters merged into the request.
+            extra_headers: Additional HTTP headers merged into the request.
+            extra_body: Additional request body fields merged into the payload.
+            timeout: Request timeout override for this call.
+
+        Returns:
+            Validated file-based response returned by pdfRest.
+
+        Raises:
+            PdfRestError: If request execution fails at the client or API layer.
+            ValidationError: If local payload validation fails before sending.
+        """
         payload: dict[str, Any] = {"files": file}
         if output is not None:
             payload["output"] = output
@@ -5364,8 +7746,25 @@ class AsyncPdfRestClient(_AsyncApiClient):
         extra_body: Body | None = None,
         timeout: TimeoutTypes | None = None,
     ) -> PdfRestFileBasedResponse:
-        """Asynchronously rasterize a PDF into a flattened bitmap-based PDF."""
+        """Asynchronous variant of [PdfRestClient.rasterize_pdf][pdfrest.PdfRestClient.rasterize_pdf].
 
+        Rasterizes PDF pages into image-based page content at a specified resolution. Use this for visual normalization, redaction hardening, or viewer compatibility scenarios.
+
+        Args:
+            file: Uploaded input file or files as `PdfRestFile` objects.
+            output: Output filename prefix used by pdfRest when creating files.
+            extra_query: Additional query parameters merged into the request.
+            extra_headers: Additional HTTP headers merged into the request.
+            extra_body: Additional request body fields merged into the payload.
+            timeout: Request timeout override for this call.
+
+        Returns:
+            Validated file-based response returned by pdfRest.
+
+        Raises:
+            PdfRestError: If request execution fails at the client or API layer.
+            ValidationError: If local payload validation fails before sending.
+        """
         payload: dict[str, Any] = {"files": file}
         if output is not None:
             payload["output"] = output
@@ -5398,8 +7797,33 @@ class AsyncPdfRestClient(_AsyncApiClient):
         extra_body: Body | None = None,
         timeout: TimeoutTypes | None = None,
     ) -> PdfRestFileBasedResponse:
-        """Asynchronously convert a Microsoft Office file to PDF."""
+        """Asynchronous variant of [PdfRestClient.convert_office_to_pdf][pdfrest.PdfRestClient.convert_office_to_pdf].
 
+        Converts Office documents into PDF output using conversion options for layout and fidelity. This is the main entry point for Word/Excel/PowerPoint-to-PDF workflows.
+
+        Args:
+            file: Uploaded input file or files as `PdfRestFile` objects.
+            output: Output filename prefix used by pdfRest when creating files.
+            compression: Compression mode used during conversion.
+            downsample: Image downsampling setting for conversion.
+            tagged_pdf: For Office conversion, toggles generation of tagged PDFs for accessibility workflows.
+            locale: Locale used by locale-aware conversion options.
+            page_size: Target page size preset or custom size settings used for output page dimensions.
+            page_margin: Page margin setting (for example `8mm` or `0.5in`) for HTML/URL rendering outputs.
+            page_orientation: Page orientation for standard page sizes (portrait or landscape).
+            web_layout: Rendering viewport profile (`desktop`, `tablet`, or `mobile`) for HTML/URL conversion.
+            extra_query: Additional query parameters merged into the request.
+            extra_headers: Additional HTTP headers merged into the request.
+            extra_body: Additional request body fields merged into the payload.
+            timeout: Request timeout override for this call.
+
+        Returns:
+            Validated file-based response returned by pdfRest.
+
+        Raises:
+            PdfRestError: If request execution fails at the client or API layer.
+            ValidationError: If local payload validation fails before sending.
+        """
         payload: dict[str, Any] = {
             "files": file,
             "output": output,
@@ -5436,8 +7860,27 @@ class AsyncPdfRestClient(_AsyncApiClient):
         extra_body: Body | None = None,
         timeout: TimeoutTypes | None = None,
     ) -> PdfRestFileBasedResponse:
-        """Asynchronously convert a PostScript or EPS file to PDF."""
+        """Asynchronous variant of [PdfRestClient.convert_postscript_to_pdf][pdfrest.PdfRestClient.convert_postscript_to_pdf].
 
+        Converts PostScript content to PDF while preserving page content for modern PDF workflows. Use this when ingesting legacy print-oriented document formats.
+
+        Args:
+            file: Uploaded input file or files as `PdfRestFile` objects.
+            output: Output filename prefix used by pdfRest when creating files.
+            compression: Compression mode used during conversion.
+            downsample: Image downsampling setting for conversion.
+            extra_query: Additional query parameters merged into the request.
+            extra_headers: Additional HTTP headers merged into the request.
+            extra_body: Additional request body fields merged into the payload.
+            timeout: Request timeout override for this call.
+
+        Returns:
+            Validated file-based response returned by pdfRest.
+
+        Raises:
+            PdfRestError: If request execution fails at the client or API layer.
+            ValidationError: If local payload validation fails before sending.
+        """
         payload: dict[str, Any] = {
             "files": file,
             "output": output,
@@ -5466,8 +7909,25 @@ class AsyncPdfRestClient(_AsyncApiClient):
         extra_body: Body | None = None,
         timeout: TimeoutTypes | None = None,
     ) -> PdfRestFileBasedResponse:
-        """Asynchronously convert an RFC822 email file to PDF."""
+        """Asynchronous variant of [PdfRestClient.convert_email_to_pdf][pdfrest.PdfRestClient.convert_email_to_pdf].
 
+        Converts email message files into PDF, including rendered message content and supported metadata/body parts. This supports archiving and compliance workflows.
+
+        Args:
+            file: Uploaded input file or files as `PdfRestFile` objects.
+            output: Output filename prefix used by pdfRest when creating files.
+            extra_query: Additional query parameters merged into the request.
+            extra_headers: Additional HTTP headers merged into the request.
+            extra_body: Additional request body fields merged into the payload.
+            timeout: Request timeout override for this call.
+
+        Returns:
+            Validated file-based response returned by pdfRest.
+
+        Raises:
+            PdfRestError: If request execution fails at the client or API layer.
+            ValidationError: If local payload validation fails before sending.
+        """
         payload: dict[str, Any] = {
             "files": file,
             "output": output,
@@ -5494,8 +7954,25 @@ class AsyncPdfRestClient(_AsyncApiClient):
         extra_body: Body | None = None,
         timeout: TimeoutTypes | None = None,
     ) -> PdfRestFileBasedResponse:
-        """Asynchronously convert a supported image file to PDF."""
+        """Asynchronous variant of [PdfRestClient.convert_image_to_pdf][pdfrest.PdfRestClient.convert_image_to_pdf].
 
+        Converts one or more image files into PDF output and can combine them into multipage documents. Use this to normalize scanned/image assets into PDF containers.
+
+        Args:
+            file: Uploaded input file or files as `PdfRestFile` objects.
+            output: Output filename prefix used by pdfRest when creating files.
+            extra_query: Additional query parameters merged into the request.
+            extra_headers: Additional HTTP headers merged into the request.
+            extra_body: Additional request body fields merged into the payload.
+            timeout: Request timeout override for this call.
+
+        Returns:
+            Validated file-based response returned by pdfRest.
+
+        Raises:
+            PdfRestError: If request execution fails at the client or API layer.
+            ValidationError: If local payload validation fails before sending.
+        """
         payload: dict[str, Any] = {
             "files": file,
             "output": output,
@@ -5528,8 +8005,31 @@ class AsyncPdfRestClient(_AsyncApiClient):
         extra_body: Body | None = None,
         timeout: TimeoutTypes | None = None,
     ) -> PdfRestFileBasedResponse:
-        """Asynchronously convert an uploaded HTML file to PDF."""
+        """Asynchronous variant of [PdfRestClient.convert_html_to_pdf][pdfrest.PdfRestClient.convert_html_to_pdf].
 
+        Renders HTML content into PDF with page-size/orientation/layout and related rendering controls. This supports report generation and web-to-PDF publishing use cases.
+
+        Args:
+            file: Uploaded input file or files as `PdfRestFile` objects.
+            output: Output filename prefix used by pdfRest when creating files.
+            compression: Compression mode used during conversion.
+            downsample: Image downsampling setting for conversion.
+            page_size: Target page size preset or custom size settings used for output page dimensions.
+            page_margin: Page margin setting (for example `8mm` or `0.5in`) for HTML/URL rendering outputs.
+            page_orientation: Page orientation for standard page sizes (portrait or landscape).
+            web_layout: Rendering viewport profile (`desktop`, `tablet`, or `mobile`) for HTML/URL conversion.
+            extra_query: Additional query parameters merged into the request.
+            extra_headers: Additional HTTP headers merged into the request.
+            extra_body: Additional request body fields merged into the payload.
+            timeout: Request timeout override for this call.
+
+        Returns:
+            Validated file-based response returned by pdfRest.
+
+        Raises:
+            PdfRestError: If request execution fails at the client or API layer.
+            ValidationError: If local payload validation fails before sending.
+        """
         payload: dict[str, Any] = {
             "files": file,
             "output": output,
@@ -5568,8 +8068,31 @@ class AsyncPdfRestClient(_AsyncApiClient):
         extra_body: Body | None = None,
         timeout: TimeoutTypes | None = None,
     ) -> PdfRestFileBasedResponse:
-        """Asynchronously convert HTML content from one URL to PDF."""
+        """Asynchronous variant of [PdfRestClient.convert_url_to_pdf][pdfrest.PdfRestClient.convert_url_to_pdf].
 
+        Fetches remote web content by URL and renders it to PDF using HTML rendering options. Use this for automated webpage capture and archival.
+
+        Args:
+            url: Remote URL to ingest and convert.
+            output: Output filename prefix used by pdfRest when creating files.
+            compression: Compression mode used during conversion.
+            downsample: Image downsampling setting for conversion.
+            page_size: Target page size preset or custom size settings used for output page dimensions.
+            page_margin: Page margin setting (for example `8mm` or `0.5in`) for HTML/URL rendering outputs.
+            page_orientation: Page orientation for standard page sizes (portrait or landscape).
+            web_layout: Rendering viewport profile (`desktop`, `tablet`, or `mobile`) for HTML/URL conversion.
+            extra_query: Additional query parameters merged into the request.
+            extra_headers: Additional HTTP headers merged into the request.
+            extra_body: Additional request body fields merged into the payload.
+            timeout: Request timeout override for this call.
+
+        Returns:
+            Validated file-based response returned by pdfRest.
+
+        Raises:
+            PdfRestError: If request execution fails at the client or API layer.
+            ValidationError: If local payload validation fails before sending.
+        """
         payload: dict[str, Any] = {
             "url": url,
             "output": output,
@@ -5614,8 +8137,37 @@ class AsyncPdfRestClient(_AsyncApiClient):
         extra_body: Body | None = None,
         timeout: TimeoutTypes | None = None,
     ) -> PdfRestFileBasedResponse:
-        """Asynchronously apply a text watermark to a PDF."""
+        """Asynchronous variant of [PdfRestClient.watermark_pdf_with_text][pdfrest.PdfRestClient.watermark_pdf_with_text].
 
+        Applies text watermarks with control over placement, rotation, color, opacity, and alignment. Use this for confidentiality marks, drafts, and document branding.
+
+        Args:
+            file: Uploaded input file or files as `PdfRestFile` objects.
+            watermark_text: Text content to render as the watermark.
+            output: Output filename prefix used by pdfRest when creating files.
+            font: Font family name for rendered text.
+            text_size: Watermark text size in points.
+            text_color: Watermark text color as RGB or CMYK channel values.
+            opacity: Opacity in range 0.0 to 1.0.
+            horizontal_alignment: Horizontal alignment anchor used when placing watermark content.
+            vertical_alignment: Vertical alignment anchor used when placing watermark content.
+            x: Horizontal position in PDF points.
+            y: Vertical position in PDF points.
+            rotation: Rotation angle in degrees.
+            pages: Page selection to constrain processing to specific pages.
+            behind_page: Target page number (or selector) where inserted content should be applied.
+            extra_query: Additional query parameters merged into the request.
+            extra_headers: Additional HTTP headers merged into the request.
+            extra_body: Additional request body fields merged into the payload.
+            timeout: Request timeout override for this call.
+
+        Returns:
+            Validated file-based response returned by pdfRest.
+
+        Raises:
+            PdfRestError: If request execution fails at the client or API layer.
+            ValidationError: If local payload validation fails before sending.
+        """
         payload: dict[str, Any] = {
             "files": file,
             "watermark_text": watermark_text,
@@ -5664,8 +8216,35 @@ class AsyncPdfRestClient(_AsyncApiClient):
         extra_body: Body | None = None,
         timeout: TimeoutTypes | None = None,
     ) -> PdfRestFileBasedResponse:
-        """Asynchronously apply an image watermark to a PDF."""
+        """Asynchronous variant of [PdfRestClient.watermark_pdf_with_image][pdfrest.PdfRestClient.watermark_pdf_with_image].
 
+        Applies image watermarks (for example logos/seals) with placement and opacity controls. This is useful for branded overlays and visual ownership marks.
+
+        Args:
+            file: Uploaded input file or files as `PdfRestFile` objects.
+            watermark_file: Uploaded image used as watermark content.
+            output: Output filename prefix used by pdfRest when creating files.
+            watermark_file_scale: Scale multiplier applied to the watermark file graphic before placement.
+            opacity: Opacity in range 0.0 to 1.0.
+            horizontal_alignment: Horizontal alignment anchor used when placing watermark content.
+            vertical_alignment: Vertical alignment anchor used when placing watermark content.
+            x: Horizontal position in PDF points.
+            y: Vertical position in PDF points.
+            rotation: Rotation angle in degrees.
+            pages: Page selection to constrain processing to specific pages.
+            behind_page: Target page number (or selector) where inserted content should be applied.
+            extra_query: Additional query parameters merged into the request.
+            extra_headers: Additional HTTP headers merged into the request.
+            extra_body: Additional request body fields merged into the payload.
+            timeout: Request timeout override for this call.
+
+        Returns:
+            Validated file-based response returned by pdfRest.
+
+        Raises:
+            PdfRestError: If request execution fails at the client or API layer.
+            ValidationError: If local payload validation fails before sending.
+        """
         payload: dict[str, Any] = {
             "files": file,
             "watermark_file": watermark_file,
@@ -5704,8 +8283,27 @@ class AsyncPdfRestClient(_AsyncApiClient):
         extra_body: Body | None = None,
         timeout: TimeoutTypes | None = None,
     ) -> PdfRestFileBasedResponse:
-        """Asynchronously convert a PDF to a specified PDF/A version."""
+        """Asynchronous variant of [PdfRestClient.convert_to_pdfa][pdfrest.PdfRestClient.convert_to_pdfa].
 
+        Converts input PDFs to selected PDF/A conformance levels for long-term archival compatibility. Choose the target conformance profile that matches your compliance requirements.
+
+        Args:
+            file: Uploaded input file or files as `PdfRestFile` objects.
+            output_type: Output mode for endpoints supporting inline or file output.
+            output: Output filename prefix used by pdfRest when creating files.
+            rasterize_if_errors_encountered: When enabled, allows rasterized fallback if strict conformance conversion encounters nonconforming content.
+            extra_query: Additional query parameters merged into the request.
+            extra_headers: Additional HTTP headers merged into the request.
+            extra_body: Additional request body fields merged into the payload.
+            timeout: Request timeout override for this call.
+
+        Returns:
+            Validated file-based response returned by pdfRest.
+
+        Raises:
+            PdfRestError: If request execution fails at the client or API layer.
+            ValidationError: If local payload validation fails before sending.
+        """
         payload: dict[str, Any] = {
             "files": file,
             "output_type": output_type,
@@ -5735,8 +8333,26 @@ class AsyncPdfRestClient(_AsyncApiClient):
         extra_body: Body | None = None,
         timeout: TimeoutTypes | None = None,
     ) -> PdfRestFileBasedResponse:
-        """Asynchronously convert a PDF to a specified PDF/X version."""
+        """Asynchronous variant of [PdfRestClient.convert_to_pdfx][pdfrest.PdfRestClient.convert_to_pdfx].
 
+        Converts input PDFs to selected PDF/X conformance levels for print-production workflows. Use this when downstream print tooling expects standardized PDF/X output.
+
+        Args:
+            file: Uploaded input file or files as `PdfRestFile` objects.
+            output_type: Output mode for endpoints supporting inline or file output.
+            output: Output filename prefix used by pdfRest when creating files.
+            extra_query: Additional query parameters merged into the request.
+            extra_headers: Additional HTTP headers merged into the request.
+            extra_body: Additional request body fields merged into the payload.
+            timeout: Request timeout override for this call.
+
+        Returns:
+            Validated file-based response returned by pdfRest.
+
+        Raises:
+            PdfRestError: If request execution fails at the client or API layer.
+            ValidationError: If local payload validation fails before sending.
+        """
         payload: dict[str, Any] = {"files": file, "output_type": output_type}
         if output is not None:
             payload["output"] = output
@@ -5765,8 +8381,29 @@ class AsyncPdfRestClient(_AsyncApiClient):
         extra_body: Body | None = None,
         timeout: TimeoutTypes | None = None,
     ) -> PdfRestFileBasedResponse:
-        """Asynchronously convert one or more pdfRest files to PNG images."""
+        """Asynchronous variant of [PdfRestClient.convert_to_png][pdfrest.PdfRestClient.convert_to_png].
 
+        Converts PDF pages to PNG images with configurable color model, smoothing, and page selection controls. Suitable for high-fidelity raster exports and previews.
+
+        Args:
+            files: Uploaded input file or files as `PdfRestFile` objects.
+            output_prefix: Filename prefix used for generated per-page/per-file image outputs.
+            page_range: Page selection string/list for image conversion outputs.
+            resolution: Raster output resolution in DPI for generated image files.
+            color_model: Output image color model.
+            smoothing: Graphic smoothing mode for image output endpoints.
+            extra_query: Additional query parameters merged into the request.
+            extra_headers: Additional HTTP headers merged into the request.
+            extra_body: Additional request body fields merged into the payload.
+            timeout: Request timeout override for this call.
+
+        Returns:
+            Validated file-based response returned by pdfRest.
+
+        Raises:
+            PdfRestError: If request execution fails at the client or API layer.
+            ValidationError: If local payload validation fails before sending.
+        """
         payload: dict[str, Any] = {
             "files": files,
             "resolution": resolution,
@@ -5802,8 +8439,29 @@ class AsyncPdfRestClient(_AsyncApiClient):
         extra_body: Body | None = None,
         timeout: TimeoutTypes | None = None,
     ) -> PdfRestFileBasedResponse:
-        """Asynchronously convert one or more pdfRest files to BMP images."""
+        """Asynchronous variant of [PdfRestClient.convert_to_bmp][pdfrest.PdfRestClient.convert_to_bmp].
 
+        Converts PDF pages to BMP images with configurable color model and page selection. Use this for legacy bitmap workflows that require BMP output.
+
+        Args:
+            files: Uploaded input file or files as `PdfRestFile` objects.
+            output_prefix: Filename prefix used for generated per-page/per-file image outputs.
+            page_range: Page selection string/list for image conversion outputs.
+            resolution: Raster output resolution in DPI for generated image files.
+            color_model: Output image color model.
+            smoothing: Graphic smoothing mode for image output endpoints.
+            extra_query: Additional query parameters merged into the request.
+            extra_headers: Additional HTTP headers merged into the request.
+            extra_body: Additional request body fields merged into the payload.
+            timeout: Request timeout override for this call.
+
+        Returns:
+            Validated file-based response returned by pdfRest.
+
+        Raises:
+            PdfRestError: If request execution fails at the client or API layer.
+            ValidationError: If local payload validation fails before sending.
+        """
         payload: dict[str, Any] = {
             "files": files,
             "resolution": resolution,
@@ -5839,8 +8497,29 @@ class AsyncPdfRestClient(_AsyncApiClient):
         extra_body: Body | None = None,
         timeout: TimeoutTypes | None = None,
     ) -> PdfRestFileBasedResponse:
-        """Asynchronously convert one or more pdfRest files to GIF images."""
+        """Asynchronous variant of [PdfRestClient.convert_to_gif][pdfrest.PdfRestClient.convert_to_gif].
 
+        Converts PDF pages to GIF images with configurable color model and page selection. Useful for lightweight graphics workflows and compatibility scenarios.
+
+        Args:
+            files: Uploaded input file or files as `PdfRestFile` objects.
+            output_prefix: Filename prefix used for generated per-page/per-file image outputs.
+            page_range: Page selection string/list for image conversion outputs.
+            resolution: Raster output resolution in DPI for generated image files.
+            color_model: Output image color model.
+            smoothing: Graphic smoothing mode for image output endpoints.
+            extra_query: Additional query parameters merged into the request.
+            extra_headers: Additional HTTP headers merged into the request.
+            extra_body: Additional request body fields merged into the payload.
+            timeout: Request timeout override for this call.
+
+        Returns:
+            Validated file-based response returned by pdfRest.
+
+        Raises:
+            PdfRestError: If request execution fails at the client or API layer.
+            ValidationError: If local payload validation fails before sending.
+        """
         payload: dict[str, Any] = {
             "files": files,
             "resolution": resolution,
@@ -5877,8 +8556,30 @@ class AsyncPdfRestClient(_AsyncApiClient):
         extra_body: Body | None = None,
         timeout: TimeoutTypes | None = None,
     ) -> PdfRestFileBasedResponse:
-        """Asynchronously convert one or more pdfRest files to JPEG images."""
+        """Asynchronous variant of [PdfRestClient.convert_to_jpeg][pdfrest.PdfRestClient.convert_to_jpeg].
 
+        Converts PDF pages to JPEG images with configurable color model and page selection. Use this for compressed photo-friendly page exports.
+
+        Args:
+            files: Uploaded input file or files as `PdfRestFile` objects.
+            output_prefix: Filename prefix used for generated per-page/per-file image outputs.
+            page_range: Page selection string/list for image conversion outputs.
+            resolution: Raster output resolution in DPI for generated image files.
+            color_model: Output image color model.
+            smoothing: Graphic smoothing mode for image output endpoints.
+            jpeg_quality: JPEG quality setting (1-100) controlling compression level and output fidelity.
+            extra_query: Additional query parameters merged into the request.
+            extra_headers: Additional HTTP headers merged into the request.
+            extra_body: Additional request body fields merged into the payload.
+            timeout: Request timeout override for this call.
+
+        Returns:
+            Validated file-based response returned by pdfRest.
+
+        Raises:
+            PdfRestError: If request execution fails at the client or API layer.
+            ValidationError: If local payload validation fails before sending.
+        """
         payload: dict[str, Any] = {
             "files": files,
             "resolution": resolution,
@@ -5915,8 +8616,29 @@ class AsyncPdfRestClient(_AsyncApiClient):
         extra_body: Body | None = None,
         timeout: TimeoutTypes | None = None,
     ) -> PdfRestFileBasedResponse:
-        """Asynchronously convert one or more pdfRest files to TIFF images."""
+        """Asynchronous variant of [PdfRestClient.convert_to_tiff][pdfrest.PdfRestClient.convert_to_tiff].
 
+        Converts PDF pages to TIFF images with configurable color model and page selection. This is commonly used in archival, scanning, and print-imaging pipelines.
+
+        Args:
+            files: Uploaded input file or files as `PdfRestFile` objects.
+            output_prefix: Filename prefix used for generated per-page/per-file image outputs.
+            page_range: Page selection string/list for image conversion outputs.
+            resolution: Raster output resolution in DPI for generated image files.
+            color_model: Output image color model.
+            smoothing: Graphic smoothing mode for image output endpoints.
+            extra_query: Additional query parameters merged into the request.
+            extra_headers: Additional HTTP headers merged into the request.
+            extra_body: Additional request body fields merged into the payload.
+            timeout: Request timeout override for this call.
+
+        Returns:
+            Validated file-based response returned by pdfRest.
+
+        Raises:
+            PdfRestError: If request execution fails at the client or API layer.
+            ValidationError: If local payload validation fails before sending.
+        """
         payload: dict[str, Any] = {
             "files": files,
             "resolution": resolution,

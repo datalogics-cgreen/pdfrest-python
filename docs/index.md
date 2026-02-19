@@ -1,4 +1,4 @@
-# pdfrest documentation
+# pdfRest API Toolkit Python SDK
 
 Welcome to the docs for `pdfrest`, a Python client for
 [pdfRest](https://pdfrest.com/).
@@ -16,6 +16,10 @@ Useful references:
 - [pdfRest homepage](https://pdfrest.com/)
 - [API reference](https://pdfrest.com/apidocs/)
 - [API Lab (interactive testing)](https://pdfrest.com/apilab/)
+- [Getting started guide](getting-started.md)
+- [Client configuration guide](client-configuration.md)
+- [Using files guide](using-files.md)
+- [API guide](api-guide.md)
 
 ## How this Python API relates to pdfRest
 

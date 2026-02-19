@@ -2,7 +2,12 @@
 
 from importlib import metadata
 
-from .client import AsyncPdfRestClient, PdfRestClient
+from .client import (
+    AsyncPdfRestClient,
+    AsyncPdfRestFilesClient,
+    PdfRestClient,
+    PdfRestFilesClient,
+)
 from .exceptions import (
     PdfRestApiError,
     PdfRestAuthenticationError,
@@ -19,6 +24,7 @@ from .models import UpResponse
 
 __all__ = (
     "AsyncPdfRestClient",
+    "AsyncPdfRestFilesClient",
     "PdfRestApiError",
     "PdfRestAuthenticationError",
     "PdfRestClient",
@@ -26,6 +32,7 @@ __all__ = (
     "PdfRestDeleteError",
     "PdfRestError",
     "PdfRestErrorGroup",
+    "PdfRestFilesClient",
     "PdfRestRequestError",
     "PdfRestTimeoutError",
     "PdfRestTransportError",

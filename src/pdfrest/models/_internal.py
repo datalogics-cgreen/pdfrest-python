@@ -2577,8 +2577,11 @@ class TiffPdfRestPayload(
 
 
 class PdfRestRawUploadedFile(BaseModel):
-    """The response sent by /upload is a list of these. /unzip returns files like this
-    with outputUrl"""
+    """Raw uploaded-file entry returned by pdfRest upload-style endpoints.
+
+    The `/upload` response is a list of these objects. The `/unzip` response
+    also uses this shape and may include `outputUrl` entries.
+    """
 
     name: Annotated[str, Field(description="The name of the file")]
     id: Annotated[PdfRestFileID, Field(description="The id of the file")]
