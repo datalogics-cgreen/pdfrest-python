@@ -87,6 +87,48 @@ def test_watermark_pdf_with_text(monkeypatch: pytest.MonkeyPatch) -> None:
     assert str(response.input_id) == str(input_file.id)
 
 
+def test_watermark_pdf_with_text_defaults_text_color_to_rgb_black(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.delenv("PDFREST_API_KEY", raising=False)
+    input_file = make_pdf_file(PdfRestFileID.generate(1))
+    output_id = str(PdfRestFileID.generate())
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.method == "POST" and request.url.path == "/watermarked-pdf":
+            payload = json.loads(request.content.decode("utf-8"))
+            assert payload["text_color_rgb"] == "0,0,0"
+            assert "text_color_cmyk" not in payload
+            return httpx.Response(
+                200,
+                json={
+                    "inputId": [input_file.id],
+                    "outputId": [output_id],
+                },
+            )
+        if request.method == "GET" and request.url.path == f"/resource/{output_id}":
+            assert request.url.params["format"] == "info"
+            return httpx.Response(
+                200,
+                json=build_file_info_payload(
+                    output_id,
+                    "default-color.pdf",
+                    "application/pdf",
+                ),
+            )
+        msg = f"Unexpected request {request.method} {request.url}"
+        raise AssertionError(msg)
+
+    transport = httpx.MockTransport(handler)
+    with PdfRestClient(api_key=VALID_API_KEY, transport=transport) as client:
+        response = client.watermark_pdf_with_text(
+            input_file,
+            watermark_text="DefaultColor",
+        )
+
+    assert response.output_file.name == "default-color.pdf"
+
+
 def test_watermark_pdf_with_image(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.delenv("PDFREST_API_KEY", raising=False)
     input_file = make_pdf_file(PdfRestFileID.generate(1))
@@ -844,6 +886,7 @@ async def test_async_watermark_pdf_with_text(monkeypatch: pytest.MonkeyPatch) ->
             "files": [input_file],
             "watermark_text": "Async",
             "text_size": 72,
+            "text_color": (0, 0, 0),
             "opacity": 0.6,
             "horizontal_alignment": "center",
             "vertical_alignment": "center",
