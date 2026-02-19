@@ -654,6 +654,53 @@ async def test_async_sign_pdf_signature_type_literal_matrix(
     assert response.output_file.name == f"literal-async-{signature_type}.pdf"
 
 
+def test_sign_pdf_rejects_invalid_signature_type_literal(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.delenv("PDFREST_API_KEY", raising=False)
+    input_file = make_pdf_file(PdfRestFileID.generate())
+    pfx_file = make_pfx_file(str(PdfRestFileID.generate()))
+    passphrase_file = make_passphrase_file(str(PdfRestFileID.generate()))
+    transport = httpx.MockTransport(lambda request: (_ for _ in ()).throw(RuntimeError))
+
+    with (
+        PdfRestClient(api_key=VALID_API_KEY, transport=transport) as client,
+        pytest.raises(ValidationError, match="Input should be 'new' or 'existing'"),
+    ):
+        client.sign_pdf(
+            input_file,
+            signature_configuration={
+                "type": "unexpected",
+                "location": make_signature_location(),
+            },
+            credentials={"pfx": pfx_file, "passphrase": passphrase_file},
+        )
+
+
+@pytest.mark.asyncio
+async def test_async_sign_pdf_rejects_invalid_signature_type_literal(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.delenv("PDFREST_API_KEY", raising=False)
+    input_file = make_pdf_file(PdfRestFileID.generate())
+    pfx_file = make_pfx_file(str(PdfRestFileID.generate()))
+    passphrase_file = make_passphrase_file(str(PdfRestFileID.generate()))
+    transport = httpx.MockTransport(lambda request: (_ for _ in ()).throw(RuntimeError))
+
+    async with AsyncPdfRestClient(api_key=ASYNC_API_KEY, transport=transport) as client:
+        with pytest.raises(
+            ValidationError, match="Input should be 'new' or 'existing'"
+        ):
+            await client.sign_pdf(
+                input_file,
+                signature_configuration={
+                    "type": "unexpected",
+                    "location": make_signature_location(),
+                },
+                credentials={"pfx": pfx_file, "passphrase": passphrase_file},
+            )
+
+
 def test_sign_pdf_request_customization(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
