@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from collections.abc import Callable
 
 import httpx
 import pytest
@@ -64,6 +65,32 @@ def make_signature_configuration(signature_type: str) -> dict[str, object]:
             "location": make_signature_location(),
         }
     return {"type": "existing", "name": "esignature"}
+
+
+MULTI_FILE_CREDENTIAL_CASES = (
+    pytest.param("pfx", "passphrase", make_pfx_file, make_passphrase_file, id="pfx"),
+    pytest.param(
+        "passphrase",
+        "pfx",
+        make_passphrase_file,
+        make_pfx_file,
+        id="passphrase",
+    ),
+    pytest.param(
+        "certificate",
+        "private_key",
+        make_certificate_file,
+        make_private_key_file,
+        id="certificate",
+    ),
+    pytest.param(
+        "private_key",
+        "certificate",
+        make_private_key_file,
+        make_certificate_file,
+        id="private-key",
+    ),
+)
 
 
 def test_sign_pdf_with_pfx_credentials(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -286,7 +313,10 @@ def test_sign_pdf_rejects_multiple_input_files(
 
     with (
         PdfRestClient(api_key=VALID_API_KEY, transport=transport) as client,
-        pytest.raises(ValidationError, match=r"files|at most 1 item"),
+        pytest.raises(
+            ValidationError,
+            match=r"files\n\s+List should have at most 1 item after validation",
+        ),
     ):
         client.sign_pdf(
             [input_file_a, input_file_b],
@@ -311,7 +341,10 @@ def test_sign_pdf_rejects_multiple_logo_files(
 
     with (
         PdfRestClient(api_key=VALID_API_KEY, transport=transport) as client,
-        pytest.raises(ValidationError, match=r"logo|at most 1 item"),
+        pytest.raises(
+            ValidationError,
+            match=r"logo\n\s+List should have at most 1 item after validation",
+        ),
     ):
         client.sign_pdf(
             input_file,
@@ -327,19 +360,30 @@ def test_sign_pdf_rejects_multiple_logo_files(
         )
 
 
-def test_sign_pdf_rejects_multiple_pfx_credential_files(
+@pytest.mark.parametrize(
+    ("multi_field", "single_field", "multi_factory", "single_factory"),
+    MULTI_FILE_CREDENTIAL_CASES,
+)
+def test_sign_pdf_rejects_multiple_credential_files(
     monkeypatch: pytest.MonkeyPatch,
+    multi_field: str,
+    single_field: str,
+    multi_factory: Callable[[str], PdfRestFile],
+    single_factory: Callable[[str], PdfRestFile],
 ) -> None:
     monkeypatch.delenv("PDFREST_API_KEY", raising=False)
     input_file = make_pdf_file(PdfRestFileID.generate())
-    pfx_file_a = make_pfx_file(str(PdfRestFileID.generate()))
-    pfx_file_b = make_pfx_file(str(PdfRestFileID.generate()))
-    passphrase_file = make_passphrase_file(str(PdfRestFileID.generate()))
+    multi_file_a = multi_factory(str(PdfRestFileID.generate()))
+    multi_file_b = multi_factory(str(PdfRestFileID.generate()))
+    single_file = single_factory(str(PdfRestFileID.generate()))
     transport = httpx.MockTransport(lambda request: (_ for _ in ()).throw(RuntimeError))
 
+    expected_match = (
+        rf"{multi_field}\n\s+List should have at most 1 item after validation"
+    )
     with (
         PdfRestClient(api_key=VALID_API_KEY, transport=transport) as client,
-        pytest.raises(ValidationError, match=r"pfx|at most 1 item"),
+        pytest.raises(ValidationError, match=expected_match),
     ):
         client.sign_pdf(
             input_file,
@@ -348,8 +392,8 @@ def test_sign_pdf_rejects_multiple_pfx_credential_files(
                 "location": make_signature_location(),
             },
             credentials={
-                "pfx": [pfx_file_a, pfx_file_b],  # type: ignore[list-item]
-                "passphrase": passphrase_file,
+                multi_field: [multi_file_a, multi_file_b],  # type: ignore[dict-item]
+                single_field: single_file,
             },
         )
 
@@ -429,7 +473,10 @@ async def test_async_sign_pdf_rejects_multiple_input_files(
     transport = httpx.MockTransport(lambda request: (_ for _ in ()).throw(RuntimeError))
 
     async with AsyncPdfRestClient(api_key=ASYNC_API_KEY, transport=transport) as client:
-        with pytest.raises(ValidationError, match=r"files|at most 1 item"):
+        with pytest.raises(
+            ValidationError,
+            match=r"files\n\s+List should have at most 1 item after validation",
+        ):
             await client.sign_pdf(
                 [input_file_a, input_file_b],
                 signature_configuration={
@@ -453,7 +500,10 @@ async def test_async_sign_pdf_rejects_multiple_logo_files(
     transport = httpx.MockTransport(lambda request: (_ for _ in ()).throw(RuntimeError))
 
     async with AsyncPdfRestClient(api_key=ASYNC_API_KEY, transport=transport) as client:
-        with pytest.raises(ValidationError, match=r"logo|at most 1 item"):
+        with pytest.raises(
+            ValidationError,
+            match=r"logo\n\s+List should have at most 1 item after validation",
+        ):
             await client.sign_pdf(
                 input_file,
                 signature_configuration={
@@ -469,18 +519,29 @@ async def test_async_sign_pdf_rejects_multiple_logo_files(
 
 
 @pytest.mark.asyncio
-async def test_async_sign_pdf_rejects_multiple_pfx_credential_files(
+@pytest.mark.parametrize(
+    ("multi_field", "single_field", "multi_factory", "single_factory"),
+    MULTI_FILE_CREDENTIAL_CASES,
+)
+async def test_async_sign_pdf_rejects_multiple_credential_files(
     monkeypatch: pytest.MonkeyPatch,
+    multi_field: str,
+    single_field: str,
+    multi_factory: Callable[[str], PdfRestFile],
+    single_factory: Callable[[str], PdfRestFile],
 ) -> None:
     monkeypatch.delenv("PDFREST_API_KEY", raising=False)
     input_file = make_pdf_file(PdfRestFileID.generate())
-    pfx_file_a = make_pfx_file(str(PdfRestFileID.generate()))
-    pfx_file_b = make_pfx_file(str(PdfRestFileID.generate()))
-    passphrase_file = make_passphrase_file(str(PdfRestFileID.generate()))
+    multi_file_a = multi_factory(str(PdfRestFileID.generate()))
+    multi_file_b = multi_factory(str(PdfRestFileID.generate()))
+    single_file = single_factory(str(PdfRestFileID.generate()))
     transport = httpx.MockTransport(lambda request: (_ for _ in ()).throw(RuntimeError))
 
+    expected_match = (
+        rf"{multi_field}\n\s+List should have at most 1 item after validation"
+    )
     async with AsyncPdfRestClient(api_key=ASYNC_API_KEY, transport=transport) as client:
-        with pytest.raises(ValidationError, match=r"pfx|at most 1 item"):
+        with pytest.raises(ValidationError, match=expected_match):
             await client.sign_pdf(
                 input_file,
                 signature_configuration={
@@ -488,8 +549,8 @@ async def test_async_sign_pdf_rejects_multiple_pfx_credential_files(
                     "location": make_signature_location(),
                 },
                 credentials={
-                    "pfx": [pfx_file_a, pfx_file_b],  # type: ignore[list-item]
-                    "passphrase": passphrase_file,
+                    multi_field: [multi_file_a, multi_file_b],  # type: ignore[dict-item]
+                    single_field: single_file,
                 },
             )
 
