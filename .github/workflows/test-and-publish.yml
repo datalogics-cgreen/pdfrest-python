@@ -116,26 +116,22 @@ jobs:
           PDFREST_API_KEY: ${{ secrets.PDFREST_API_KEY }}
 
   publish:
-    name: Publish to CodeArtifact
+    name: Publish to PyPI
     needs:
       - docs-check
       - tests
       - examples
-    if: github.event_name == 'release'
+    if: github.event_name == 'release' && github.event.action == 'published'
     runs-on: ubuntu-latest
+    environment: production
     permissions:
       id-token: write
       contents: read
-      packages: write
     env:
       UV_PROJECT_ENVIRONMENT: .venv-release
+      UV_TRUSTED_PUBLISHING: always
     steps:
       - uses: actions/checkout@v4
-      - name: Assume AWS role for repository CI
-        uses: aws-actions/configure-aws-credentials@v4
-        with:
-          role-to-assume: arn:aws:iam::304774597385:role/cit-oidc-role-${{ github.event.repository.name }}-ci
-          aws-region: us-east-2
       - name: Install uv
         uses: astral-sh/setup-uv@v6
         with:
@@ -149,11 +145,9 @@ jobs:
           path: |
             ${{ env.UV_PROJECT_ENVIRONMENT }}
           key: ${{ runner.os }}-uv-release-${{ hashFiles('pyproject.toml') }}
-      - name: Install keyring
-        run: uv tool install keyring --with keyrings.codeartifact
       - name: Synchronize project dependencies
         run: uv sync --group dev
       - name: Build distribution artifacts
         run: uv build --python 3.11
-      - name: Publish package to CodeArtifact
-        run: uv publish --publish-url=https://datalogics-304774597385.d.codeartifact.us-east-2.amazonaws.com/pypi/cit-pypi/ --username __token__
+      - name: Publish package to PyPI (Trusted Publishing)
+        run: uv publish
