@@ -113,6 +113,41 @@ with PdfRestClient(headers={"X-App-Name": "my-service"}) as client:
     info = client.up(extra_headers={"X-Request-ID": "req-123"})
 ```
 
+## Per-call request overrides
+
+Most endpoint helpers on `PdfRestClient` and `AsyncPdfRestClient` accept the
+same request-affecting keyword arguments so you can tune one call without
+changing client-wide configuration.
+
+| Argument | Type | Purpose | Default |
+| --- | --- | --- | --- |
+| `extra_query` | `Query \| None` | Additional query parameters merged into the request URL. | `None` |
+| `extra_headers` | `AnyMapping \| None` | Additional HTTP headers merged into the request headers. | `None` |
+| `extra_body` | `Body \| None` | Additional request body fields merged into JSON payloads. | `None` |
+| `timeout` | `TimeoutTypes \| None` | Per-call timeout override (float seconds or `httpx.Timeout`). | `None` |
+
+Behavior notes:
+
+- `timeout=None` means “use the client default timeout profile.”
+- `extra_headers` values override same-name default headers for that request.
+- `extra_query` is merged with method-provided query params.
+- `extra_body` is merged only for JSON requests.
+  For multipart/form-data endpoint calls, `extra_body` is rejected by the SDK.
+
+Example:
+
+```python
+from pdfrest import PdfRestClient
+
+with PdfRestClient() as client:
+    result = client.query_pdf_info(
+        file=my_file,
+        extra_query={"trace": "true"},
+        extra_headers={"X-Request-ID": "req-123"},
+        timeout=30.0,
+    )
+```
+
 ## `no-id-prefix` header
 
 pdfRest supports a `no-id-prefix: true` request header used for
