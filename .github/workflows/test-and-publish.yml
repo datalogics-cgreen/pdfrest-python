@@ -33,6 +33,7 @@ jobs:
   tests:
     name: Tests (Python ${{ matrix.python-version }})
     runs-on: ubuntu-latest
+    environment: ci-live
     strategy:
       fail-fast: false
       matrix:
@@ -91,6 +92,7 @@ jobs:
   examples:
     name: Examples (Python ${{ matrix.python-version }})
     runs-on: ubuntu-latest
+    environment: ci-live
     strategy:
       fail-fast: false
       matrix:
