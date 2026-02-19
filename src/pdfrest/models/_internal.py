@@ -163,6 +163,10 @@ def _serialize_as_comma_separated_string(value: list[Any] | None) -> str | None:
     return ",".join(str(element) for element in value)
 
 
+def _serialize_as_string(value: Any) -> str:
+    return str(value)
+
+
 def _serialize_file_ids(value: list[PdfRestFile]) -> str:
     return ",".join(str(file.id) for file in value)
 
@@ -1648,7 +1652,9 @@ class _BasePdfWatermarkPayload(BaseModel):
         AfterValidator(_validate_output_prefix),
     ] = None
     opacity: Annotated[
-        float, Field(serialization_alias="opacity", ge=0, le=1, default=0.5)
+        float,
+        Field(serialization_alias="opacity", ge=0, le=1, default=0.5),
+        PlainSerializer(_serialize_as_string),
     ] = 0.5
     horizontal_alignment: Annotated[
         WatermarkHorizontalAlignment,
@@ -1658,9 +1664,21 @@ class _BasePdfWatermarkPayload(BaseModel):
         WatermarkVerticalAlignment,
         Field(serialization_alias="vertical_alignment", default="center"),
     ] = "center"
-    x: Annotated[int, Field(serialization_alias="x", default=0)] = 0
-    y: Annotated[int, Field(serialization_alias="y", default=0)] = 0
-    rotation: Annotated[int, Field(serialization_alias="rotation", default=0)] = 0
+    x: Annotated[
+        int,
+        Field(serialization_alias="x", default=0),
+        PlainSerializer(_serialize_as_string),
+    ] = 0
+    y: Annotated[
+        int,
+        Field(serialization_alias="y", default=0),
+        PlainSerializer(_serialize_as_string),
+    ] = 0
+    rotation: Annotated[
+        int,
+        Field(serialization_alias="rotation", default=0),
+        PlainSerializer(_serialize_as_string),
+    ] = 0
     pages: Annotated[
         list[AscendingPageRange] | None,
         Field(serialization_alias="pages", min_length=1, default=None),
@@ -1687,6 +1705,7 @@ class PdfTextWatermarkPayload(_BasePdfWatermarkPayload):
     text_size: Annotated[
         int,
         Field(serialization_alias="text_size", ge=5, le=100, default=72),
+        PlainSerializer(_serialize_as_string),
     ] = 72
     text_color_rgb: Annotated[
         tuple[RgbChannel, RgbChannel, RgbChannel] | None,
@@ -1744,7 +1763,9 @@ class PdfImageWatermarkPayload(_BasePdfWatermarkPayload):
         PlainSerializer(_serialize_as_first_file_id),
     ]
     watermark_file_scale: Annotated[
-        float, Field(serialization_alias="watermark_file_scale", ge=0, default=0.5)
+        float,
+        Field(serialization_alias="watermark_file_scale", ge=0, default=0.5),
+        PlainSerializer(_serialize_as_string),
     ] = 0.5
 
 

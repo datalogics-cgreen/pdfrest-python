@@ -216,7 +216,7 @@ def test_watermark_pdf_with_text_request_customization(
             payload = json.loads(request.content.decode("utf-8"))
             assert payload["watermark_text"] == "Draft"
             assert payload["text_color_cmyk"] == "0,0,0,50"
-            assert payload["opacity"] == 0.25
+            assert payload["opacity"] == "0.25"
             assert payload["output"] == "custom"
             assert payload["debug"] == "yes"
             assert payload["id"] == str(input_file.id)
@@ -285,8 +285,8 @@ def test_watermark_pdf_with_image_request_customization(
             payload = json.loads(request.content.decode("utf-8"))
             assert payload["id"] == str(input_file.id)
             assert payload["watermark_file_id"] == str(watermark_file.id)
-            assert payload["watermark_file_scale"] == 0.75
-            assert payload["opacity"] == 0.2
+            assert payload["watermark_file_scale"] == "0.75"
+            assert payload["opacity"] == "0.2"
             assert payload["output"] == "custom-image"
             assert payload["debug"] == "yes"
             return httpx.Response(
@@ -1098,9 +1098,9 @@ async def test_async_watermark_pdf_with_text_request_customization(
             assert payload["text_color_rgb"] == "12,34,56"
             assert payload["horizontal_alignment"] == "left"
             assert payload["vertical_alignment"] == "bottom"
-            assert payload["x"] == -72
-            assert payload["y"] == 144
-            assert payload["rotation"] == 30
+            assert payload["x"] == "-72"
+            assert payload["y"] == "144"
+            assert payload["rotation"] == "30"
             return httpx.Response(
                 200,
                 json={
@@ -1172,8 +1172,8 @@ async def test_async_watermark_pdf_with_image_request_customization(
             payload = json.loads(request.content.decode("utf-8"))
             assert payload["id"] == str(input_file.id)
             assert payload["watermark_file_id"] == str(watermark_file.id)
-            assert payload["watermark_file_scale"] == 0.6
-            assert payload["opacity"] == 0.25
+            assert payload["watermark_file_scale"] == "0.6"
+            assert payload["opacity"] == "0.25"
             assert payload["output"] == "async-custom-image"
             assert payload["debug"] == "async"
             return httpx.Response(
