@@ -157,6 +157,7 @@ def test_watermark_pdf_with_image(monkeypatch: pytest.MonkeyPatch) -> None:
             seen["post"] += 1
             payload = json.loads(request.content.decode("utf-8"))
             assert payload == payload_dump
+            assert payload["behind_page"] == "true"
             return httpx.Response(
                 200,
                 json={
@@ -217,6 +218,7 @@ def test_watermark_pdf_with_text_request_customization(
             assert payload["watermark_text"] == "Draft"
             assert payload["text_color_cmyk"] == "0,0,0,50"
             assert payload["opacity"] == "0.25"
+            assert payload["behind_page"] == "false"
             assert payload["output"] == "custom"
             assert payload["debug"] == "yes"
             assert payload["id"] == str(input_file.id)
@@ -287,6 +289,7 @@ def test_watermark_pdf_with_image_request_customization(
             assert payload["watermark_file_id"] == str(watermark_file.id)
             assert payload["watermark_file_scale"] == "0.75"
             assert payload["opacity"] == "0.2"
+            assert payload["behind_page"] == "false"
             assert payload["output"] == "custom-image"
             assert payload["debug"] == "yes"
             return httpx.Response(
@@ -973,6 +976,7 @@ async def test_async_watermark_pdf_with_text(monkeypatch: pytest.MonkeyPatch) ->
             seen["post"] += 1
             payload = json.loads(request.content.decode("utf-8"))
             assert payload == payload_dump
+            assert payload["behind_page"] == "false"
             return httpx.Response(
                 200,
                 json={
@@ -1039,6 +1043,7 @@ async def test_async_watermark_pdf_with_image(monkeypatch: pytest.MonkeyPatch) -
             seen["post"] += 1
             payload = json.loads(request.content.decode("utf-8"))
             assert payload == payload_dump
+            assert payload["behind_page"] == "false"
             return httpx.Response(
                 200,
                 json={
@@ -1101,6 +1106,7 @@ async def test_async_watermark_pdf_with_text_request_customization(
             assert payload["x"] == "-72"
             assert payload["y"] == "144"
             assert payload["rotation"] == "30"
+            assert payload["behind_page"] == "false"
             return httpx.Response(
                 200,
                 json={
@@ -1174,6 +1180,7 @@ async def test_async_watermark_pdf_with_image_request_customization(
             assert payload["watermark_file_id"] == str(watermark_file.id)
             assert payload["watermark_file_scale"] == "0.6"
             assert payload["opacity"] == "0.25"
+            assert payload["behind_page"] == "false"
             assert payload["output"] == "async-custom-image"
             assert payload["debug"] == "async"
             return httpx.Response(

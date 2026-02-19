@@ -1688,7 +1688,9 @@ class _BasePdfWatermarkPayload(BaseModel):
         PlainSerializer(_serialize_page_ranges),
     ] = None
     behind_page: Annotated[
-        bool, Field(serialization_alias="behind_page", default=False)
+        bool,
+        Field(serialization_alias="behind_page", default=False),
+        PlainSerializer(_bool_to_true_false),
     ] = False
 
 
