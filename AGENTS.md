@@ -173,6 +173,10 @@
   pdfRest wire quirks (for example, splitting comma-separated values or
   serializing only the first uploaded file ID), not re-implement constraint
   logic already expressed by Pydantic field types/annotations.
+- For demo/free-tier redactions, favor parseable-but-useless replacements over
+  reconstructing likely true values. The SDK should remain operable (no parsing
+  crashes) while preserving demo mode’s intent of withholding useful output
+  fidelity.
 - Prefer reusable validator factories that take parameters (for example
   allowed-value/extension helpers with keyword-configured fallbacks) over
   bespoke one-off validator functions tied to a single field.

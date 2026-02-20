@@ -45,6 +45,7 @@ from ..types import (
     WatermarkHorizontalAlignment,
     WatermarkVerticalAlignment,
 )
+from ._demo_value_sanitizers import demo_file_id_or_passthrough
 from .public import PdfRestFile, PdfRestFileID
 
 PdfConvertColorProfile = PdfPresetColorProfile | Literal["custom"]
@@ -2584,7 +2585,11 @@ class PdfRestRawUploadedFile(BaseModel):
     """
 
     name: Annotated[str, Field(description="The name of the file")]
-    id: Annotated[PdfRestFileID, Field(description="The id of the file")]
+    id: Annotated[
+        PdfRestFileID,
+        BeforeValidator(demo_file_id_or_passthrough),
+        Field(description="The id of the file"),
+    ]
     output_url: Annotated[
         list[HttpUrl] | HttpUrl | None,
         Field(description="The url of the unzipped file", alias="outputUrl"),

@@ -66,6 +66,45 @@ For the official Cloud onboarding flow, see:
     interactively and generating starter code samples before integrating them
     into your project.
 
+### Demo keys and redacted values
+
+If you are using a demo/free-tier key, some API responses may include redacted
+values (for example `fa***`, `tr**`, masked strings, or placeholder IDs).
+
+To keep response models parseable, the SDK replaces certain known demo-redacted
+values in a few response fields:
+
+- `PdfRestInfoResponse` boolean fields:
+  `tagged`, `image_only`, `contains_annotations`, `contains_signature`,
+  `restrict_permissions_set`, `contains_xfa`, `contains_acroforms`,
+  `contains_javascript`, `contains_transparency`, `contains_embedded_file`,
+  `uses_embedded_fonts`, `uses_nonembedded_fonts`, `pdfa`, `pdfua_claim`,
+  `pdfe_claim`, `pdfx_claim`, `requires_password_to_open`
+- `PdfRestInfoResponse.file_size` -> replaced with `0` when redacted
+- `PdfRestInfoResponse.all_queries_processed` -> replaced with `True` when redacted
+- unzip response file IDs are sanitized before file-info lookup, so
+  `PdfRestFileBasedResponse.output_file.id` may be the null UUID
+  `00000000-0000-4000-8000-000000000000` when demo IDs are redacted
+
+When a replacement happens, the SDK logs a warning in this format:
+
+`Demo value <val> detected in <field-name>; replaced with <replacement>`
+
+When the API returns a demo restriction body message (for example the free-tier
+"watermarked or redacted" notice in `message`), the SDK also logs:
+
+`Demo mode restriction message in response <METHOD URL> field=<field>: <message>`
+
+To see these warnings in your app, configure Python logging (example):
+
+```python
+import logging
+
+logging.basicConfig(level=logging.WARNING)
+logging.getLogger("pdfrest.models").setLevel(logging.WARNING)
+logging.getLogger("pdfrest.client").setLevel(logging.WARNING)
+```
+
 ## 3. Add a short example program
 
 Create `quickstart.py`:

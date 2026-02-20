@@ -192,6 +192,12 @@ MAX_BACKOFF_SECONDS = 8.0
 BACKOFF_JITTER_SECONDS = 0.1
 RETRYABLE_STATUS_CODES = {408, 425, 429, 499}
 _SUCCESSFUL_DELETION_MESSAGE = "successfully deleted"
+_DEMO_RESTRICTION_MESSAGE_FIELDS = ("message", "warning", "keyMessage")
+_DEMO_FALLBACK_FILE_ID = "00000000-0000-4000-8000-000000000000"
+_DEMO_FALLBACK_FILE_URL = "https://pdfrest.com/demo-redacted"
+_DEMO_FALLBACK_MIME_TYPE = "application/octet-stream"
+_DEMO_FALLBACK_FILE_NAME = "demo-redacted.bin"
+_DEMO_FALLBACK_FILE_SIZE = 1
 
 
 HttpMethod = Literal["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS", "HEAD"]
@@ -263,6 +269,17 @@ def _parse_retry_after_header(header_value: str | None) -> float | None:
     return seconds if seconds > 0 else 0.0
 
 
+def _is_demo_restriction_message(value: str) -> bool:
+    normalized = value.strip().casefold()
+    if not normalized:
+        return False
+    return (
+        "watermarked or redacted" in normalized
+        and "free account" in normalized
+        and "upgrade your plan" in normalized
+    )
+
+
 FileContent = IO[bytes] | bytes | str
 FileTuple2 = tuple[str | None, FileContent]
 FileTuple3 = tuple[str | None, FileContent, str | None]
@@ -306,6 +323,23 @@ def _extract_uploaded_file_ids(payload: Any) -> list[str]:
             )
         file_ids.append(str(entry["id"]))
     return file_ids
+
+
+def _is_demo_fallback_file_id(file_id: str) -> bool:
+    return file_id.strip().lower() == _DEMO_FALLBACK_FILE_ID
+
+
+def _build_demo_fallback_file(file_id: str) -> PdfRestFile:
+    return PdfRestFile.model_validate(
+        {
+            "id": file_id,
+            "name": _DEMO_FALLBACK_FILE_NAME,
+            "url": _DEMO_FALLBACK_FILE_URL,
+            "type": _DEMO_FALLBACK_MIME_TYPE,
+            "size": _DEMO_FALLBACK_FILE_SIZE,
+            "modified": datetime.now(timezone.utc),
+        }
+    )
 
 
 def _handle_deletion_failures(response: PdfRestDeletionResponse) -> None:
@@ -836,11 +870,13 @@ class _BaseApiClient(Generic[ClientType]):
             f"{getattr(request, 'method', 'UNKNOWN')} {getattr(request, 'url', '')}"
         )
         if response.is_success:
+            payload = self._decode_json(response)
+            self._log_demo_restriction_messages(payload, request_label)
             if self._logger.isEnabledFor(logging.DEBUG):
                 self._logger.debug(
                     "Response %s status=%s", request_label, response.status_code
                 )
-            return self._decode_json(response)
+            return payload
 
         message, error_payload = self._extract_error_details(response)
         retry_after = _parse_retry_after_header(response.headers.get("Retry-After"))
@@ -887,6 +923,30 @@ class _BaseApiClient(Generic[ClientType]):
                 message="Response body is not valid JSON.",
                 response_content=response.text,
             ) from exc
+
+    def _log_demo_restriction_messages(self, payload: Any, request_label: str) -> None:
+        if not isinstance(payload, Mapping):
+            return
+
+        typed_payload = cast(Mapping[str, Any], payload)
+        emitted_messages: set[str] = set()
+        for field_name in _DEMO_RESTRICTION_MESSAGE_FIELDS:
+            value = typed_payload.get(field_name)
+            if not isinstance(value, str):
+                continue
+            message = value.strip()
+            if not _is_demo_restriction_message(message):
+                continue
+            normalized_message = message.casefold()
+            if normalized_message in emitted_messages:
+                continue
+            emitted_messages.add(normalized_message)
+            self._logger.warning(
+                "Demo mode restriction message in response %s field=%s: %s",
+                request_label,
+                field_name,
+                message,
+            )
 
     @staticmethod
     def _extract_error_details(
@@ -1160,7 +1220,17 @@ class _SyncApiClient(_BaseApiClient[httpx.Client]):
             extra_headers=extra_headers,
             timeout=timeout,
         )
-        payload = self._send_request(request)
+        try:
+            payload = self._send_request(request)
+        except PdfRestApiError as exc:
+            if exc.status_code == 404 and _is_demo_fallback_file_id(file_id):
+                self._logger.warning(
+                    "Demo fallback file id %s was not found during file-info lookup; "
+                    "returning placeholder metadata.",
+                    file_id,
+                )
+                return _build_demo_fallback_file(file_id)
+            raise
         return PdfRestFile.model_validate(payload)
 
 
@@ -1435,7 +1505,17 @@ class _AsyncApiClient(_BaseApiClient[httpx.AsyncClient]):
             extra_headers=extra_headers,
             timeout=timeout,
         )
-        payload = await self._send_request(request)
+        try:
+            payload = await self._send_request(request)
+        except PdfRestApiError as exc:
+            if exc.status_code == 404 and _is_demo_fallback_file_id(file_id):
+                self._logger.warning(
+                    "Demo fallback file id %s was not found during file-info lookup; "
+                    "returning placeholder metadata.",
+                    file_id,
+                )
+                return _build_demo_fallback_file(file_id)
+            raise
         return PdfRestFile.model_validate(payload)
 
 
