@@ -25,6 +25,11 @@ from pdfrest import (
 VALID_API_KEY = "12345678-1234-1234-1234-123456789abc"
 ANOTHER_VALID_API_KEY = "abcdefab-cdef-abcd-efab-cdefabcdef12"
 ASYNC_API_KEY = "fedcba98-7654-3210-fedc-ba9876543210"
+DEMO_RESTRICTION_MESSAGE = (
+    "Output has been watermarked or redacted. This API request was processed "
+    "with a free account. Visit https://pdfrest.com/pricing/ to upgrade your "
+    "plan and receive outputs without watermarks or redactions."
+)
 
 
 def _build_up_response() -> dict[str, Any]:
@@ -709,6 +714,107 @@ def test_client_raises_for_non_json_success_response(
     assert exc.value.response_content == "not-json"
 
 
+def test_client_logs_demo_restriction_message_warning(
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    monkeypatch.setenv("PDFREST_API_KEY", VALID_API_KEY)
+    caplog.set_level("WARNING", logger="pdfrest.client")
+
+    def handler(_: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200,
+            json={**_build_up_response(), "message": DEMO_RESTRICTION_MESSAGE},
+        )
+
+    transport = httpx.MockTransport(handler)
+    with PdfRestClient(transport=transport) as client:
+        _ = client.up()
+
+    assert "Demo mode restriction message in response" in caplog.text
+    assert "field=message" in caplog.text
+    assert DEMO_RESTRICTION_MESSAGE in caplog.text
+
+
+@pytest.mark.parametrize(
+    ("field_name", "body_value"),
+    [
+        pytest.param("message", DEMO_RESTRICTION_MESSAGE, id="message"),
+        pytest.param("warning", DEMO_RESTRICTION_MESSAGE, id="warning"),
+        pytest.param("keyMessage", DEMO_RESTRICTION_MESSAGE, id="key-message"),
+    ],
+)
+def test_client_logs_demo_restriction_message_warning_all_fields(
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+    field_name: str,
+    body_value: str,
+) -> None:
+    monkeypatch.setenv("PDFREST_API_KEY", VALID_API_KEY)
+    caplog.set_level("WARNING", logger="pdfrest.client")
+
+    def handler(_: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200,
+            json={**_build_up_response(), field_name: body_value},
+        )
+
+    transport = httpx.MockTransport(handler)
+    with PdfRestClient(transport=transport) as client:
+        _ = client.up()
+
+    assert "Demo mode restriction message in response" in caplog.text
+    assert f"field={field_name}" in caplog.text
+    assert DEMO_RESTRICTION_MESSAGE in caplog.text
+
+
+def test_client_logs_demo_restriction_message_once_when_duplicated(
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    monkeypatch.setenv("PDFREST_API_KEY", VALID_API_KEY)
+    caplog.set_level("WARNING", logger="pdfrest.client")
+
+    def handler(_: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200,
+            json={
+                **_build_up_response(),
+                "message": DEMO_RESTRICTION_MESSAGE,
+                "warning": DEMO_RESTRICTION_MESSAGE,
+                "keyMessage": DEMO_RESTRICTION_MESSAGE,
+            },
+        )
+
+    transport = httpx.MockTransport(handler)
+    with PdfRestClient(transport=transport) as client:
+        _ = client.up()
+
+    demo_logs = [
+        record.message
+        for record in caplog.records
+        if "Demo mode restriction message in response" in record.message
+    ]
+    assert len(demo_logs) == 1
+
+
+def test_client_does_not_log_non_demo_key_message_warning(
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    monkeypatch.setenv("PDFREST_API_KEY", VALID_API_KEY)
+    caplog.set_level("WARNING", logger="pdfrest.client")
+
+    def handler(_: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200,
+            json={**_build_up_response(), "keyMessage": "This is a test key"},
+        )
+
+    transport = httpx.MockTransport(handler)
+    with PdfRestClient(transport=transport) as client:
+        _ = client.up()
+
+    assert "Demo mode restriction message in response" not in caplog.text
+
+
 @pytest.mark.asyncio
 async def test_async_client_raises_for_non_json_success_response(
     monkeypatch: pytest.MonkeyPatch,
@@ -726,6 +832,61 @@ async def test_async_client_raises_for_non_json_success_response(
             await client.up()
     assert exc.value.status_code == 200
     assert exc.value.response_content == "not-json"
+
+
+@pytest.mark.asyncio
+async def test_async_client_logs_demo_restriction_message_warning(
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    monkeypatch.setenv("PDFREST_API_KEY", ASYNC_API_KEY)
+    caplog.set_level("WARNING", logger="pdfrest.client")
+
+    def handler(_: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200,
+            json={**_build_up_response(), "message": DEMO_RESTRICTION_MESSAGE},
+        )
+
+    transport = httpx.MockTransport(handler)
+    async with AsyncPdfRestClient(transport=transport) as client:
+        _ = await client.up()
+
+    assert "Demo mode restriction message in response" in caplog.text
+    assert "field=message" in caplog.text
+    assert DEMO_RESTRICTION_MESSAGE in caplog.text
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("field_name", "body_value"),
+    [
+        pytest.param("message", DEMO_RESTRICTION_MESSAGE, id="message"),
+        pytest.param("warning", DEMO_RESTRICTION_MESSAGE, id="warning"),
+        pytest.param("keyMessage", DEMO_RESTRICTION_MESSAGE, id="key-message"),
+    ],
+)
+async def test_async_client_logs_demo_restriction_message_warning_all_fields(
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+    field_name: str,
+    body_value: str,
+) -> None:
+    monkeypatch.setenv("PDFREST_API_KEY", ASYNC_API_KEY)
+    caplog.set_level("WARNING", logger="pdfrest.client")
+
+    def handler(_: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200,
+            json={**_build_up_response(), field_name: body_value},
+        )
+
+    transport = httpx.MockTransport(handler)
+    async with AsyncPdfRestClient(transport=transport) as client:
+        _ = await client.up()
+
+    assert "Demo mode restriction message in response" in caplog.text
+    assert f"field={field_name}" in caplog.text
+    assert DEMO_RESTRICTION_MESSAGE in caplog.text
 
 
 def test_client_uses_text_for_non_json_error_payload(

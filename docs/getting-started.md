@@ -90,6 +90,11 @@ When a replacement happens, the SDK logs a warning in this format:
 
 `Demo value <val> detected in <field-name>; replaced with <replacement>`
 
+When the API returns a demo restriction body message (for example the free-tier
+"watermarked or redacted" notice in `message`), the SDK also logs:
+
+`Demo mode restriction message in response <METHOD URL> field=<field>: <message>`
+
 To see these warnings in your app, configure Python logging (example):
 
 ```python
@@ -97,6 +102,7 @@ import logging
 
 logging.basicConfig(level=logging.WARNING)
 logging.getLogger("pdfrest.models").setLevel(logging.WARNING)
+logging.getLogger("pdfrest.client").setLevel(logging.WARNING)
 ```
 
 ## 3. Add a short example program

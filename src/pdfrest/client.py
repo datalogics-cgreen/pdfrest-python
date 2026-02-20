@@ -192,6 +192,7 @@ MAX_BACKOFF_SECONDS = 8.0
 BACKOFF_JITTER_SECONDS = 0.1
 RETRYABLE_STATUS_CODES = {408, 425, 429, 499}
 _SUCCESSFUL_DELETION_MESSAGE = "successfully deleted"
+_DEMO_RESTRICTION_MESSAGE_FIELDS = ("message", "warning", "keyMessage")
 
 
 HttpMethod = Literal["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS", "HEAD"]
@@ -261,6 +262,17 @@ def _parse_retry_after_header(header_value: str | None) -> float | None:
         delay = (retry_datetime - datetime.now(timezone.utc)).total_seconds()
         return delay if delay > 0 else 0.0
     return seconds if seconds > 0 else 0.0
+
+
+def _is_demo_restriction_message(value: str) -> bool:
+    normalized = value.strip().casefold()
+    if not normalized:
+        return False
+    return (
+        "watermarked or redacted" in normalized
+        and "free account" in normalized
+        and "upgrade your plan" in normalized
+    )
 
 
 FileContent = IO[bytes] | bytes | str
@@ -836,11 +848,13 @@ class _BaseApiClient(Generic[ClientType]):
             f"{getattr(request, 'method', 'UNKNOWN')} {getattr(request, 'url', '')}"
         )
         if response.is_success:
+            payload = self._decode_json(response)
+            self._log_demo_restriction_messages(payload, request_label)
             if self._logger.isEnabledFor(logging.DEBUG):
                 self._logger.debug(
                     "Response %s status=%s", request_label, response.status_code
                 )
-            return self._decode_json(response)
+            return payload
 
         message, error_payload = self._extract_error_details(response)
         retry_after = _parse_retry_after_header(response.headers.get("Retry-After"))
@@ -887,6 +901,30 @@ class _BaseApiClient(Generic[ClientType]):
                 message="Response body is not valid JSON.",
                 response_content=response.text,
             ) from exc
+
+    def _log_demo_restriction_messages(self, payload: Any, request_label: str) -> None:
+        if not isinstance(payload, Mapping):
+            return
+
+        typed_payload = cast(Mapping[str, Any], payload)
+        emitted_messages: set[str] = set()
+        for field_name in _DEMO_RESTRICTION_MESSAGE_FIELDS:
+            value = typed_payload.get(field_name)
+            if not isinstance(value, str):
+                continue
+            message = value.strip()
+            if not _is_demo_restriction_message(message):
+                continue
+            normalized_message = message.casefold()
+            if normalized_message in emitted_messages:
+                continue
+            emitted_messages.add(normalized_message)
+            self._logger.warning(
+                "Demo mode restriction message in response %s field=%s: %s",
+                request_label,
+                field_name,
+                message,
+            )
 
     @staticmethod
     def _extract_error_details(
