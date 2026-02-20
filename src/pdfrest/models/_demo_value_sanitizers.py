@@ -53,6 +53,9 @@ def _demo_bool_or_passthrough(
     if value is None or isinstance(value, bool):
         return value
     if _looks_like_demo_redaction(value):
+        # Intentionally clamp demo-redacted bool-like strings to a configured
+        # constant. The goal is parseability without restoring potentially
+        # meaningful signal that demo mode is designed to obscure.
         _log_replacement(value, replacement, info)
         return replacement
     return value
