@@ -227,6 +227,7 @@ async def test_async_convert_to_pdfa_request_customization(
             payload = json.loads(request.content.decode("utf-8"))
             assert payload["output_type"] == "PDF/A-2u"
             assert payload["id"] == str(input_file.id)
+            assert payload["output"] == "async-custom"
             assert payload["extra"] == {"note": "async"}
             assert payload["rasterize_if_errors_encountered"] == "off"
             return httpx.Response(
@@ -251,6 +252,7 @@ async def test_async_convert_to_pdfa_request_customization(
         response = await client.convert_to_pdfa(
             input_file,
             output_type="PDF/A-2u",
+            output="async-custom",
             rasterize_if_errors_encountered="off",
             extra_query={"trace": "async"},
             extra_headers={"X-Debug": "async"},

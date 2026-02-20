@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import os
+from itertools import pairwise
+from pathlib import Path
 
 import httpx
 import pytest
@@ -10,6 +12,23 @@ LIVE_BASE_URL_CANDIDATES: tuple[str, ...] = (
     "https://apidev.pdfrest.com",
     "https://api.pdfrest.com",
 )
+
+
+def _is_live_test_path(path: Path) -> bool:
+    """Return True when the collected item lives under tests/live."""
+    lowered_parts = [part.lower() for part in path.parts]
+    return any(
+        first == "tests" and second == "live"
+        for first, second in pairwise(lowered_parts)
+    )
+
+
+def pytest_collection_modifyitems(items: list[pytest.Item]) -> None:
+    """Mark all live tests so CI can include/exclude them efficiently."""
+    for item in items:
+        item_path = getattr(item, "path", Path(str(item.fspath)))
+        if _is_live_test_path(item_path) or item.name.startswith("test_live_"):
+            item.add_marker(pytest.mark.live)
 
 
 @pytest.fixture(scope="session")

@@ -199,7 +199,7 @@ async def test_async_extract_images_request_customization(
     input_file = make_pdf_file(PdfRestFileID.generate(2))
     output_id = str(PdfRestFileID.generate())
     payload_dump = ExtractImagesPayload.model_validate(
-        {"files": [input_file], "pages": ["1-last"]}
+        {"files": [input_file], "pages": ["1-last"], "output": "debug-async"}
     ).model_dump(mode="json", by_alias=True, exclude_none=True, exclude_unset=True)
     captured_timeout: dict[str, float | dict[str, float] | None] = {}
 
@@ -235,6 +235,7 @@ async def test_async_extract_images_request_customization(
         response = await client.extract_images(
             input_file,
             pages=["1-last"],
+            output="debug-async",
             extra_query={"trace": "true"},
             extra_headers={"X-Debug": "async"},
             extra_body={"debug": True},

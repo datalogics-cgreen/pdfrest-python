@@ -159,6 +159,7 @@ async def test_async_split_pdf(monkeypatch: pytest.MonkeyPatch) -> None:
     request_payload = PdfSplitPayload.model_validate(
         {
             "files": [input_file],
+            "page_groups": ["1-2"],
             "output_prefix": "async-split",
         }
     ).model_dump(mode="json", by_alias=True, exclude_none=True, exclude_unset=True)
@@ -188,6 +189,7 @@ async def test_async_split_pdf(monkeypatch: pytest.MonkeyPatch) -> None:
     async with AsyncPdfRestClient(api_key=ASYNC_API_KEY, transport=transport) as client:
         response = await client.split_pdf(
             input_file,
+            page_groups=["1-2"],
             output_prefix="async-split",
         )
 

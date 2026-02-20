@@ -7,6 +7,8 @@ on:
       - main
       - develop
       - feature-*
+  schedule:
+    - cron: "0 7 * * *"
   release:
     types:
       - published
@@ -40,7 +42,6 @@ jobs:
   tests:
     name: Tests (Python ${{ matrix.python-version }})
     runs-on: ubuntu-latest
-    environment: ci-live
     strategy:
       fail-fast: false
       matrix:
@@ -61,9 +62,7 @@ jobs:
           cache-suffix: test-and-publish
           cache-dependency-glob: uv.lock
       - name: Run tests with nox
-        run: uvx nox --python ${{ matrix.python-version }} --session tests -- --no-parallel
-        env:
-          PDFREST_API_KEY: ${{ secrets.PDFREST_API_KEY }}
+        run: uvx nox --python ${{ matrix.python-version }} --session tests -- -n 5 -m "not live"
       - name: Fetch base branch for diff-cover
         if: github.event_name == 'pull_request'
         run: |
@@ -95,6 +94,37 @@ jobs:
         with:
           name: coverage-${{ matrix.python-version }}
           path: coverage/py${{ matrix.python-version }}
+
+  live-tests:
+    name: Live Tests (Python 3.11)
+    if: github.event_name == 'pull_request' || github.event_name == 'schedule'
+    runs-on: ubuntu-latest
+    environment: ci-live
+    permissions:
+      id-token: write
+      contents: read
+      packages: write
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6
+        with:
+          version: 0.9.18
+          python-version: "3.11"
+          enable-cache: true
+          cache-suffix: test-and-publish
+          cache-dependency-glob: uv.lock
+      - name: Run live tests with nox
+        run: uvx nox --python 3.11 --session tests -- -n 5 -m live
+        env:
+          PDFREST_API_KEY: ${{ secrets.PDFREST_API_KEY }}
+      - name: Upload live coverage reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-live-3.11
+          path: coverage/py3.11
 
   examples:
     name: Examples (Python ${{ matrix.python-version }})

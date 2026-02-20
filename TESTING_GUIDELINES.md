@@ -19,6 +19,10 @@ iteration required.
   asserting method/path/headers/body). Optional payload branches (for example,
   `pages`, `output`, `rgb_color`, and output-prefix fields) require explicit
   tests so serialization differences are caught early.
+- **Keep endpoint tests in their home files.** When adding or restoring coverage
+  for an endpoint, place the test in that endpoint's existing test module (for
+  example, `tests/test_convert_to_excel.py`), not in a generic cross-endpoint
+  coverage file.
 - **Check client coverage regularly.** Run `uvx nox -s class-coverage` to
   enforce minimum function-level coverage for `PdfRestClient` and
   `AsyncPdfRestClient`.
@@ -95,6 +99,10 @@ iteration required.
   or `timeout`, add explicit tests (sync + async) proving those options
   propagate. Capture `request.extensions["timeout"]` and assert every component
   equals `pytest.approx(expected)`.
+- For both sync and async endpoint helpers, ensure request-customization or
+  success tests also exercise endpoint-specific optional payload branches (for
+  example `output`, `output_prefix`, `pages`, `page_groups`, redaction payloads)
+  so non-live class-function coverage does not depend on live suites.
 
 ### Validation & Payload Modeling
 

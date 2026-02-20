@@ -262,6 +262,7 @@ async def test_async_export_form_data_request_customization(
             payload = json.loads(request.content.decode("utf-8"))
             assert payload["id"] == str(input_file.id)
             assert payload["data_format"] == "xml"
+            assert payload["output"] == "async-custom"
             assert payload["note"] == "details"
             return httpx.Response(
                 200,
@@ -290,6 +291,7 @@ async def test_async_export_form_data_request_customization(
         response = await client.export_form_data(
             input_file,
             data_format="xml",
+            output="async-custom",
             extra_query={"trace": "async"},
             extra_headers={"X-Debug": "async"},
             extra_body={"note": "details"},

@@ -668,6 +668,7 @@ async def test_async_blank_pdf_request_customization(
             assert payload["custom_height"] == 100
             assert payload["custom_width"] == 50
             assert "page_orientation" not in payload
+            assert payload["output"] == "async-custom"
             assert payload["debug"] == "yes"
             return httpx.Response(
                 200,
@@ -695,6 +696,7 @@ async def test_async_blank_pdf_request_customization(
         response = await client.blank_pdf(
             page_size={"custom_height": 100, "custom_width": 50},
             page_count=1,
+            output="async-custom",
             extra_query={"trace": "async"},
             extra_headers={"X-Debug": "async"},
             extra_body={"debug": "yes"},

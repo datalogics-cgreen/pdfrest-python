@@ -263,6 +263,7 @@ async def test_async_import_form_data_request_customization(
             payload = json.loads(request.content.decode("utf-8"))
             assert payload["id"] == str(input_file.id)
             assert payload["data_file_id"] == str(data_file.id)
+            assert payload["output"] == "async-custom"
             assert payload["note"] == "details"
             return httpx.Response(
                 200,
@@ -291,6 +292,7 @@ async def test_async_import_form_data_request_customization(
         response = await client.import_form_data(
             input_file,
             data_file,
+            output="async-custom",
             extra_query={"trace": "async"},
             extra_headers={"X-Debug": "async"},
             extra_body={"note": "details"},
