@@ -189,4 +189,4 @@ jobs:
       - name: Build distribution artifacts
         run: uv build --python 3.11
       - name: Publish package to PyPI (Trusted Publishing)
-        run: uv publish --trusted-publishing always
+        run: uv publish --trusted-publishing always --keyring-provider disabled
