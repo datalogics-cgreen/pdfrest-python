@@ -2,9 +2,33 @@
 name = "pdfrest"
 version = "1.0.0"
 description = "Python client library for interacting with the PDFRest API"
-readme = "README.md"
+readme = {file = "README.md", content-type = "text/markdown"}
 authors = [
     {name = "Datalogics"},
+]
+maintainers = [
+    {name = "Datalogics"},
+]
+keywords = [
+    "api",
+    "document-processing",
+    "pdf",
+    "pdfrest",
+    "sdk",
+]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Developers",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Topic :: Software Development :: Libraries :: Python Modules",
 ]
 requires-python = ">=3.10"
 dependencies = [
@@ -13,6 +37,11 @@ dependencies = [
     "langcodes>=3.4.0",
     "pydantic>=2.12.0",
 ]
+
+[project.urls]
+Homepage = "https://pdfrest.com/"
+Documentation = "https://python.pdfrest.com/"
+Source = "https://github.com/pdfrest/pdfrest-python"
 
 [build-system]
 requires = ["uv_build>=0.8.22,<0.10.0"]
@@ -129,5 +158,4 @@ trailing_comma_inline_array = true
 
 [tool.uv]
 keyring-provider = "subprocess"
-no-build = true
 no-binary-package = ["pdfrest"]
