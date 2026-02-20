@@ -214,6 +214,7 @@ async def test_async_convert_to_pdfx_request_customization(
             payload = json.loads(request.content.decode("utf-8"))
             assert payload["output_type"] == "PDF/X-6"
             assert payload["id"] == str(input_file.id)
+            assert payload["output"] == "async-custom"
             assert payload["extra"] == {"note": "async"}
             return httpx.Response(
                 200,
@@ -237,6 +238,7 @@ async def test_async_convert_to_pdfx_request_customization(
         response = await client.convert_to_pdfx(
             input_file,
             output_type="PDF/X-6",
+            output="async-custom",
             extra_query={"trace": "async"},
             extra_headers={"X-Debug": "async"},
             extra_body={"extra": {"note": "async"}},

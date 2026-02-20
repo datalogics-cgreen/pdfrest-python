@@ -277,6 +277,7 @@ async def test_async_convert_colors_request_customization(
             assert payload["color_profile"] == "custom"
             assert payload["profile_id"] == str(profile_file.id)
             assert payload["preserve_black"] == "false"
+            assert payload["output"] == "async-custom"
             return httpx.Response(
                 200,
                 json={
@@ -304,6 +305,7 @@ async def test_async_convert_colors_request_customization(
         response = await client.convert_colors(
             input_file,
             color_profile=profile_file,
+            output="async-custom",
             extra_query={"trace": "async"},
             extra_headers={"X-Debug": "async"},
             extra_body={"debug": "yes"},

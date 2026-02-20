@@ -227,7 +227,7 @@ async def test_async_ocr_pdf_request_customization(
     monkeypatch.delenv("PDFREST_API_KEY", raising=False)
     input_file = make_pdf_file(PdfRestFileID.generate(2))
     payload_dump = OcrPdfPayload.model_validate(
-        {"files": [input_file], "languages": ["English"]}
+        {"files": [input_file], "languages": ["English"], "output": "custom-async-ocr"}
     ).model_dump(mode="json", by_alias=True, exclude_none=True, exclude_unset=True)
     output_id = str(PdfRestFileID.generate())
     captured_timeout: dict[str, float | dict[str, float] | None] = {}
@@ -263,6 +263,7 @@ async def test_async_ocr_pdf_request_customization(
     async with AsyncPdfRestClient(api_key=ASYNC_API_KEY, transport=transport) as client:
         response = await client.ocr_pdf(
             input_file,
+            output="custom-async-ocr",
             extra_query={"trace": "true"},
             extra_headers={"X-Debug": "async"},
             extra_body={"debug": True},

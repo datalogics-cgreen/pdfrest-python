@@ -195,6 +195,7 @@ async def test_async_linearize_pdf_request_customization(
             payload = json.loads(request.content.decode("utf-8"))
             assert payload["flags"] == ["a", "b"]
             assert payload["id"] == str(input_file.id)
+            assert payload["output"] == "async-linearized-custom"
             return httpx.Response(
                 200,
                 json={
@@ -221,6 +222,7 @@ async def test_async_linearize_pdf_request_customization(
     async with AsyncPdfRestClient(api_key=ASYNC_API_KEY, transport=transport) as client:
         response = await client.linearize_pdf(
             input_file,
+            output="async-linearized-custom",
             extra_query={"trace": "async"},
             extra_headers={"X-Debug": "async"},
             extra_body={"flags": ["a", "b"]},
