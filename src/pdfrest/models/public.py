@@ -11,6 +11,7 @@ from pydantic import (
     AliasChoices,
     AwareDatetime,
     BaseModel,
+    BeforeValidator,
     ConfigDict,
     Field,
     HttpUrl,
@@ -19,6 +20,12 @@ from pydantic import (
 from pydantic.json_schema import JsonSchemaValue
 from pydantic_core import CoreSchema
 from typing_extensions import override
+
+from ._demo_value_sanitizers import (
+    demo_bool_false_or_passthrough,
+    demo_bool_true_or_passthrough,
+    demo_int_or_passthrough,
+)
 
 __all__ = (
     "ExtractTextResponse",
@@ -851,6 +858,7 @@ class PdfRestInfoResponse(BaseModel):
 
     tagged: Annotated[
         bool | None,
+        BeforeValidator(demo_bool_false_or_passthrough),
         Field(
             description="Indicates whether structure tags are present in the PDF "
             "document. The result is true or false."
@@ -860,6 +868,7 @@ class PdfRestInfoResponse(BaseModel):
 
     image_only: Annotated[
         bool | None,
+        BeforeValidator(demo_bool_false_or_passthrough),
         Field(
             description=(
                 "Indicates whether the document is 'image only,' meaning it consists "
@@ -995,6 +1004,7 @@ class PdfRestInfoResponse(BaseModel):
 
     contains_annotations: Annotated[
         bool | None,
+        BeforeValidator(demo_bool_false_or_passthrough),
         Field(
             description=(
                 "Indicates whether the PDF document contains annotations such as "
@@ -1007,6 +1017,7 @@ class PdfRestInfoResponse(BaseModel):
 
     contains_signature: Annotated[
         bool | None,
+        BeforeValidator(demo_bool_false_or_passthrough),
         Field(
             description="Indicates whether the PDF contains any digital signatures. "
             "The result is true or false."
@@ -1028,6 +1039,7 @@ class PdfRestInfoResponse(BaseModel):
 
     file_size: Annotated[
         int | None,
+        BeforeValidator(demo_int_or_passthrough),
         Field(
             description="The size of the PDF file in bytes. The result is an integer."
         ),
@@ -1042,6 +1054,7 @@ class PdfRestInfoResponse(BaseModel):
 
     restrict_permissions_set: Annotated[
         bool | None,
+        BeforeValidator(demo_bool_false_or_passthrough),
         Field(
             description=(
                 "Indicates whether the PDF file has restricted permissions, such as "
@@ -1054,6 +1067,7 @@ class PdfRestInfoResponse(BaseModel):
 
     contains_xfa: Annotated[
         bool | None,
+        BeforeValidator(demo_bool_false_or_passthrough),
         Field(
             description="Indicates whether the PDF contains XFA forms. The result is "
             "true or false."
@@ -1063,6 +1077,7 @@ class PdfRestInfoResponse(BaseModel):
 
     contains_acroforms: Annotated[
         bool | None,
+        BeforeValidator(demo_bool_false_or_passthrough),
         Field(
             description="Indicates whether the PDF contains Acroforms. The result is "
             "true or false."
@@ -1072,6 +1087,7 @@ class PdfRestInfoResponse(BaseModel):
 
     contains_javascript: Annotated[
         bool | None,
+        BeforeValidator(demo_bool_false_or_passthrough),
         Field(
             description="Indicates whether the PDF contains JavaScript. The result is "
             "true or false."
@@ -1081,6 +1097,7 @@ class PdfRestInfoResponse(BaseModel):
 
     contains_transparency: Annotated[
         bool | None,
+        BeforeValidator(demo_bool_false_or_passthrough),
         Field(
             description="Indicates whether the PDF contains transparent objects. The "
             "result is true or false."
@@ -1090,6 +1107,7 @@ class PdfRestInfoResponse(BaseModel):
 
     contains_embedded_file: Annotated[
         bool | None,
+        BeforeValidator(demo_bool_false_or_passthrough),
         Field(
             description="Indicates whether the PDF contains one or more embedded "
             "files. The result is true or false."
@@ -1099,6 +1117,7 @@ class PdfRestInfoResponse(BaseModel):
 
     uses_embedded_fonts: Annotated[
         bool | None,
+        BeforeValidator(demo_bool_false_or_passthrough),
         Field(
             description="Indicates whether the PDF contains fully embedded fonts. "
             "The result is true or false."
@@ -1108,6 +1127,7 @@ class PdfRestInfoResponse(BaseModel):
 
     uses_nonembedded_fonts: Annotated[
         bool | None,
+        BeforeValidator(demo_bool_false_or_passthrough),
         Field(
             description="Indicates whether the PDF contains non-embedded fonts. The "
             "result is true or false."
@@ -1117,6 +1137,7 @@ class PdfRestInfoResponse(BaseModel):
 
     pdfa: Annotated[
         bool | None,
+        BeforeValidator(demo_bool_false_or_passthrough),
         Field(
             description="Indicates whether the document conforms to the PDF/A "
             "standard. The result is true or false."
@@ -1126,6 +1147,7 @@ class PdfRestInfoResponse(BaseModel):
 
     pdfua_claim: Annotated[
         bool | None,
+        BeforeValidator(demo_bool_false_or_passthrough),
         Field(
             description="Indicates whether the document claims to conform to the "
             "PDF/UA standard. The result is true or false."
@@ -1135,6 +1157,7 @@ class PdfRestInfoResponse(BaseModel):
 
     pdfe_claim: Annotated[
         bool | None,
+        BeforeValidator(demo_bool_false_or_passthrough),
         Field(
             description="Indicates whether the document claims to conform to the "
             "PDF/E standard. The result is true or false."
@@ -1144,6 +1167,7 @@ class PdfRestInfoResponse(BaseModel):
 
     pdfx_claim: Annotated[
         bool | None,
+        BeforeValidator(demo_bool_false_or_passthrough),
         Field(
             description="Indicates whether the document claims to conform to the "
             "PDF/X standard. The result is true or false."
@@ -1153,6 +1177,7 @@ class PdfRestInfoResponse(BaseModel):
 
     requires_password_to_open: Annotated[
         bool | None,
+        BeforeValidator(demo_bool_false_or_passthrough),
         Field(
             description=(
                 "Indicates whether the PDF requires a password to open. The result "
@@ -1165,6 +1190,7 @@ class PdfRestInfoResponse(BaseModel):
 
     all_queries_processed: Annotated[
         bool,
+        BeforeValidator(demo_bool_true_or_passthrough),
         Field(
             validation_alias=AliasChoices(
                 "all_queries_processed", "allQueriesProcessed"
