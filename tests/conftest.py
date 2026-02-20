@@ -12,6 +12,14 @@ LIVE_BASE_URL_CANDIDATES: tuple[str, ...] = (
 )
 
 
+def pytest_collection_modifyitems(items: list[pytest.Item]) -> None:
+    """Mark all live tests so CI can include/exclude them efficiently."""
+    for item in items:
+        path = str(item.fspath)
+        if "/tests/live/" in path or item.name.startswith("test_live_"):
+            item.add_marker(pytest.mark.live)
+
+
 @pytest.fixture(scope="session")
 def pdfrest_api_key() -> str:
     key = os.getenv("PDFREST_API_KEY")

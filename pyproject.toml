@@ -45,6 +45,9 @@ dev = [
 minversion = "7.4"
 testpaths = ["tests"]
 addopts = "-ra"
+markers = [
+    "live: tests that call the live pdfRest service",
+]
 
 [tool.ruff]
 extend-include = ["*.ipynb"]
