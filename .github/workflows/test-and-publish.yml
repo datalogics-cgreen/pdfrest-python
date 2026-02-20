@@ -62,7 +62,7 @@ jobs:
           cache-suffix: test-and-publish
           cache-dependency-glob: uv.lock
       - name: Run tests with nox
-        run: uvx nox --python ${{ matrix.python-version }} --session tests -- --no-parallel -m "not live"
+        run: uvx nox --python ${{ matrix.python-version }} --session tests -- -n 5 -m "not live"
       - name: Fetch base branch for diff-cover
         if: github.event_name == 'pull_request'
         run: |
@@ -116,7 +116,7 @@ jobs:
           cache-suffix: test-and-publish
           cache-dependency-glob: uv.lock
       - name: Run live tests with nox
-        run: uvx nox --python 3.11 --session tests -- --no-parallel -m live
+        run: uvx nox --python 3.11 --session tests -- -n 5 -m live
         env:
           PDFREST_API_KEY: ${{ secrets.PDFREST_API_KEY }}
       - name: Upload live coverage reports
