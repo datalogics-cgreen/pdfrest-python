@@ -193,6 +193,11 @@ BACKOFF_JITTER_SECONDS = 0.1
 RETRYABLE_STATUS_CODES = {408, 425, 429, 499}
 _SUCCESSFUL_DELETION_MESSAGE = "successfully deleted"
 _DEMO_RESTRICTION_MESSAGE_FIELDS = ("message", "warning", "keyMessage")
+_DEMO_FALLBACK_FILE_ID = "00000000-0000-4000-8000-000000000000"
+_DEMO_FALLBACK_FILE_URL = "https://pdfrest.com/demo-redacted"
+_DEMO_FALLBACK_MIME_TYPE = "application/octet-stream"
+_DEMO_FALLBACK_FILE_NAME = "demo-redacted.bin"
+_DEMO_FALLBACK_FILE_SIZE = 1
 
 
 HttpMethod = Literal["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS", "HEAD"]
@@ -318,6 +323,23 @@ def _extract_uploaded_file_ids(payload: Any) -> list[str]:
             )
         file_ids.append(str(entry["id"]))
     return file_ids
+
+
+def _is_demo_fallback_file_id(file_id: str) -> bool:
+    return file_id.strip().lower() == _DEMO_FALLBACK_FILE_ID
+
+
+def _build_demo_fallback_file(file_id: str) -> PdfRestFile:
+    return PdfRestFile.model_validate(
+        {
+            "id": file_id,
+            "name": _DEMO_FALLBACK_FILE_NAME,
+            "url": _DEMO_FALLBACK_FILE_URL,
+            "type": _DEMO_FALLBACK_MIME_TYPE,
+            "size": _DEMO_FALLBACK_FILE_SIZE,
+            "modified": datetime.now(timezone.utc),
+        }
+    )
 
 
 def _handle_deletion_failures(response: PdfRestDeletionResponse) -> None:
@@ -1198,7 +1220,17 @@ class _SyncApiClient(_BaseApiClient[httpx.Client]):
             extra_headers=extra_headers,
             timeout=timeout,
         )
-        payload = self._send_request(request)
+        try:
+            payload = self._send_request(request)
+        except PdfRestApiError as exc:
+            if exc.status_code == 404 and _is_demo_fallback_file_id(file_id):
+                self._logger.warning(
+                    "Demo fallback file id %s was not found during file-info lookup; "
+                    "returning placeholder metadata.",
+                    file_id,
+                )
+                return _build_demo_fallback_file(file_id)
+            raise
         return PdfRestFile.model_validate(payload)
 
 
@@ -1473,7 +1505,17 @@ class _AsyncApiClient(_BaseApiClient[httpx.AsyncClient]):
             extra_headers=extra_headers,
             timeout=timeout,
         )
-        payload = await self._send_request(request)
+        try:
+            payload = await self._send_request(request)
+        except PdfRestApiError as exc:
+            if exc.status_code == 404 and _is_demo_fallback_file_id(file_id):
+                self._logger.warning(
+                    "Demo fallback file id %s was not found during file-info lookup; "
+                    "returning placeholder metadata.",
+                    file_id,
+                )
+                return _build_demo_fallback_file(file_id)
+            raise
         return PdfRestFile.model_validate(payload)
 
 
