@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import logging
 
 import httpx
 import pytest
@@ -15,6 +16,8 @@ from .graphics_test_helpers import (
     VALID_API_KEY,
     build_file_info_payload,
 )
+
+DEMO_REPLACEMENT_ID = "00000000-0000-4000-8000-000000000000"
 
 
 def make_zip_file(file_id: str, name: str = "archive.zip") -> PdfRestFile:
@@ -302,3 +305,55 @@ async def test_async_unzip_file_single_input(monkeypatch: pytest.MonkeyPatch) ->
     async with AsyncPdfRestClient(api_key=ASYNC_API_KEY, transport=transport) as client:
         with pytest.raises(ValidationError, match="at most 1 item"):
             await client.unzip_file([first, second])
+
+
+def test_unzip_file_demo_redacted_id_replaced_and_logged(
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    monkeypatch.delenv("PDFREST_API_KEY", raising=False)
+    caplog.set_level(logging.WARNING, logger="pdfrest.models")
+    zip_file = make_zip_file(str(PdfRestFileID.generate()))
+    redacted_id = "XXXXXXXXX-XXXXXXXXX-XXXX-XXXXXXXXXXXX"
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.method == "POST" and request.url.path == "/unzip":
+            return httpx.Response(
+                200,
+                json={
+                    "inputId": [zip_file.id],
+                    "files": [
+                        {
+                            "name": "inner.txt",
+                            "id": redacted_id,
+                            "outputUrl": (
+                                "https://api.pdfrest.com/resource/"
+                                f"{redacted_id}?format=file"
+                            ),
+                        }
+                    ],
+                },
+            )
+        if (
+            request.method == "GET"
+            and request.url.path == f"/resource/{DEMO_REPLACEMENT_ID}"
+        ):
+            return httpx.Response(
+                200,
+                json=build_file_info_payload(
+                    DEMO_REPLACEMENT_ID,
+                    "inner.txt",
+                    "text/plain",
+                ),
+            )
+        msg = f"Unexpected request {request.method} {request.url}"
+        raise AssertionError(msg)
+
+    transport = httpx.MockTransport(handler)
+    with PdfRestClient(api_key=VALID_API_KEY, transport=transport) as client:
+        response = client.unzip_file(zip_file)
+
+    assert response.output_file.id == DEMO_REPLACEMENT_ID
+    assert (
+        "Demo value XXXXXXXXX-XXXXXXXXX-XXXX-XXXXXXXXXXXX detected in id; "
+        "replaced with 00000000-0000-4000-8000-000000000000" in caplog.text
+    )

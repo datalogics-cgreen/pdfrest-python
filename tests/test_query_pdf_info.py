@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import logging
 from collections.abc import Sequence
 
 import httpx
@@ -238,3 +239,80 @@ async def test_async_query_pdf_info(monkeypatch: pytest.MonkeyPatch) -> None:
     assert isinstance(response, PdfRestInfoResponse)
     assert response.tagged is True
     assert response.all_queries_processed is True
+
+
+def test_query_pdf_info_demo_redacted_booleans_replaced(
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    monkeypatch.delenv("PDFREST_API_KEY", raising=False)
+    caplog.set_level(logging.WARNING, logger="pdfrest.models")
+    input_file = make_pdf_file(str(PdfRestFileID.generate()))
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.method != "POST" or request.url.path != "/pdf-info":
+            msg = f"Unexpected request {request.method} {request.url}"
+            raise AssertionError(msg)
+        return httpx.Response(
+            200,
+            json={
+                "inputId": str(input_file.id),
+                "tagged": "fa***",
+                "image_only": "fa***",
+                "contains_annotations": "fa***",
+                "contains_signature": "fa***",
+                "file_size": "25***",
+                "restrict_permissions_set": "fa***",
+                "contains_xfa": "fa***",
+                "contains_acroforms": "fa***",
+                "contains_javascript": "fa***",
+                "contains_transparency": "fa***",
+                "contains_embedded_file": "fa***",
+                "uses_embedded_fonts": "fa***",
+                "uses_nonembedded_fonts": "fa***",
+                "pdfa": "fa***",
+                "pdfua_claim": "fa***",
+                "pdfe_claim": "fa***",
+                "pdfx_claim": "fa***",
+                "requires_password_to_open": "fa***",
+                "allQueriesProcessed": "tr**",
+            },
+        )
+
+    transport = httpx.MockTransport(handler)
+    with PdfRestClient(api_key=VALID_API_KEY, transport=transport) as client:
+        response = client.query_pdf_info(
+            input_file,
+            queries=ALL_PDF_INFO_QUERIES,
+        )
+
+    assert response.tagged is False
+    assert response.image_only is False
+    assert response.contains_annotations is False
+    assert response.contains_signature is False
+    assert response.file_size == 0
+    assert response.restrict_permissions_set is False
+    assert response.contains_xfa is False
+    assert response.contains_acroforms is False
+    assert response.contains_javascript is False
+    assert response.contains_transparency is False
+    assert response.contains_embedded_file is False
+    assert response.uses_embedded_fonts is False
+    assert response.uses_nonembedded_fonts is False
+    assert response.pdfa is False
+    assert response.pdfua_claim is False
+    assert response.pdfe_claim is False
+    assert response.pdfx_claim is False
+    assert response.requires_password_to_open is False
+    assert response.all_queries_processed is True
+    assert "Demo value fa*** detected in tagged; replaced with False" in caplog.text
+    assert "Demo value 25*** detected in file_size; replaced with 0" in caplog.text
+    assert "Demo value fa*** detected in pdfe_claim; replaced with False" in caplog.text
+    assert "Demo value fa*** detected in pdfx_claim; replaced with False" in caplog.text
+    assert (
+        "Demo value fa*** detected in requires_password_to_open; replaced with False"
+        in caplog.text
+    )
+    assert (
+        "Demo value tr** detected in all_queries_processed; replaced with True"
+        in caplog.text
+    )
