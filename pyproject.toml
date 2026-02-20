@@ -1,6 +1,6 @@
 [project]
 name = "pdfrest"
-version = "0.1.0"
+version = "1.0.0"
 description = "Python client library for interacting with the PDFRest API"
 readme = "README.md"
 authors = [
