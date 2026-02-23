@@ -1,0 +1,246 @@
+# pdfRest Python SDK Documentation (Full LLM Guide)
+
+> Expanded machine-readable guide for the `pdfrest` Python SDK documentation,
+> examples, and repository resources.
+
+This file is intended for LLMs, assistants, and automated documentation tools
+that need a richer overview than `llms.txt`. It summarizes the purpose of the
+SDK, the most important docs pages, common usage patterns, and practical
+integration constraints.
+
+The `pdfrest` Python SDK is the official Python client for the pdfRest PDF API.
+It provides typed request/response models, synchronous and asynchronous clients,
+and high-level endpoint helpers for common PDF workflows such as conversion,
+OCR, extraction, redaction, security, forms, and document optimization.
+
+## Canonical Entry Points
+
+- [Short Guide (`llms.txt`)](https://python.pdfrest.com/llms.txt): Minimal,
+  curated index of the most important docs and platform links.
+- [SDK Docs Home](https://python.pdfrest.com/): Landing page for the Python SDK
+  documentation.
+- [GitHub Repository](https://github.com/pdfrest/pdfrest-python): Source code,
+  tests, examples, CI workflows, and contribution guidance.
+- [PyPI Package](https://pypi.org/project/pdfrest/): Install metadata and
+  release history.
+
+## Product and Platform Context
+
+- [pdfRest Homepage](https://pdfrest.com/): Product overview and capabilities.
+- [pdfRest API Docs](https://pdfrest.com/apidocs/): Endpoint-level REST
+  documentation for the platform itself.
+- [API Lab](https://pdfrest.com/apilab/): Interactive API testing and starter
+  code generation.
+- [Product Documentation](https://docs.pdfrest.com/): Broader deployment and
+  platform guidance (Cloud, AWS, Container, and feature docs).
+
+Use the Python SDK docs for Python integration details. Use the platform API
+docs/product docs when you need endpoint semantics, deployment decisions, or
+service-wide behavior outside the Python wrapper.
+
+## Core SDK Concepts
+
+- Sync and async clients:
+  - `PdfRestClient` for synchronous workflows.
+  - `AsyncPdfRestClient` for asynchronous workflows.
+- File-first workflow:
+  - Upload local files first (for example via `client.files.create_from_paths`).
+  - Pass uploaded `PdfRestFile` objects into endpoint helpers.
+  - Download/read/stream outputs via file helpers.
+- Authentication:
+  - Default environment variable is `PDFREST_API_KEY`.
+  - The SDK uses the `Api-Key` header for pdfRest-hosted endpoints.
+- Deployment targeting:
+  - Cloud uses the default base URL.
+  - Self-hosted deployments can be targeted with `base_url=...` while keeping
+    the same Python method calls.
+- Typed interfaces:
+  - Pydantic-backed models validate inputs and expose structured responses.
+  - Public shared type contracts are available under `pdfrest.types`.
+
+## Documentation Pages (Python SDK)
+
+### Getting Started
+
+- [Getting Started](https://python.pdfrest.com/getting-started/)
+- Purpose: First-time setup and initial API call.
+- Includes:
+  - install instructions (`uv`, `pip`, `poetry`)
+  - exporting `PDFREST_API_KEY`
+  - upload + extract-text quickstart example
+  - links to API reference and API Lab
+
+### Client Configuration
+
+- [Client Configuration](https://python.pdfrest.com/client-configuration/)
+- Purpose: Configure runtime behavior and request customization.
+- Typical topics:
+  - API key and base URL
+  - timeouts
+  - extra headers / query / body overrides
+  - transport behavior and request options
+  - logging/debugging
+
+### Using Files
+
+- [Using Files](https://python.pdfrest.com/using-files/)
+- Purpose: Explain the SDK file-management model used by most endpoint helpers.
+- Key workflows:
+  - upload from paths/URLs
+  - read bytes/text/json from results
+  - write downloaded files locally
+  - stream file content
+  - delete remote files
+
+### API Guide
+
+- [API Guide](https://python.pdfrest.com/api-guide/)
+- Purpose: Practical SDK usage guidance across endpoint families.
+- Use this when you want examples and integration patterns rather than raw API
+  signatures.
+
+### API Reference
+
+- [API Reference](https://python.pdfrest.com/api-reference/)
+- Purpose: Generated reference for:
+  - `pdfrest` package exports
+  - public types (`pdfrest.types`)
+  - public models (`pdfrest.models`)
+- Use this for precise names, signatures, and import surfaces.
+
+## Common Workflow Patterns
+
+### Upload then process
+
+Most document-processing calls follow this pattern:
+
+1. Upload source files.
+2. Pass returned `PdfRestFile` objects into a client method.
+3. Use the response to inspect metadata and/or download resulting files.
+
+This file-based flow is central to the SDK and is preferred over passing raw
+file IDs directly in application code.
+
+### Sync usage pattern
+
+- Use `with PdfRestClient() as client:`
+- This ensures the underlying HTTP transport is closed deterministically.
+
+### Async usage pattern
+
+- Use `async with AsyncPdfRestClient() as client:`
+- This ensures async transport cleanup and avoids leaked connections.
+
+### Request customization
+
+Many endpoint helpers support runtime overrides for advanced integration cases:
+
+- `extra_headers`
+- `extra_query`
+- `extra_body`
+- `timeout`
+
+Use these when you need to test server behavior, pass preview features, or
+adjust request behavior without bypassing the typed SDK entirely.
+
+## Endpoint Families (High-Level)
+
+This SDK includes high-level helpers across major pdfRest capabilities. Refer
+to the API guide and API reference for exact method names and options.
+
+### Conversion and Export
+
+- Convert to Office/image/Markdown formats (for example Word, Excel,
+  PowerPoint, PNG/JPEG/TIFF/GIF/BMP, Markdown)
+- Convert source assets to PDF (Office, HTML, URL, email, images, PostScript)
+- Convert to standards formats (`PDF/A`, `PDF/X`)
+
+### Extraction and Analysis
+
+- Extract PDF text
+- Extract text to file outputs
+- Extract images
+- Query PDF information/metadata
+- OCR PDF
+
+### AI and Language Workflows
+
+- Summarize PDF text
+- Translate PDF text
+- Translate/summarize outputs to files (where supported)
+- Markdown conversion for downstream indexing, retrieval, and LLM pipelines
+
+### Security and Governance
+
+- Redaction preview/apply
+- Passwords and permissions
+- Encryption/decryption/restrictions
+- Watermarking (text/image)
+- Digital signing
+
+### Document Composition and Optimization
+
+- Merge PDFs
+- Split PDFs
+- Compress
+- Linearize
+- Rasterize
+- Flatten annotations/layers/transparencies/forms
+- Color conversion
+
+### Forms and Structured Data
+
+- Import form data
+- Export form data
+- Flatten PDF forms
+- Convert XFA to Acroforms
+
+## Public API Surface (Repository Context)
+
+- Top-level package exports include:
+  - `PdfRestClient`
+  - `AsyncPdfRestClient`
+  - file clients (`PdfRestFilesClient`, `AsyncPdfRestFilesClient`)
+  - exception types (for API/auth/request/timeout/transport errors)
+- Shared public types live under:
+  - `pdfrest.types`
+- Public models live under:
+  - `pdfrest.models`
+
+When generating or suggesting code, prefer imports from public modules and
+avoid private/underscored modules.
+
+## Examples and Repository Resources
+
+- [Examples README](https://github.com/pdfrest/pdfrest-python/blob/main/examples/README.md):
+  How to run included examples, including `uv`-based execution.
+- [Examples Directory](https://github.com/pdfrest/pdfrest-python/tree/main/examples):
+  Runnable scripts demonstrating endpoint usage patterns.
+- [Repository README](https://github.com/pdfrest/pdfrest-python/blob/main/README.md):
+  Product-facing overview, install, quickstart, and links.
+- [Contributing Guide](https://github.com/pdfrest/pdfrest-python/blob/main/CONTRIBUTING.md):
+  Developer workflows (lint, type-checking, tests, examples, docs preview).
+
+## Practical Guidance for LLMs and Code Assistants
+
+- Prefer `uv` commands when suggesting modern setup (`uv add pdfrest`,
+  `uv run ...`), but `pip install pdfrest` is a valid fallback.
+- Prefer context-manager usage for clients (`with` / `async with`).
+- For local files:
+  - upload first
+  - pass `PdfRestFile` objects to endpoint methods
+  - use `client.files.*` helpers for IO
+- Use public imports (`pdfrest`, `pdfrest.types`, `pdfrest.models`) unless a
+  task explicitly requires internal test-only serialization details.
+- For endpoint-specific arguments and literals, consult the Python API reference
+  and public type definitions before inventing values.
+
+## Change Sensitivity / Freshness
+
+The SDK evolves over time (new endpoints, new payload options, and expanded test
+coverage). For latest method availability, supported Python versions, and
+release details, prefer:
+
+- [PyPI Package](https://pypi.org/project/pdfrest/)
+- [GitHub Repository](https://github.com/pdfrest/pdfrest-python)
+- [Python SDK Docs](https://python.pdfrest.com/)

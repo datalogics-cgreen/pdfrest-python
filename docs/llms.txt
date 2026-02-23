@@ -1,0 +1,46 @@
+# pdfRest Python SDK Documentation
+
+> Official documentation for the `pdfrest` Python SDK, a typed Python client
+> for the pdfRest PDF processing API.
+
+This site documents how to install, configure, and use the Python SDK to call
+pdfRest endpoints for PDF conversion, OCR, extraction, redaction, security,
+forms, and other document workflows.
+
+The SDK supports both synchronous and asynchronous clients and can target
+pdfRest Cloud or self-hosted deployments by changing the client `base_url`.
+
+- [Expanded guide (`llms-full.txt`)](https://python.pdfrest.com/llms-full.txt):
+  Richer machine-readable overview with docs summaries, workflow patterns, and
+  integration guidance.
+
+## Primary Docs
+
+- [Getting Started](https://python.pdfrest.com/getting-started/): Install the
+  SDK, configure `PDFREST_API_KEY`, and make your first API call.
+- [Client Configuration](https://python.pdfrest.com/client-configuration/):
+  Configure API key, base URL, timeouts, logging, and request customization.
+- [Using Files](https://python.pdfrest.com/using-files/): Upload, download,
+  stream, and manage files with the SDK file helpers.
+- [API Guide](https://python.pdfrest.com/api-guide/): Practical guidance for
+  using endpoint helpers and common SDK workflows.
+- [API Reference](https://python.pdfrest.com/api-reference/): Generated
+  reference for the `pdfrest` package, public models, and public types.
+
+## Product and Platform
+
+- [pdfRest Homepage](https://pdfrest.com/): Product overview, capabilities, and
+  platform positioning.
+- [pdfRest API Docs](https://pdfrest.com/apidocs/): Endpoint-level REST API
+  documentation for the pdfRest platform.
+- [API Lab](https://pdfrest.com/apilab/): Interactive environment for testing
+  pdfRest API endpoints and generating starter code.
+- [Product Docs](https://docs.pdfrest.com/): Broader pdfRest documentation,
+  including deployment options and platform guides.
+
+## Repository
+
+- [GitHub Repository](https://github.com/pdfrest/pdfrest-python): Source code,
+  examples, tests, CI workflows, and contribution guidelines for this SDK.
+- [PyPI Package](https://pypi.org/project/pdfrest/): Package distribution,
+  release history, and install metadata for `pdfrest`.

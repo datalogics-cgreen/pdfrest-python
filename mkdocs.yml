@@ -1,5 +1,5 @@
 site_name: pdfrest
-site_description: Python client library for interacting with the PDFRest API
+site_description: Python client library for interacting with the pdfRest API
 repo_url: https://github.com/pdfrest/pdfrest-python
 docs_dir: docs
 site_dir: site
