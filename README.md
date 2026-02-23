@@ -2,6 +2,7 @@
 
 [![Tests](https://img.shields.io/github/actions/workflow/status/pdfrest/pdfrest-python/test-and-publish.yml?branch=main&label=tests)](https://github.com/pdfrest/pdfrest-python/actions/workflows/test-and-publish.yml)
 [![Python Versions](https://img.shields.io/pypi/pyversions/pdfrest)](https://pypi.org/project/pdfrest/)
+[![llms.txt](https://img.shields.io/badge/llms.txt-available-2ea44f)](https://python.pdfrest.com/llms.txt)
 
 Build production-grade PDF automation with the official Python SDK for
 [pdfRest](https://pdfrest.com/): a powerful PDF API platform for conversion,
