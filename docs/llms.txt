@@ -31,7 +31,8 @@ pdfRest Cloud or self-hosted deployments by changing the client `base_url`.
 
 - [pdfRest Homepage](https://pdfrest.com/): Product overview, capabilities, and
   platform positioning.
-- [pdfRest API Docs](https://pdfrest.com/apidocs/): Endpoint-level REST API
+- [pdfRest API Docs](https://docs.pdfrest.com/api-reference-guides/directory/):
+  Endpoint-level REST API
   documentation for the pdfRest platform.
 - [API Lab](https://pdfrest.com/apilab/): Interactive environment for testing
   pdfRest API endpoints and generating starter code.

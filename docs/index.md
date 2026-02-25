@@ -14,7 +14,7 @@ outputs.
 Useful references:
 
 - [pdfRest homepage](https://pdfrest.com/)
-- [API reference](https://pdfrest.com/apidocs/)
+- [API reference](https://docs.pdfrest.com/api-reference-guides/directory/)
 - [API Lab (interactive testing)](https://pdfrest.com/apilab/)
 - [Getting started guide](getting-started.md)
 - [Client configuration guide](client-configuration.md)
