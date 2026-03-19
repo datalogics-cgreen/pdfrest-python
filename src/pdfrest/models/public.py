@@ -40,6 +40,8 @@ __all__ = (
     "ExtractedTextWordFont",
     "ExtractedTextWordStyle",
     "PdfRestDeletionResponse",
+    "PdfRestErrorDetail",
+    "PdfRestErrorIssue",
     "PdfRestErrorResponse",
     "PdfRestFile",
     "PdfRestFileBasedResponse",
@@ -246,8 +248,32 @@ class UpResponse(BaseModel):
 class PdfRestErrorResponse(BaseModel):
     """Error response payloads from pdfRest."""
 
-    error: str | None = Field(alias="message")
+    error: str | None = Field(validation_alias=AliasChoices("error", "message"))
     """Human-readable error message returned by the API."""
+
+    error_detail: PdfRestErrorDetail | None = Field(default=None, alias="errorDetail")
+    """Structured validation issues returned by the API when available."""
+
+    model_config = ConfigDict(extra="allow", frozen=True)
+
+
+class PdfRestErrorIssue(BaseModel):
+    """Single issue entry inside an `errorDetail` response."""
+
+    path: str
+    message: str
+    minimum: int | float | None = None
+    maximum: int | float | None = None
+    expected: str | None = None
+    received: Any | None = None
+
+    model_config = ConfigDict(extra="allow", frozen=True)
+
+
+class PdfRestErrorDetail(BaseModel):
+    """Structured details for API validation errors."""
+
+    issues: list[PdfRestErrorIssue] = Field(default_factory=list)
 
     model_config = ConfigDict(extra="allow", frozen=True)
 

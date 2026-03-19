@@ -55,6 +55,30 @@ def _build_file_info(
     }
 
 
+def _build_error_detail_response() -> dict[str, Any]:
+    return {
+        "error": "-.8 is not within the acceptable range for opacity",
+        "errorDetail": {
+            "issues": [
+                {
+                    "path": "fields.text_objects[0].opacity",
+                    "message": "Too small: expected number to be >=0",
+                    "minimum": 0,
+                    "maximum": 1,
+                },
+                {
+                    "path": "fields.text_objects[0].text_color_cmyk[2]",
+                    "message": (
+                        'Invalid text_color_cmyk yellow value "foo" (expected 0-100).'
+                    ),
+                    "minimum": 0,
+                    "maximum": 100,
+                },
+            ]
+        },
+    }
+
+
 class NonSeekableByteStream(BytesIO):
     def __init__(self, payload: bytes) -> None:
         super().__init__(payload)
@@ -939,6 +963,30 @@ def test_client_raises_for_non_success_response(
     assert exc_info.value.status_code == 500
 
 
+def test_client_preserves_structured_error_detail(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("PDFREST_API_KEY", VALID_API_KEY)
+    error_payload = _build_error_detail_response()
+
+    def handler(_: httpx.Request) -> httpx.Response:
+        return httpx.Response(400, json=error_payload)
+
+    transport = httpx.MockTransport(handler)
+    with (
+        pytest.raises(PdfRestApiError, match=r"acceptable range for opacity") as exc,
+        PdfRestClient(transport=transport) as client,
+    ):
+        client.up()
+
+    assert exc.value.status_code == 400
+    assert exc.value.response_content == error_payload["errorDetail"]
+    assert isinstance(exc.value.response_content, dict)
+    issues = exc.value.response_content["issues"]
+    assert issues[0]["path"] == "fields.text_objects[0].opacity"
+    assert issues[1]["path"] == "fields.text_objects[0].text_color_cmyk[2]"
+
+
 @pytest.mark.asyncio
 async def test_async_client_up(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("PDFREST_API_KEY", ASYNC_API_KEY)
@@ -952,6 +1000,31 @@ async def test_async_client_up(monkeypatch: pytest.MonkeyPatch) -> None:
         response = await client.up()
 
     assert response.status == "OK"
+
+
+@pytest.mark.asyncio
+async def test_async_client_preserves_structured_error_detail(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("PDFREST_API_KEY", ASYNC_API_KEY)
+    error_payload = _build_error_detail_response()
+
+    def handler(_: httpx.Request) -> httpx.Response:
+        return httpx.Response(400, json=error_payload)
+
+    transport = httpx.MockTransport(handler)
+    async with AsyncPdfRestClient(transport=transport) as client:
+        with pytest.raises(
+            PdfRestApiError, match=r"acceptable range for opacity"
+        ) as exc:
+            await client.up()
+
+    assert exc.value.status_code == 400
+    assert exc.value.response_content == error_payload["errorDetail"]
+    assert isinstance(exc.value.response_content, dict)
+    issues = exc.value.response_content["issues"]
+    assert issues[0]["path"] == "fields.text_objects[0].opacity"
+    assert issues[1]["path"] == "fields.text_objects[0].text_color_cmyk[2]"
 
 
 @pytest.mark.asyncio

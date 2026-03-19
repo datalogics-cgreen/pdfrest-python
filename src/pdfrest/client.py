@@ -956,7 +956,11 @@ class _BaseApiClient(Generic[ClientType]):
             pdfrest_error = PdfRestErrorResponse.model_validate_json(response.content)
         except ValidationError:
             return None, response.text
-        return pdfrest_error.error, None
+        error_detail = pdfrest_error.error_detail
+        if error_detail is None:
+            return pdfrest_error.error, None
+        error_payload = error_detail.model_dump(by_alias=True, exclude_none=True)
+        return pdfrest_error.error, error_payload
 
 
 class _SyncApiClient(_BaseApiClient[httpx.Client]):
