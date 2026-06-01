@@ -323,7 +323,9 @@ class PdfPemCredentials(TypedDict):
 #: [AsyncPdfRestClient.sign_pdf][pdfrest.AsyncPdfRestClient.sign_pdf].
 PdfSignatureCredentials = PdfPfxCredentials | PdfPemCredentials
 
-#: PDF/A conformance targets accepted by ``convert_to_pdfa``.
+#: Canonical PDF/A conformance targets accepted by ``convert_to_pdfa``.
+#: Payload validation accepts case-insensitive string input and normalizes it
+#: to one of these literals before serialization.
 PdfAType = Literal["PDF/A-1b", "PDF/A-2b", "PDF/A-2u", "PDF/A-3b", "PDF/A-3u"]
 #: PDF/X conformance targets accepted by ``convert_to_pdfx``.
 PdfXType = Literal["PDF/X-1a", "PDF/X-3", "PDF/X-4", "PDF/X-6"]
